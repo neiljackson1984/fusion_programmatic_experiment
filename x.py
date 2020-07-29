@@ -13,19 +13,14 @@ toolbarControl = None
 toolbarId = 'QAT' 
 commandId = 'x'
 commandResources = './resources'
-
 attributeGroupName = "64fcb3b29c37466888d375e10f971704"
-
 
 # global set of event handlers to keep them referenced for the duration of the command
 handlers = []
 app = adsk.core.Application.get()
 
-
-theComponent = None
 mySpecialComponentName = "x"
-
-
+commandDefinition = None
 
 def printDebuggingMessage(x: str):
     print(
@@ -35,8 +30,6 @@ def printDebuggingMessage(x: str):
     # global app
     # if app.userInterface:
     #     app.userInterface.messageBox(x)
-
-
 
 class XCommandExecuteHandler(adsk.core.CommandEventHandler):
     def __init__(self):
@@ -48,36 +41,51 @@ class XCommandExecuteHandler(adsk.core.CommandEventHandler):
             command = args.firingEvent.sender
 
             bolt = Bolt()
-            for input in command.commandInputs:
-                if   input.id == 'boltName'         : bolt.boltName         = input.value
-                elif input.id == 'headDiameter'     : bolt.headDiameter     = unitsMgr.evaluateExpression(input.expression, "cm")
-                elif input.id == 'shankDiameter'    : bolt.shankDiameter    = unitsMgr.evaluateExpression(input.expression, "cm")
-                elif input.id == 'headHeight'       : bolt.headHeight       = unitsMgr.evaluateExpression(input.expression, "cm")
-                elif input.id == 'length'           : bolt.length           = unitsMgr.evaluateExpression(input.expression, "cm") # adsk.core.ValueInput.createByString(input.expression).realValue 
-                # forcing bolt.length to be a plain old number, rather than a ValueInput, precludes the possibility of setting the bolt.length to be an expression.
-                # Why did the person who wrote this sample force some ot the inputs to be plain old numbers while allowing others to be ValueInput objects?  Why not 
-                # do all the inputs the same way?
-                elif input.id == 'cutAngle'         : bolt.cutAngle         = unitsMgr.evaluateExpression(input.expression, "deg") 
-                elif input.id == 'chamferDistance'  : bolt.chamferDistance  = unitsMgr.evaluateExpression(input.expression, "cm") # adsk.core.ValueInput.createByString(input.expression).realValue
-                elif input.id == 'filletRadius'     : bolt.filletRadius     = unitsMgr.evaluateExpression(input.expression, "cm") # adsk.core.ValueInput.createByString(input.expression)
             
-            print("getting the component.")
+            
             global mySpecialComponentName
             # Get the active design.
             design = adsk.fusion.Design.cast(app.activeProduct)
             rootComponent = design.rootComponent
 
+            classBackedComponents = [adsk.fusion.Component.cast(adsk.core.Attribute.cast(attribute).parent) for attribute  in design.findAttributes(attributeGroupName, "class_backed_component")]
+            
+            printDebuggingMessage("found the following class-backed components: " + 
+                ", ".join(
+                    [
+                        classBackedComponent.name for classBackedComponent in classBackedComponents
+                    ]
+                )
+            )
+
+            for classBackedComponent in classBackedComponents:
+                classBackedComponent = adsk.fusion.Component.cast(classBackedComponent)
+                className = classBackedComponent.attributes.itemByName(attributeGroupName,"class").value
+                klass = globals()[className]
+                #to do: handle the case where the specified class does not exist.
+                instance = klass(classBackedComponent)
+                instance.update()
             #try to find the component that this script defines 
             # (which for purposes of this experiment we will consider to be the component whose name is mySpecialComponentName)
-            theComponent = design.allComponents.itemByName(mySpecialComponentName)
-            constructFromScratch = False
-            if not theComponent:
-                theOccurence  = rootComponent.occurrences.addNewComponent(adsk.core.Matrix3D.create())
-                theComponent = theOccurence.component
-                theComponent.name = mySpecialComponentName
-                constructFromScratch = True
             
-            bolt.updateBolt(theComponent=theComponent, constructFromScratch=constructFromScratch)
+            # if len(classBackedComponents) == 0:
+            if len(classBackedComponents) < 3:
+                Bolt.create(design.rootComponent)
+            #Note: each "instance" of a class-backed component class shall correspond to one unique fusion component, and that fusion component shall have a single occurence.
+
+
+
+            # theComponent = design.allComponents.itemByName(mySpecialComponentName)
+            # constructFromScratch = None
+            # if not theComponent:
+            #     theOccurence  = rootComponent.occurrences.addNewComponent(adsk.core.Matrix3D.create())
+            #     theComponent = theOccurence.component
+            #     theComponent.name = mySpecialComponentName
+            #     constructFromScratch = True
+            # else:
+            #     constructFromScratch = False
+            
+            # bolt.updateBolt(theComponent=theComponent, constructFromScratch=constructFromScratch)
             # theOccurence = (
             #     design.rootComponent.occurencesByComponent(theComponent).item(0) if theComponent
             #     #I am reasonably sure that theComponent being not null implies that there exists at least one occurence of the component (although I may be neglecting to attend to cases involving nested components)
@@ -144,6 +152,27 @@ class ReportingApplicationCommandEventHandler(adsk.core.ApplicationCommandEventH
             + "\t" + "args.firingEvent.name: " + str(args.firingEvent.name) + "\n"
         )
 
+# def findAttributesInComponent(component : adsk.fusion.Component, groupName, attributeName) -> list<adsk.core.Attribute>:
+# def findAttributesInComponent(component : adsk.fusion.Component, groupName, attributeName) -> Iterable[adsk.core.Attribute] :
+#i don't know the proper way to typehint this.
+def findAttributesInComponent(component : adsk.fusion.Component, groupName, attributeName):
+    return filter(
+        lambda attribute: 
+            adsk.core.Attribute.cast(attribute).parent.parentComponent == component
+            #this is playing fast and loose with types. Attribute::parent() returns a Base object, 
+            # which is not guaranteed to have a parentComponent property.
+            #we ought to handle the case where attribute.parent does not have a parentComponent property.
+            #also, we are completely ignoring the possibility of nested components/nested occurences.
+        ,
+        component.parentDesign.findAttributes(groupName, attributeName)
+    )
+
+def findFirstTaggedEntityInComponent(component: adsk.fusion.Component, tag: str) -> adsk.core.Base:
+    global attributeGroupName
+    return adsk.core.Attribute.cast(next(findAttributesInComponent(component, attributeGroupName, tag))).parent
+    #to do: deal with cases where there is nothing to be found.
+
+
 
 class Bolt:
     defaultBoltName         = 'Bolt'
@@ -157,7 +186,9 @@ class Bolt:
         
     
     
-    def __init__(self):
+    def __init__(self, component = None):
+        self._component        = component
+
         self._boltName         = Bolt.defaultBoltName
         self._headDiameter     = Bolt.defaultHeadDiameter
         self._shankDiameter    = Bolt.defaultShankDiameter
@@ -166,6 +197,7 @@ class Bolt:
         self._cutAngle         = Bolt.defaultCutAngle
         self._chamferDistance  = Bolt.defaultChamferDistance #adsk.core.ValueInput.createByReal(Bolt.defaultChamferDistance)
         self._filletRadius     = Bolt.defaultFilletRadius #adsk.core.ValueInput.createByReal(Bolt.defaultFilletRadius)
+        
 
     #properties
     @property
@@ -224,7 +256,28 @@ class Bolt:
     def filletRadius(self, value):
         self._filletRadius = value
 
-    def updateBolt(self, theComponent: adsk.fusion.Component , constructFromScratch: bool = False):
+    def update(self):
+        self._update(constructFromScratch = False)
+
+    # static function to create a new class-backed component and return the 
+    # (newly-created) class instance
+    # def create(parentComponent: adsk.fusion.Component) -> Bolt: 
+    #oops:  >>   NameError: name 'Bolt' is not defined
+    # not sure the right way to type-hint this.
+    def create(parentComponent: adsk.fusion.Component):
+        global attributeGroupName
+        newlyCreatedOccurence  = parentComponent.occurrences.addNewComponent(adsk.core.Matrix3D.create())
+        newlyCreatedComponent = newlyCreatedOccurence.component
+        newlyCreatedComponent.attributes.add(attributeGroupName, "class_backed_component", "")
+        newlyCreatedComponent.attributes.add(attributeGroupName, "class", "Bolt")
+        newlyCreatedComponent.name = "{0.hour}{0.minute}{0.second}".format(datetime.datetime.now()) + " " + "bolt"
+        newlyCreatedClassInstance = Bolt(newlyCreatedComponent)
+        newlyCreatedClassInstance._update(constructFromScratch=True)
+        return newlyCreatedClassInstance
+
+    def _update(self, constructFromScratch: bool = False):
+        theComponent: adsk.fusion.Component = self._component
+        printDebuggingMessage("updateBolt() is running with constructFromScratch=" + str(constructFromScratch) + ", and theComponent.name=" + theComponent.name)
         global attributeGroupName
         timestamp = "{0.hour}{0.minute}{0.second}".format(datetime.datetime.now())
         
@@ -243,20 +296,33 @@ class Bolt:
             # Create headSketch - a sketch containing 6 lines
             headSketch = theComponent.sketches.add(theComponent.xYConstructionPlane)
             headSketch.attributes.add(attributeGroupName, "headSketch", "")
+
+            # printDebuggingMessage("headSketch.attributes.groupNames: " + repr(headSketch.attributes.groupNames ) )
+            # printDebuggingMessage("attributes of headSketch: " + 
+            #     repr(
+            #         [   
+            #             attribute.groupName  + "." + attribute.name + ": " + attribute.value
+            #             for attribute in headSketch.attributes
+            #         ]
+            #     )            
+            # )
+
             headSketch.name=timestamp + " " + "head sketch"
             for i in range(0, 6):
                 headSketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create(0, 0, 0), adsk.core.Point3D.create(1, 1, 0))
             
-            #create shankCrossSectionSketch - a sketch containing a circle
-            shankCrossSectionSketch = theComponent.sketches.add(theComponent.xYConstructionPlane)
-            shankCrossSectionSketch.attributes.add(attributeGroupName, "shankCrossSectionSketch", "")
-            shankCrossSectionSketch.name=timestamp + " " + "body sketch"
+            #create shankSketch - a sketch containing a circle
+            shankSketch = theComponent.sketches.add(theComponent.xYConstructionPlane)
+            shankSketch.attributes.add(attributeGroupName, "shankSketch", "")
+            shankSketch.name=timestamp + " " + "shank sketch"
 
-            shankCrossSectionSketch.sketchCurves.sketchCircles.addByCenterRadius(adsk.core.Point3D.create(0, 0, 0), 1)
+            shankSketch.sketchCurves.sketchCircles.addByCenterRadius(adsk.core.Point3D.create(0, 0, 0), 1)
 
-        #find the headSketch and shankCrossSectionSketch
-        headSketch = adsk.fusion.Sketch.cast (adsk.core.Attribute.cast( theComponent.parentDesign.findAttributes(attributeGroupName, "headSketch")[0] ).parent)
-        shankCrossSectionSketch = adsk.fusion.Sketch.cast (adsk.core.Attribute.cast( theComponent.parentDesign.findAttributes(attributeGroupName, "shankCrossSectionSketch")[0] ).parent)
+
+        #find the headSketch and shankSketch
+        # headSketch  = adsk.fusion.Sketch.cast( adsk.core.Attribute.cast( next(findAttributesInComponent(theComponent, attributeGroupName, "headSketch"))[0] ).parent )
+        headSketch  = adsk.fusion.Sketch.cast( findFirstTaggedEntityInComponent(theComponent, "headSketch") )
+        shankSketch = adsk.fusion.Sketch.cast( findFirstTaggedEntityInComponent(theComponent, "shankSketch") )
     
         center = adsk.core.Point3D.create(0, 0, 0)
         vertices = [
@@ -269,7 +335,7 @@ class Bolt:
             thisLine.startSketchPoint.move(thisLine.startSketchPoint.geometry.vectorTo(vertices[(i+1) %6]) )
             thisLine.endSketchPoint.move(thisLine.endSketchPoint.geometry.vectorTo(vertices[i]) )  
         
-        shankCrossSectionCircle = adsk.fusion.SketchCircle.cast(shankCrossSectionSketch.sketchCurves.sketchCircles[0])
+        shankCrossSectionCircle = adsk.fusion.SketchCircle.cast(shankSketch.sketchCurves.sketchCircles[0])
         shankCrossSectionCircle.centerSketchPoint.move(shankCrossSectionCircle.centerSketchPoint.geometry.vectorTo(center))
         shankCrossSectionCircle.radius = self.shankDiameter/2
 
@@ -283,7 +349,7 @@ class Bolt:
             headExtrusion.name = timestamp + " " + "head extrusion"
             headExtrusion.faces[0].body.name = timestamp + " " + self.boltName
         
-        headExtrusion = adsk.fusion.ExtrudeFeature.cast(adsk.core.Attribute.cast( theComponent.parentDesign.findAttributes(attributeGroupName, "headExtrusion")[0] ).parent)
+        headExtrusion = adsk.fusion.ExtrudeFeature.cast(findFirstTaggedEntityInComponent(theComponent, "headExtrusion"))
         
         headExtrusion.timelineObject.rollTo(True)
         # headExtrusion.setDistanceExtent( False, adsk.core.ValueInput.createByReal(self.headHeight) )
@@ -296,14 +362,14 @@ class Bolt:
         #or, alternatively, might do headExtrusion.timelineObject.rollTo(False (we don't need to roll al the way to the end, just to the right of the headExtrusion feature.)
 
         if constructFromScratch: 
-            shankExtrusionInput = theComponent.features.extrudeFeatures.createInput(shankCrossSectionSketch.profiles[0], adsk.fusion.FeatureOperations.JoinFeatureOperation)
+            shankExtrusionInput = theComponent.features.extrudeFeatures.createInput(shankSketch.profiles[0], adsk.fusion.FeatureOperations.JoinFeatureOperation)
             shankExtrusionInput.setDistanceExtent(False, adsk.core.ValueInput.createByReal(1))
             shankExtrusionInput.participantBodies = list(headExtrusion.bodies)
             shankExtrusion = theComponent.features.extrudeFeatures.add(shankExtrusionInput)
             shankExtrusion.name = timestamp + " " + "shank extrusion"
             shankExtrusion.attributes.add(attributeGroupName, "shankExtrusion", "")
 
-        shankExtrusion = adsk.fusion.ExtrudeFeature.cast (adsk.core.Attribute.cast( theComponent.parentDesign.findAttributes(attributeGroupName, "shankExtrusion")[0] ).parent)
+        shankExtrusion = adsk.fusion.ExtrudeFeature.cast(findFirstTaggedEntityInComponent(theComponent, "shankExtrusion"))
         shankExtrusion.timelineObject.rollTo(True)
         shankExtrusion.participantBodies = list(headExtrusion.bodies)
         # shankExtrusion.setDistanceExtent(False, adsk.core.ValueInput.createByReal(self.length))
@@ -312,7 +378,7 @@ class Bolt:
         
 
         theComponent.parentDesign.timeline.moveToEnd()
-        printDebuggingMessage("shankCrossSectionSketch.attributes.groupNames: " + repr(shankCrossSectionSketch.attributes.groupNames))
+        # printDebuggingMessage("shankSketch.attributes.groupNames: " + repr(shankSketch.attributes.groupNames))
 
         # create chamfer
         # edgeCollection = adsk.core.ObjectCollection.create() 
@@ -336,7 +402,7 @@ class Bolt:
             chamfer = theComponent.features.chamferFeatures.add(chamferInput)
             chamfer.attributes.add(attributeGroupName, "chamfer", "")
             chamfer.name = timestamp + " " + "chamfer"
-        chamfer = adsk.fusion.ChamferFeature.cast(adsk.core.Attribute.cast( theComponent.parentDesign.findAttributes(attributeGroupName, "chamfer")[0] ).parent)
+        chamfer = adsk.fusion.ChamferFeature.cast(findFirstTaggedEntityInComponent(theComponent, "chamfer"))
         chamfer.timelineObject.rollTo(True)
 
         #in the case where we are not construction from scratch, edgeCollection computed above
@@ -387,7 +453,7 @@ class Bolt:
             fillet = theComponent.features.filletFeatures.add(filletInput)
             fillet.attributes.add(attributeGroupName, "fillet", "")
             fillet.name = timestamp + " " + "fillet"
-        fillet = adsk.fusion.FilletFeature.cast(adsk.core.Attribute.cast( theComponent.parentDesign.findAttributes(attributeGroupName, "fillet")[0] ).parent)
+        fillet = adsk.fusion.FilletFeature.cast(findFirstTaggedEntityInComponent(theComponent, "fillet"))
         fillet.timelineObject.rollTo(True)
         
         edgeLoop = next(
@@ -408,7 +474,7 @@ class Bolt:
         constantRadiusFilletEdgeSet.radius.value = self.filletRadius
         
         theComponent.parentDesign.timeline.moveToEnd()
-
+        printDebuggingMessage("finished updating " + theComponent.name)
 
         # #create revolve feature 1
         # revolveSketch = theComponent.sketches.add(theComponent.xZConstructionPlane)
@@ -457,7 +523,6 @@ class Bolt:
         #     thread = theComponent.features.threadFeatures.add(threadInput)
         #     thread.name = timestamp + " " + "thread"
         # if doBaseFeature: baseFeature.finishEdit()
-
 
 def makeBaseFeature(context):
     ui = None
@@ -512,11 +577,11 @@ def makeBaseFeature(context):
         if ui:
             ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
 
-
 def run(context):
     global commandId
     global toolbarId
     global app
+    global commandDefinition
     try:
         product = app.activeProduct
         design = adsk.fusion.Design.cast(product)
@@ -568,8 +633,8 @@ def run(context):
             for commandDefinition in app.userInterface.commandDefinitions:
                 reportFile.write(commandDefinition.id + "\n")
 
-        # inputs = adsk.core.NamedValues.create()
-        # commandDefinition.execute(inputs)
+        inputs = adsk.core.NamedValues.create()
+        commandDefinition.execute(inputs)
 
         # prevent this module from being terminate when the script returns, because we are waiting for event handlers to fire
         # adsk.autoTerminate(False)
@@ -579,14 +644,16 @@ def run(context):
     except:
         printDebuggingMessage('Failed:\n{}'.format(traceback.format_exc()))
 
-
-
 def stop(context):
-    ui = None
     try:
-        app = adsk.core.Application.get()
-        printDebuggingMessage('Stop addin')
+        global commandDefinition
+        if commandDefinition:
+            commandDefinition.deleteMe()
+            commandDefinition = None
+        global toolbarControl
+        if toolbarControl:
+            toolbarControl.deleteMe()
+            toolbarControl = None
 
     except:
-        if app.userInterface:
-            app.userInterface.messageBox('Failed:\n{}'.format(traceback.format_exc()))
+        printDebuggingMessage('Failed:\n{}'.format(traceback.format_exc()))
