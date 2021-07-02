@@ -8,13 +8,13 @@
 					"localRoot":	"${workspaceRoot}",
 					"remoteRoot":	"${workspaceRoot}"
 				}],
-			"osx":	{
-				"filePath":	"${file}"
-			},
-			"windows":	{
-				"filePath":	"${file}"
-			},
 			"port":	9000,
 			"host":	"localhost"
-		}]
+		},
+		{
+			"name":"neil1",
+			"type":"python",
+			"request":"launch"
+		}
+	]
 }

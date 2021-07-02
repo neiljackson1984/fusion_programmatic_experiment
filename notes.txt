@@ -1,0 +1,133 @@
+2021-06-25
+
+#To install the RPyC Python package into the Python environment used by fusion:
+"C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install rpyc
+
+"C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe"  "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\Scripts\rpyc_classic.py"
+
+Fusion360 --enable 87ab9c26-96bf-46c3-89dc-73a61f81390d
+
+C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825>fusion360 --help
+
+C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825>"C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825/plugins"
+Following are the existing command line options in the system (case in-sensitive):
+--help, -?                       Display the help information.
+--showInternal                   Display internal command line actions to the user.
+--nologo                         Disable splash screen
+--exit                           Shutdown the application before loading Addins
+--exitAfterAddIn                 Shutdown the application after loading Addins
+--safeMode                       Run in safe mode that disables automatic script loading and certain optimization
+--activateTestingContext         Activate testing context
+--standaloneNTestStartFusion     The flag represent fusion is started up by standalone NTest
+--AutoCAD                        Show return to AutoCAD button
+--Inventor                       Show return to Inventor button
+--TestingDashboard               Set testing flag to disable dialogs to support automation of dashboard JS tests
+--ClearUserCache                 Try to delete Fusion user's cloud cache folders when we are online.
+--offlineStart                   Start from offline
+--execute, -e                    <TextCommand> Execute the given text command after loading addins
+--enable                         <Addin1_AppName Addin2_AppName...> Enable the given addins (in double-quotes)
+--disable                        <Addin1_AppName Addin2_AppName...> Disable the given addins (in double-quotes)
+--print                          Not implemented yet
+--log                            <Log file> Save command-line output into a log file
+--Diagnostic, -d                 Dump out user's diagnostics data to a zip file via command-line
+--autologin                      username,password
+--autoregister                   firstname,lastname,email,password
+--fullTest                       [Result file] Run full regression test after UI loaded
+--perfTest                       <Baseline> [TestCase|TranscriptFileOrDir] [/log <Result file>] Run performance tests after UI loaded, and exit the application after running the tests. Either relative path to "Performance" folder or a full path is acceptable in Baseline and TranscriptFileOrDir
+
+
+Fusion360 --enable 87ab9c26-96bf-46c3-89dc-73a61f81390d
+Fusion360 --enable "87ab9c26-96bf-46c3-89dc-73a61f81390d"
+Fusion360 --enable 87ab9c2696bf46c389dc73a61f81390d
+Fusion360 --enable "87ab9c2696bf46c389dc73a61f81390d"
+Fusion360 --enable x
+Fusion360 --enable "x"
+Fusion360 --enable "parts4cad"
+Fusion360 --enable "EA4AE962-C943-4DB7-BF33-B9575C0B6D57"
+Fusion360 --enable EA4AE962-C943-4DB7-BF33-B9575C0B6D57
+Fusion360 --enable "EA4AE962C9434DB7BF33B9575C0B6D57"
+Fusion360 --enable EA4AE962C9434DB7BF33B9575C0B6D57
+Fusion360 --enable team-switcher
+
+
+taskkill /t /f /im Fusion360.exe
+
+Fusion360 --exitAfterAddIn 
+Fusion360 --execute "ScriptsManagerCommand"
+
+Fusion360 --execute "APIDebug.addIns"
+Command APIDebug.addIns is not executed for it is not external command. Use '/?' to get help on available commands
+Execute command text failed for APIDebug.addIns
+
+kitty.exe -localproxy "C:\cygwin64\bin\cygtermd.exe /cygdrive/c/Windows /cygdrive/c/Windows/System32/cmd.exe" localhost -classname e128e8f02fc6488687ef67661803947e 
+
+Python.Run "C:\\work\\fusion_programmatic_experiment\\loader.py"
+Python.Run "C:\\work\\fusion_programmatic_experiment\\loader.py"
+Python.Run 'C:/work/fusion_programmatic_experiment/loader.py'
+Python.Run "C:/work/fusion_programmatic_experiment/loader.py"
+Python.Run --showInternal "C:/work/fusion_programmatic_experiment/loader.py"
+taskkill /t /f /im Fusion360.exe
+
+Fusion360 --execute Python.Run "C:/work/fusion_programmatic_experiment/loader.py"
+#>>> Command Python.Run is not executed for it is not external command. 
+taskkill /t /f /im Fusion360.exe && Fusion360 --execute "NuCommands.RunScriptCmd ""C:/work/fusion_programmatic_experiment/loader.py"""
+taskkill /t /f /im Fusion360.exe && Fusion360 --showInternal --execute "?"
+taskkill /t /f /im Fusion360.exe && Fusion360 --showInternal --execute "Application.StartupTime"
+taskkill /t /f /im Fusion360.exe && Fusion360 --showInternal --execute "Fusion.SampleAssy"
+taskkill /t /f /im Fusion360.exe && Fusion360 --showInternal --execute "Python.Enable"
+taskkill /t /f /im Fusion360.exe && Fusion360 --showInternal --execute "Paths.Get"
+
+# The last resort might be to manipulate the ini file that tells Fusion which add-ins/scripts to run on startup, and add the path of our loader script to that ini file to get fusion to run it on startup.
+
+C:\Users\Admin\AppData\Roaming\Autodesk\Autodesk Fusion 360\T2TVKUYMZWD8\JSLoadedScriptsinfo
+# the above file is a JSON file containing a single object, which has a "loadedScripts" property
+# whose value is a list of objects that look like 
+{
+    "name": "loader",
+    "path": "C:/work/fusion_programmatic_experiment/loader.py",
+    "isRemoved": false,
+    "runOnStartup": true
+}
+
+
+In order to get Fusion to load an arbitrary script on startup, we insert an entry into this list.
+
+#the PAths.Get text command produces a long list of name vlaue pairs, onn eof which has name autorunScriptsDirectory and value C:/Users/Admin/AppData/Roaming/Autodesk/Autodesk Fusion 360/MyScripts/Autorun/
+
+Options.ShowAllOptions
+
+taskkill /t /f /im Fusion360.exe && Fusion360
+taskkill /t /f /im Fusion360.exe & Fusion360 --showInternal
+
+DebugCommands.ListCommandDefinitions /Summary
+TextCommands.List  > C:\work\fusion_programmatic_experiment\dd.txt
+TextCommands.List /Hidden > C:\work\fusion_programmatic_experiment\d.txt
+
+DebugCommands.ListCommandDefinitions /Summary > C:\work\fusion_programmatic_experiment\c.txt
+
+HKEY_CLASSES_ROOT\PROTOCOLS\Handler
+
+Python.ListFunctions > C:\work\fusion_programmatic_experiment\python_listfunctions.txt
+
+#When I click the debug buitton in the fusion UI, fusion runs the following command:
+C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825/Python\python C:\Users\Admin\.vscode\extensions\ms-python.python-2021.6.944021595\pythonFiles\lib\python\debugpy\adapter --for-server 65502 --host 127.0.0.1 --port 9000 --server-access-token ca152943de97b9841b405f0e2fcecfcc389776a9128cda2f85d8719424e0e62f
+C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825/Python\python C:\Users\Admin\.vscode\extensions\ms-python.python-2021.6.944021595\pythonFiles\lib\python\debugpy\adapter --for-server 61428 --host 127.0.0.1 --port 9000 --server-access-token defad5a6c0b2e768b4c7ddb0c840f93ec855f0d1a3dda9649f42ef7892d2f139
+
+# we run fusion, and, just after startup has completed, observe that fusion is listening on the following ports:
+9766
+55459
+55457
+55458
+
+#then, we run the add-in in debugging mode
+# as is typical, Fusion runs the following command:
+C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825/Python\python C:\Users\Admin\.vscode\extensions\ms-python.python-2021.6.944021595\pythonFiles\lib\python\debugpy\adapter --for-server 49158 --host 127.0.0.1 --port 9000 --server-access-token 73e25b26a65b8cb09f3200329056c04a3adaa7972e66fc6a544a840fd7e89e2f
+#> no change in the set of ports on which fusion is listening.
+#> fusion now has the following connections to other ports on localhost open:
+63670 <-> 55457 (this is fusion itself)
+63759 <-> 55458 (this is fusion itself)
+55457 <-> 63760 (apparently, this is fusion itself)
+49161 <-> 49159 (this is python (pid 31268), which is the process launched by fusion itself)
+
+
+Options.ShowAllCommands /on

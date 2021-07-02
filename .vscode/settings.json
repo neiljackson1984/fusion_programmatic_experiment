@@ -1,5 +1,12 @@
 {
-	"python.autoComplete.extraPaths":	["C:/Users/Admin/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs"],
-	"python.pythonPath":	"C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/81fe16c330656df1a293195f4c169d3f2a29c315/Python/python.exe",
-	"python.linting.pylintEnabled":	false
+	"python.autoComplete.extraPaths":	[
+		"C:/Users/Admin/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs",
+		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python"
+	],
+	"python.pythonPath":	"C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825/Python/python.exe",
+	"python.linting.pylintEnabled": false,
+	"python.analysis.extraPaths": [
+		"C:/Users/Admin/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs",
+		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python"
+	]
 }
