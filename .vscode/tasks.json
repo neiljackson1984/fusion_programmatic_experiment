@@ -12,6 +12,12 @@
             "label": "execute_with_python",
             "type":"shell",
             "command": "${config:python.pythonPath} \"${file}\""
+        },
+        {
+            // to be mapped to the F8 key
+            "label": "reload_fusion_script_runner_addin_with_keystrokes",
+            "type":"shell",
+            "command": "autohotkey \"${workspaceFolder}${pathSeparator}reload_fusion_addin.ahk\" fusion_script_runner_addin"
         }
     ]
 }

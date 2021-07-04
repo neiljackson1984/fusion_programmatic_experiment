@@ -8,9 +8,14 @@ import pathlib
 import rpyc.core.service
 import json
 import adsk.core, adsk.fusion, traceback
+import requests
+
+PORT_NUMBER_FOR_RPYC_SLAVE_SERVER = 18812
+PORT_NUMBER_FOR_HTTP_SERVER = 19812
+
 
 print("XXXXXXXXXXXX")
-conn = rpyc.classic.connect("localhost")
+conn = rpyc.classic.connect("localhost", port=PORT_NUMBER_FOR_RPYC_SLAVE_SERVER)
 print("Hello World!", file=conn.modules.sys.stdout)
 print("conn.modules: " + str(conn.modules))
 print("conn.namespace: " + str(conn.namespace))
@@ -29,7 +34,7 @@ rapp :adsk.core.Application = conn.eval('adsk.core.Application.get()')
 # rapp  = conn.eval('adsk.core.Application.get()')
 # rapp.userInterface.messageBox('Hello addin')
 
-
+ 
 rsys = conn.modules['sys']
 rdebugpy = conn.modules['debugpy']
 print("rsys.path: " + "\n" + "\n".join(rsys.path) + "\n")
@@ -60,4 +65,47 @@ for workspace in rapp.userInterface.workspaces:
     print('')
 # print('rapp.userInterface.activeWorkspace.resourceFolder: ' + rapp.userInterface.activeWorkspace.resourceFolder)
 
+
+session = requests.Session()
+
+
+
+#as originally written, Ben Gruver's add-in expects the 
+# post request to be formatted like the following (note how we have to
+# serialize the 'message' property.
+# response = session.post(
+#     f"http://localhost:{PORT_NUMBER_FOR_HTTP_SERVER}",
+#     data=json.dumps(
+#             {
+#             # 'pubkey_modulus':,
+#             # 'pubkey_exponent':,
+#             # 'signature':,
+#             'message':json.dumps({
+#                 'script': "foo", # a string - the path of the script file
+#                 'debug':  "bar",   # an int, which is interpreted as a boolean.
+#                 'pydevd_path': "baz"    # a string
+#             })
+#         }
+#     )
+# )
+
+#with my modification, we do not have to (although we can if desired)
+# serialize the 'message' property.
+response = session.post(
+    f"http://localhost:{PORT_NUMBER_FOR_HTTP_SERVER}",
+    data=json.dumps(
+            {
+            # 'pubkey_modulus':,
+            # 'pubkey_exponent':,
+            # 'signature':,
+            'message':{
+                'script': "foo", # a string - the path of the script file
+                'debug':  "bar",   # an int, which is interpreted as a boolean.
+                'pydevd_path': "baz"    # a string
+            }
+        }
+    )
+)
+ 
 # 
+ 

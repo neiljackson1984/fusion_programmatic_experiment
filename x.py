@@ -86,13 +86,16 @@ ui :adsk.core.UserInterface = None
 class XCommandExecuteHandler(adsk.core.CommandEventHandler):
     def __init__(self):
         super().__init__()
-    def notify(self, args):
+    def notify(self, args: adsk.core.CommandEventArgs):
         # global server
         printDebuggingMessage('XCommandExecuteHandler::notify was called.' + "\n")
         try:
             unitsMgr = app.activeProduct.unitsManager
             command = args.firingEvent.sender
-
+            printDebuggingMessage('args.firingEvent.name: ' + args.firingEvent.name + "\n")
+            printDebuggingMessage('args.firingEvent: ' + str(args.firingEvent) + "\n")
+            printDebuggingMessage('args.command.execute: ' + str(args.command.execute) + "\n")
+            printDebuggingMessage('args.command.destroy: ' + str(args.command.destroy) + "\n")
             
             # rpyc.lib.setup_logger()
             # server = ThreadedServer(
@@ -138,9 +141,13 @@ class XCommandExecuteHandler(adsk.core.CommandEventHandler):
 class XCommandDestroyHandler(adsk.core.CommandEventHandler):
     def __init__(self):
         super().__init__()
-    def notify(self, args):
+    def notify(self, args: adsk.core.CommandEventArgs):
         printDebuggingMessage('XCommandDestroyHandler::notify was called.' + "\n")
         try:
+            printDebuggingMessage('args.firingEvent.name: ' + args.firingEvent.name + "\n")
+            printDebuggingMessage('args.firingEvent: ' + str(args.firingEvent) + "\n")
+            printDebuggingMessage('args.command.execute: ' + str(args.command.execute) + "\n")
+            printDebuggingMessage('args.command.destroy: ' + str(args.command.destroy) + "\n")
             # when the command is done, terminate the script
             # this will release all globals which will remove all event handlers
             # adsk.terminate()

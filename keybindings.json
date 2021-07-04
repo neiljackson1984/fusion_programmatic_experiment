@@ -1,0 +1,36 @@
+// Place your key bindings in this file to override the defaultsauto[]
+// vs coide does not have a concept of preject-specific keybindings, 
+// but these are the keybindings that I have been using while working on this project.
+// to make these keybindings work, they should be copied to the file %appdata%\Code\User\keybindings.json
+[
+    {
+        "key": "f7",
+        "command": "-editor.action.diffReview.next",
+        "when": "isInDiffEditor"
+    },
+    {
+        "key": "f7",
+        "command": "-editor.action.wordHighlight.next",
+        "when": "editorTextFocus && hasWordHighlights"
+    },
+    {
+        "key": "f7",
+        "command": "workbench.action.tasks.runTask",
+        "args": "execute_with_python"
+    },
+    {
+        "key": "f8",
+        "command": "workbench.action.tasks.runTask",
+        "args": "reload_fusion_script_runner_addin_with_keystrokes"
+    },
+    {
+        "key": "f8",
+        "command": "-editor.action.marker.nextInFiles",
+        "when": "editorFocus"
+    },
+    {
+        "key": "f8",
+        "command": "-PowerShell.RunSelection",
+        "when": "editorTextFocus && editorLangId == 'powershell'"
+    }
+]
