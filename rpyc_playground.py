@@ -22,6 +22,7 @@ print("conn.namespace: " + str(conn.namespace))
 # remoteBuiltins = conn.modules['builtins']
 # print("dir(conn.builtins): " + "\n" + "\n".join(dir(conn.builtins)) + "\n")
 print("dir(conn.modules): " + "\n" + "\n".join(dir(conn.modules)) + "\n")
+# print("conn.modules: " + "\n" + "\n".join(conn.modules) + "\n")
 
 
 # print("dir(conn.builtins.globals): " + str(dir(conn.builtins.globals)))
@@ -36,12 +37,16 @@ rapp :adsk.core.Application = conn.eval('adsk.core.Application.get()')
 
  
 rsys = conn.modules['sys']
-rdebugpy = conn.modules['debugpy']
+ros = conn.modules['os']
+# rdebugpy = conn.modules['debugpy']
 print("rsys.path: " + "\n" + "\n".join(rsys.path) + "\n")
-print("rdebugpy: " + str(rdebugpy))
-conn.execute('import runpy')
-rrunpy = conn.modules['runpy']
-print("rrunpy: " + str(rrunpy))
+print("rsys.modules: " + "\n" + "\n".join(rsys.modules) + "\n")
+# print("rdebugpy: " + str(rdebugpy))
+# conn.execute('import runpy')
+# rrunpy = conn.modules['runpy']
+# print("rrunpy: " + str(rrunpy))
+print("conn.eval('__name__'): " + conn.eval('__name__'))
+print("ros.getcwd(): " + ros.getcwd())
 # conn.builtins.exit()
 
 # rdebugpy.listen(9000)
@@ -58,12 +63,12 @@ pathOfTheArbitraryScript=pathlib.Path(__file__).parent.joinpath("arbitrary_scrip
 #         }
 #     })
 # )
-for workspace in rapp.userInterface.workspaces:
-    workspace = adsk.core.Workspace.cast(workspace)
-    print('workspace.name: ' + workspace.name)
-    print('workspace.resourceFolder: ' + workspace.resourceFolder)
-    print('')
-# print('rapp.userInterface.activeWorkspace.resourceFolder: ' + rapp.userInterface.activeWorkspace.resourceFolder)
+# for workspace in rapp.userInterface.workspaces:
+#     workspace = adsk.core.Workspace.cast(workspace)
+#     print('workspace.name: ' + workspace.name)
+#     print('workspace.resourceFolder: ' + workspace.resourceFolder)
+#     print('')
+# # print('rapp.userInterface.activeWorkspace.resourceFolder: ' + rapp.userInterface.activeWorkspace.resourceFolder)
 
 
 session = requests.Session()
@@ -91,6 +96,28 @@ session = requests.Session()
 
 #with my modification, we do not have to (although we can if desired)
 # serialize the 'message' property.
+# response = session.post(
+#     f"http://localhost:{PORT_NUMBER_FOR_HTTP_SERVER}",
+#     data=json.dumps(
+#             {
+#             # 'pubkey_modulus':,
+#             # 'pubkey_exponent':,
+#             # 'signature':,
+#             'message':{
+#                 'debug':  True,   # an int or a boolean, or anything which can be cast to an int and then interp[reted as a boolean.
+#                 'debug_port': 9000,
+#                 'pydevd_path':'C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy/_vendored/pydevd',
+#                 'script': "C:/work/fusion_programmatic_experiment/arbitrary_script_1.py" # a string - the path of the script file
+                
+#                 # # the path that we must add to sys.path in order to be able to succesfully call 'import debugpy'
+#                 # 'debugpy_path': "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python",    # a string
+#             }
+#         }
+#     )
+# )
+ 
+# 
+ 
 response = session.post(
     f"http://localhost:{PORT_NUMBER_FOR_HTTP_SERVER}",
     data=json.dumps(
@@ -99,9 +126,13 @@ response = session.post(
             # 'pubkey_exponent':,
             # 'signature':,
             'message':{
-                'script': "foo", # a string - the path of the script file
-                'debug':  "bar",   # an int, which is interpreted as a boolean.
-                'pydevd_path': "baz"    # a string
+                'debug':  True,   # an int or a boolean, or anything which can be cast to an int and then interp[reted as a boolean.
+                'debug_port': 9000,
+                'pydevd_path':'C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy/_vendored/pydevd',
+                'script': "C:/work/fusion_programmatic_experiment/arbitrary_addin_1/arbitrary_addin_1.py" # a string - the path of the script file
+                
+                # # the path that we must add to sys.path in order to be able to succesfully call 'import debugpy'
+                # 'debugpy_path': "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python",    # a string
             }
         }
     )

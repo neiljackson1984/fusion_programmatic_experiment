@@ -20,20 +20,21 @@ def printDebuggingMessage(x: str):
 
 
 
-def foo(context=None):
+def run(context=None):
     ui = None
     try:
         printDebuggingMessage("ahoy matey")
         app = adsk.core.Application.get()
         ui = app.userInterface
         printDebuggingMessage("ahoy matey 2")
-        ui.messageBox('hello script')
+        # ui.messageBox('hello script')
+        ui.palettes.itemById('TextCommands').writeText(str(datetime.datetime.now()) + "\t" + 'Hello from ' + __file__)
         # app.userInterface.commandDefinitions.itemById('ScriptsManagerCommand').execute(adsk.core.NamedValues.create())
-        app.userInterface.commandDefinitions.itemById('RunScriptCommand').execute(adsk.core.NamedValues.create())
+        # app.userInterface.commandDefinitions.itemById('RunScriptCommand').execute(adsk.core.NamedValues.create())
         # app.userInterface.commandDefinitions.itemById('PythonInteractiveCommand').execute(adsk.core.NamedValues.create())
     except:
         if ui:
             ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
         printDebuggingMessage('Failed:\n{}'.format(traceback.format_exc()))
 
-foo()
+# run()

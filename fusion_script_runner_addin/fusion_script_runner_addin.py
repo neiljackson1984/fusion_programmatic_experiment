@@ -1,6 +1,9 @@
 
 """
 
+Note: running a script or add-in via this add-in will not cause the script/add-in to appear 
+in Fusion360's "Scripts and Add-Ins" dialog.  This is one of the ways in which the action of this add-in is not
+exactly identical to the action of manual commands issued in Fusion360's user interface.
 """
 
 # The structure and much of the function of this code is inspired by Ben Gruver's fusion_idea_addin
@@ -106,7 +109,8 @@ class AddIn(object):
             except Exception:
                 pass
 
-            logger.warning("ahoy there")
+            logger.debug("ahoy there")
+            logger.debug("os.getcwd(): " + os.getcwd())
 
             self._run_script_requested_event = app().registerCustomEvent(RUN_SCRIPT_REQUESTED_EVENT_ID)
             self._run_script_requested_event_handler = RunScriptRequestedEventHandler()
@@ -307,11 +311,13 @@ class RunScriptRequestedEventHandler(adsk.core.CustomEventHandler):
             # logger.debug("RunScriptRequestedEventHandler::notify is running with args.additionalInfo " + args.additionalInfo)
             args = json.loads(args.additionalInfo)
             # logger.debug("RunScriptRequestedEventHandler::notify is running with args " + json.dumps(args))
-            ui().palettes.itemById('TextCommands').writeText('ahoy')
+            # ui().palettes.itemById('TextCommands').writeText('ahoy')
             
             script_path = args.get("script")
-            debug = int(args["debug"])
-            pydevd_path = args["pydevd_path"]
+            # debug = int(args["debug"]
+            debug = ( int(args["debug"]) if 'debug' in args else None )
+            # pydevd_path = args["pydevd_path"]
+            pydevd_path = args.get("pydevd_path")
 
             detach = script_path and debug
 
@@ -319,7 +325,11 @@ class RunScriptRequestedEventHandler(adsk.core.CustomEventHandler):
                 logger.warning("No script provided and debugging not requested. There's nothing to do.")
                 return
 
-            sys.path.append(pydevd_path)
+            
+            if pydevd_path:
+                sys.path.append(pydevd_path)
+            
+            
             try:
                 if debug:
                     sys.path.append(os.path.join(pydevd_path, "pydevd_attach_to_process"))
@@ -369,7 +379,8 @@ class RunScriptRequestedEventHandler(adsk.core.CustomEventHandler):
         except Exception:
             logger.fatal("An error occurred while attempting to start script.", exc_info=sys.exc_info())
         finally:
-            del sys.path[-1]  # The pydevd dir
+            if pydevd_path:
+                del sys.path[-1]  # The pydevd dir
 
     @staticmethod
     def unload_submodules(module_name):
@@ -387,7 +398,7 @@ class ErrorDialogEventHandler(adsk.core.CustomEventHandler):
 
     # noinspection PyMethodMayBeStatic
     def notify(self, args):
-        ui().messageBox(args.additionalInfo, "fusion_idea_addin error")
+        ui().messageBox(args.additionalInfo, f"{NAME_OF_THIS_ADDIN} error")
 
 
 class FusionErrorDialogLoggingHandler(logging.Handler):
@@ -400,21 +411,22 @@ class FusionErrorDialogLoggingHandler(logging.Handler):
 class RunScriptHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
     """An HTTP request handler that queues an event in the main thread of fusion 360 to run a script."""
 
-    # noinspection PyPep8Naming
     def do_POST(self):
         logger.debug("Got an http request.")
         content_length = int(self.headers["Content-Length"])
         body = self.rfile.read(content_length).decode()
 
         try:
-            logger.debug("RunScriptHTTPRequestHandler::do_POST is running with body " + body)
+            # logger.debug("RunScriptHTTPRequestHandler::do_POST is running with body " + body)
             request_json = json.loads(body)
             logger.debug("RunScriptHTTPRequestHandler::do_POST is running with request_json " + json.dumps(request_json))
-            logger.debug("type(request_json['message']): " + str(type(request_json['message'])))
+            # logger.debug("type(request_json['message']): " + str(type(request_json['message'])))
  
-            # It seems clunky to require that request_json["message"] be a string.  I think it makes more sense to allow it to be 
+            # It seems clunky to require that request_json["message"] be a string.  I think it makes more sense 
+            # to allow it to be 
             # an object (in which case we need to stringify it before passing it to fireCustomEvent
-            # because fireCustomEvent requires a string for its 'addionalInfo' argument.), but also handle the case where it is a string
+            # because fireCustomEvent requires a string for its 'addionalInfo' argument.), but also 
+            # handle the case where it is a string
             # (in which case we assume that it is the json-serialized version of the object.)
 
             app().fireCustomEvent( 
@@ -422,7 +434,8 @@ class RunScriptHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
                 # request_json["message"]
                 ( request_json['message'] if isinstance(request_json['message'], str) else json.dumps(request_json['message']))
             )
-            # additionalInfo is a string that will be retrievable in the notify(args) method of the customEventHandler
+            # additionalInfo (the second argument to fireCustomeEvent()) is a string that will be retrievable in the notify(args) method of the 
+            # customEventHandler
             # as args.additionalInfo 
 
             self.send_response(200)

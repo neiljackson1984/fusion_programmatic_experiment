@@ -17,7 +17,11 @@
             // to be mapped to the F8 key
             "label": "reload_fusion_script_runner_addin_with_keystrokes",
             "type":"shell",
-            "command": "autohotkey \"${workspaceFolder}${pathSeparator}reload_fusion_addin.ahk\" fusion_script_runner_addin"
+            "command": "autohotkey \"${workspaceFolder}${pathSeparator}reload_fusion_addin.ahk\" fusion_script_runner_addin & tail -F \"${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}fusion_script_runner_addin_log.txt\"",
+            "presentation": {
+                "reveal": "always",
+                "showReuseMessage": false
+                }
         }
     ]
 }

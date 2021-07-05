@@ -133,3 +133,26 @@ C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd60
 
 
 Options.ShowAllCommands /on
+
+grep  --with-filename --recursive "debugpy" C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825/*
+
+
+What is the relationship between debugpy and pydevd?
+
+
+# here are some events that aoccur, as captured by procmon,
+# when I run an add-in in debug mode from the fusion ui:
+C:\WINDOWS\system32\cmd.exe /c ""C:/Program Files/Microsoft VS Code/bin/Code.cmd" --install-extension ms-python.python"
+"C:\Program Files\Microsoft VS Code\bin\..\Code.exe"  "C:\Program Files\Microsoft VS Code\bin\..\resources\app\out\cli.js" --install-extension ms-python.python
+C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825/Python\python C:\Users\Admin\.vscode\extensions\ms-python.python-2021.6.944021595\pythonFiles\lib\python\debugpy\adapter --for-server 55003 --host 127.0.0.1 --port 9000 --server-access-token 8facce56d073fefdddea0f1da6f6bbf2db76088ca3e86ca57caf5b1140c25eed
+C:\WINDOWS\system32\cmd.exe /c ""C:\Program Files\Microsoft VS Code\bin\Code.cmd" --new-window "C:/work/fusion_programmatic_experiment/fusion_script_runner_addin" "C:/work/fusion_programmatic_experiment/fusion_script_runner_addin/fusion_script_runner_addin.py" "
+"C:\Program Files\Microsoft VS Code\bin\..\Code.exe"  "C:\Program Files\Microsoft VS Code\bin\..\resources\app\out\cli.js" --new-window "C:/work/fusion_programmatic_experiment/fusion_script_runner_addin" "C:/work/fusion_programmatic_experiment/fusion_script_runner_addin/fusion_script_runner_addin.py"
+"C:\Program Files\Microsoft VS Code\Code.exe" --type=crashpad-handler --user-data-dir=C:\Users\Admin\AppData\Roaming\Code /prefetch:7 --no-rate-limit --monitor-self-annotation=ptype=crashpad-handler --database=C:\Users\Admin\AppData\Roaming\Code\Crashpad --annotation=_companyName=Microsoft --annotation=_productName=VSCode --annotation=_version=1.57.1 --annotation=prod=Electron --annotation=ver=12.0.7 --initial-client-data=0x41c,0x420,0x424,0x3fc,0x428,0x7ff71c946e90,0x7ff71c946ea0,0x7ff71c946eb0
+"C:\Program Files\Microsoft VS Code\Code.exe" --type=gpu-process --field-trial-handle=1020,3883915837226408076,7057698399515787147,131072 --enable-features=WebComponentsV0Enabled --disable-features=CalculateNativeWinOcclusion,CertVerifierService,CookiesWithoutSameSiteMustBeSecure,SameSiteByDefaultCookies,SpareRendererForSitePerProcess --disable-color-correct-rendering --gpu-preferences=SAAAAAAAAADgAAAwAAAAAAAAAAAAAAAAAABgAAAAAAAoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB4AAAAAAAAAHgAAAAAAAAAKAAAAAQAAAAgAAAAAAAAACgAAAAAAAAAMAAAAAAAAAA4AAAAAAAAABAAAAAAAAAAAAAAAAUAAAAQAAAAAAAAAAAAAAAGAAAAEAAAAAAAAAABAAAABQAAABAAAAAAAAAAAQAAAAYAAAAIAAAAAAAAAAgAAAAAAAAA --mojo-platform-channel-handle=1532 /prefetch:2
+"C:\Program Files\Microsoft VS Code\Code.exe" --type=renderer --disable-color-correct-rendering --field-trial-handle=1520,7193355912208721995,2364554299917487944,131072 --enable-features=WebComponentsV0Enabled --disable-features=CalculateNativeWinOcclusion,CertVerifierService,CookiesWithoutSameSiteMustBeSecure,SameSiteByDefaultCookies,SpareRendererForSitePerProcess --lang=en-US --standard-schemes=vscode-webview,vscode-file --secure-schemes=vscode-webview,vscode-file --bypasscsp-schemes --cors-schemes=vscode-webview,vscode-file --fetch-schemes=vscode-webview,vscode-file --service-worker-schemes=vscode-webview --streaming-schemes --app-user-model-id=Microsoft.VisualStudioCode --app-path="C:\Program Files\Microsoft VS Code\resources\app" --no-sandbox --no-zygote --device-scale-factor=1.5 --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=20 --no-v8-untrusted-code-mitigations --mojo-platform-channel-handle=10156 /prefetch:1 --vscode-window-config=vscode:1b768dd1-e3e5-4536-8884-d337194f9a28
+"C:\Program Files\Microsoft VS Code\Code.exe" --type=utility --utility-sub-type=network.mojom.NetworkService --field-trial-handle=1020,3883915837226408076,7057698399515787147,131072 --enable-features=WebComponentsV0Enabled --disable-features=CalculateNativeWinOcclusion,CertVerifierService,CookiesWithoutSameSiteMustBeSecure,SameSiteByDefaultCookies,SpareRendererForSitePerProcess --lang=en-US --service-sandbox-type=network --standard-schemes=vscode-webview,vscode-file --secure-schemes=vscode-webview,vscode-file --bypasscsp-schemes --cors-schemes=vscode-webview,vscode-file --fetch-schemes=vscode-webview,vscode-file --service-worker-schemes=vscode-webview --streaming-schemes --mojo-platform-channel-handle=1548 /prefetch:8
+"C:\Program Files\Microsoft VS Code\Code.exe" --inspect-port=0 "c:\Program Files\Microsoft VS Code\resources\app\out\bootstrap-fork" --type=extensionHost
+"c:\Program Files\Microsoft VS Code\resources\app\out\vs\platform\files\node\watcher\win32\CodeHelper.exe" c:\work\fusion_programmatic_experiment\fusion_script_runner_addin
+C:\WINDOWS\system32\cmd.exe /d /s /c "wsl.exe -l -q"
+\\?\C:\WINDOWS\system32\conhost.exe --headless --width 88 --height 31 --signal 0x728 --server 0x654
+C:\WINDOWS\System32\cmd.exe
