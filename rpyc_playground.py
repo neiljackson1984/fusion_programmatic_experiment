@@ -38,8 +38,9 @@ rapp :adsk.core.Application = conn.eval('adsk.core.Application.get()')
  
 rsys = conn.modules['sys']
 ros = conn.modules['os']
-# rdebugpy = conn.modules['debugpy']
+# rdebugpy = conn.modules['debugpy']f
 print("rsys.path: " + "\n" + "\n".join(rsys.path) + "\n")
+exit(0)
 print("rsys.modules: " + "\n" + "\n".join(rsys.modules) + "\n")
 # print("rdebugpy: " + str(rdebugpy))
 # conn.execute('import runpy')
@@ -69,6 +70,12 @@ pathOfTheArbitraryScript=pathlib.Path(__file__).parent.joinpath("arbitrary_scrip
 #     print('workspace.resourceFolder: ' + workspace.resourceFolder)
 #     print('')
 # # print('rapp.userInterface.activeWorkspace.resourceFolder: ' + rapp.userInterface.activeWorkspace.resourceFolder)
+
+
+rpydb = conn.modules['pydevd'].get_global_debugger()
+print("dir(rpydb): " + "\n" + "\n".join(dir(rpydb)))
+print("rpydb._dap_messages_listeners: " + "\n" + "\n".join(map(str,rpydb._dap_messages_listeners)))
+print("rpydb.plugin: " + str(rpydb.plugin))
 
 
 session = requests.Session()
@@ -118,25 +125,25 @@ session = requests.Session()
  
 # 
  
-response = session.post(
-    f"http://localhost:{PORT_NUMBER_FOR_HTTP_SERVER}",
-    data=json.dumps(
-            {
-            # 'pubkey_modulus':,
-            # 'pubkey_exponent':,
-            # 'signature':,
-            'message':{
-                'debug':  True,   # an int or a boolean, or anything which can be cast to an int and then interp[reted as a boolean.
-                'debug_port': 9000,
-                'pydevd_path':'C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy/_vendored/pydevd',
-                'script': "C:/work/fusion_programmatic_experiment/arbitrary_addin_1/arbitrary_addin_1.py" # a string - the path of the script file
+# response = session.post(
+#     f"http://localhost:{PORT_NUMBER_FOR_HTTP_SERVER}",
+#     data=json.dumps(
+#             {
+#             # 'pubkey_modulus':,
+#             # 'pubkey_exponent':,
+#             # 'signature':,
+#             'message':{
+#                 'debug':  True,   # an int or a boolean, or anything which can be cast to an int and then interp[reted as a boolean.
+#                 'debug_port': 9000,
+#                 # 'pydevd_path':'C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy/_vendored/pydevd',
+#                 'script': "C:/work/fusion_programmatic_experiment/arbitrary_script_1.py", # a string - the path of the script file
                 
-                # # the path that we must add to sys.path in order to be able to succesfully call 'import debugpy'
-                # 'debugpy_path': "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python",    # a string
-            }
-        }
-    )
-)
+#                 # # the path that we must add to sys.path in order to be able to succesfully call 'import debugpy'
+#                 'debugpy_path': "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python",    # a string
+#             }
+#         }
+#     )
+# )
  
 # 
  

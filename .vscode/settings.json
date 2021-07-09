@@ -1,12 +1,17 @@
 {
 	"python.autoComplete.extraPaths":	[
 		"C:/Users/Admin/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs",
-		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python"
+		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python",
+		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy/_vendored/pydevd"
 	],
 	"python.pythonPath":	"C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825/Python/python.exe",
 	"python.linting.pylintEnabled": false,
 	"python.analysis.extraPaths": [
 		"C:/Users/Admin/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs",
-		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python"
-	]
+		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python",
+		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy/_vendored/pydevd"
+	],
+	"VsCodeTaskButtons.tasks": [ 
+			{"label":"restart_fusion" , "task":"restart_fusion"}
+	 ]
 }

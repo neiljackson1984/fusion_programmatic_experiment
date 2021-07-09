@@ -156,3 +156,8 @@ C:\WINDOWS\system32\cmd.exe /c ""C:\Program Files\Microsoft VS Code\bin\Code.cmd
 C:\WINDOWS\system32\cmd.exe /d /s /c "wsl.exe -l -q"
 \\?\C:\WINDOWS\system32\conhost.exe --headless --width 88 --height 31 --signal 0x728 --server 0x654
 C:\WINDOWS\System32\cmd.exe
+
+
+C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825/Python\python C:\Users\Admin\.vscode\extensions\ms-python.python-2021.6.944021595\pythonFiles\lib\python\debugpy\adapter --for-server 49158 --host 127.0.0.1 --port 9000 --server-access-token 73e25b26a65b8cb09f3200329056c04a3adaa7972e66fc6a544a840fd7e89e2f
+
+tail -F "C:\work\fusion_programmatic_experiment\fusion_script_runner_addin\fusion_script_runner_addin_log.log"

@@ -9,19 +9,75 @@
             "command": "echo Hello"
         },
         {
+            "label": "f7_task",
+            "detail": "a composite task that we will bind to the f7 key in the global keybindings.",
+            "dependsOn": ["run_rpyc_playground"]
+        },
+        {
+            "label": "f8_task",
+            "detail": "a composite task that we will bind to the f8 key in the global keybindings.",
+            // "dependsOn": ["reload_fusion_script_runner_addin_with_keystrokes"]
+            "dependsOn": ["reload_fusion_script_runner_addin_then_monitor_log"]
+        },
+        {
             "label": "execute_with_python",
             "type":"shell",
             "command": "${config:python.pythonPath} \"${file}\""
         },
         {
-            // to be mapped to the F8 key
+            "label": "run_rpyc_playground",
+            "type":"shell",
+            "command": "${config:python.pythonPath} \"${workspaceFolder}${pathSeparator}rpyc_playground.py\""
+        },
+        // {
+        //     // to be mapped to the F8 key
+        //     // chmod ugo+x "$(which autohotkey)"
+        //     "label": "reload_fusion_script_runner_addin_with_keystrokes",
+        //     "type":"shell",
+        //     // "command": "autohotkey \"${workspaceFolder}${pathSeparator}reload_fusion_addin.ahk\" fusion_script_runner_addin ; tail -F \"${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}fusion_script_runner_addin_log.txt\"",
+        //     "command": "autohotkey",
+        //     "presentation": {
+        //         "reveal": "always",
+        //         "showReuseMessage": false
+        //         },
+        //     "isBackground": false,
+        //     "promptOnClose": false,
+        //     "options": {"shell": {"executable": "bash"}}
+        // }
+        {
             "label": "reload_fusion_script_runner_addin_with_keystrokes",
             "type":"shell",
-            "command": "autohotkey \"${workspaceFolder}${pathSeparator}reload_fusion_addin.ahk\" fusion_script_runner_addin & tail -F \"${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}fusion_script_runner_addin_log.txt\"",
+            "command": "autohotkey \"${workspaceFolder}${pathSeparator}reload_fusion_addin.ahk\" fusion_script_runner_addin\"",
             "presentation": {
                 "reveal": "always",
                 "showReuseMessage": false
                 }
+        },
+        {
+            "label": "monitor_fusion_script_runnner_addin_log",
+            "type":"shell",
+            "command": "tail -F '${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}fusion_script_runner_addin_log.log'",
+            "presentation": {
+                "reveal": "always",
+                "showReuseMessage": false
+                },
+            "options": {"shell": {"executable": "C:\\cygwin64\\bin\\bash.exe","args": ["-c"]}},
+            "isBackground":true,
+
+        },
+        {
+            "label": "reload_fusion_script_runner_addin_then_monitor_log",
+            "dependsOn": [
+                "reload_fusion_script_runner_addin_with_keystrokes",
+                "monitor_fusion_script_runnner_addin_log"
+            ],
+            "dependsOrder": "sequence"
+        },
+        {
+            "label":"restart_fusion",
+            "type":"shell",
+            "command": "taskkill /f /t /im Fusion360.exe & start \"\" Fusion360"
         }
     ]
+
 }
