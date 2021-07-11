@@ -35,6 +35,7 @@ import shutil
 from PIL import Image
 from PIL import ImageFont
 from PIL import ImageDraw 
+import datetime
  
  
 import rpyc
@@ -72,9 +73,10 @@ class AddIn(object):
         self._logging_dialog_handler                : Optional[logging.Handler]                 = None
         self._http_server                           : Optional[http.server.HTTPServer]          = None
         self._rpyc_slave_server                     : Optional[rpyc.utils.server.Server]        = None
-        self._toolbarControls                       : list[adsk.core.ToolbarControl]            = []
-        self._commandDefinitions                    : list[adsk.core.CommandDefinition]         = []
-        self._command1                              : Optional[SimpleFusionCustomCommand]       = None
+        # self._toolbarControls                       : list[adsk.core.ToolbarControl]            = []
+        # self._commandDefinitions                    : list[adsk.core.CommandDefinition]         = []
+        # self._fusionCommand1                        : Optional[SimpleFusionCustomCommand]       = None
+        self._simpleFusionCustomCommands            : list[SimpleFusionCustomCommand]           = []
 
     def start(self):
         
@@ -140,10 +142,11 @@ class AddIn(object):
             rpyc_slave_server_thread = threading.Thread(target=self.run_rpyc_slave_server, daemon=True)
             rpyc_slave_server_thread.start()
 
-            def myTestFunction(args: adsk.core.CommandEventArgs):
+            def myTestFunction(eventArgs: adsk.core.CommandEventArgs)  -> None:
                 logger.debug("myTestFunction was called.")
+                return None
 
-            self._command1 = SimpleFusionCustomCommand(name="neil_cool_command1", action=myTestFunction, app=app())
+            self._simpleFusionCustomCommands.append(SimpleFusionCustomCommand(name="neil_cool_command1", action=myTestFunction))
 
         except Exception:
             logger.fatal(f"Error while starting {NAME_OF_THIS_ADDIN}", exc_info=sys.exc_info())
@@ -180,14 +183,14 @@ class AddIn(object):
                 logger.error(f"Error while stopping {NAME_OF_THIS_ADDIN}'s rpyc slave server.", exc_info=sys.exc_info())
         self._rpyc_slave_server = None
 
-        #clean up any ui commands and controls that we may have created
-        for commandDefinition in self._commandDefinitions:
-            commandDefinition.deleteMe()
-        self._commandDefinitions = []
+        # #clean up any ui commands and controls that we may have created
+        # for commandDefinition in self._commandDefinitions:
+        #     commandDefinition.deleteMe()
+        # self._commandDefinitions = []
 
-        for toolbarControl in self._toolbarControls:
-            toolbarControl.deleteMe()
-        self._toolbarControls = []
+        # for toolbarControl in self._toolbarControls:
+        #     toolbarControl.deleteMe()
+        # self._toolbarControls = []
 
         # clean up _run_script_requested_event and the associated handler:
         try:
@@ -202,7 +205,9 @@ class AddIn(object):
         self._run_script_requested_event_handler = None
         self._run_script_requested_event = None
 
-        del self._command1
+        # del self._fusionCommand1
+
+        del self._simpleFusionCustomCommands
 
         # clean up _error_dialog_event and the associated handler:
         try:
@@ -243,11 +248,11 @@ class SimpleFusionCustomCommand(object):
     # a meaning more closely aligned with my intuitive notion of command, which is something like "function",
     # it might make sense not to name this class "command", but use some other term like "function" "task" "procedure" "routine" etc.
 
-    def __init__(self, name: str, action: Callable[[adsk.core.CommandEventArgs] , None], app: adsk.core.Application):
+    def __init__(self, name: str, action: Optional[ Callable[[adsk.core.CommandEventArgs] , None] ] = None, app: Optional[adsk.core.Application] = None):
         self._name = name
-        self._action = action
+        self._action = action or self.doNothingAction
         self._commandId = self._name # TO-DO: ensure that the commandId is unique and doesn't contain any illegal characters.
-        self._app = app
+        self._app = app or globals()['app']()
         self._resourcesDirectory = tempfile.TemporaryDirectory()
         logger.debug("self._resourcesDirectory.name: " + self._resourcesDirectory.name)
         logger.debug("sys.version: " + sys.version)
@@ -285,6 +290,10 @@ class SimpleFusionCustomCommand(object):
         self._resourcesDirectory.cleanup()
         del self._resourcesDirectory
 
+    @staticmethod
+    def doNothingAction(eventArgs: adsk.core.CommandEventArgs) -> None:
+        ui().palettes.itemById('TextCommands').writeText(str(datetime.datetime.now()) + "\t" + 'Hello doNothing from ' + __file__)
+
     class CommandCreatedEventHandler(adsk.core.CommandCreatedEventHandler):
         def __init__(self, owner: 'SimpleFusionCustomCommand'):
             super().__init__()
@@ -293,7 +302,6 @@ class SimpleFusionCustomCommand(object):
             args.command.execute.add(self._owner._commandEventHandler)
             args.command.destroy.add(self._owner._commandEventHandler)
             args.command.executePreview.add(self._owner._commandEventHandler)
-
 
     class CommandEventHandler(adsk.core.CommandEventHandler):
         def __init__(self, owner: 'SimpleFusionCustomCommand'):
@@ -311,161 +319,162 @@ class RunScriptRequestedEventHandler(adsk.core.CustomEventHandler):
     def notify(self, args: adsk.core.CustomEventArgs):
         try:
             # logger.debug("RunScriptRequestedEventHandler::notify is running with args.additionalInfo " + args.additionalInfo)
-            args = json.loads(args.additionalInfo)
-            # logger.debug("RunScriptRequestedEventHandler::notify is running with args " + json.dumps(args))
-            # ui().palettes.itemById('TextCommands').writeText('ahoy')
             
-            script_path = args.get("script")
-            # debug = int(args["debug"]
-            debug = ( int(args["debug"]) if 'debug' in args else None )
-            # pydevd_path = args["pydevd_path"]
-            # pydevd_path = args.get("pydevd_path")
-            debugpy_path = args.get("debugpy_path")
- 
-            detach = script_path and debug
+            # collect the arguments:
+            _args :dict = json.loads(args.additionalInfo)
+            script_path     = _args.get("script")
+            debug           = bool(_args.get("debug"))
+            debugpy_path    = _args.get("debugpy_path")
+            port            = int(_args.get("debug_port",0))
 
             if not script_path and not debug:
                 logger.warning("No script provided and debugging not requested. There's nothing to do.")
                 return
 
-            
-            # if pydevd_path:
-            #     sys.path.append(pydevd_path)
-            if debugpy_path:
+            if debug:
+                if not debugpy_path:
+                    logger.warning("We have been instructed to do debugging, but you have not provided the necessary debugpy_path.  Therefore, we can do nothing.")
+                    return
+                initialSystemPath=sys.path.copy()
                 sys.path.append(debugpy_path)
+                import debugpy
+                import debugpy._vendored
+                with debugpy._vendored.vendored(project='pydevd'):
+                    from _pydevd_bundle.pydevd_constants import get_global_debugger
+                    from pydevd import PyDB
+                    import pydevd
+                sys.path=initialSystemPath
+                # I hope that it won't screw anything up to replace the sys.path value with a newly-created list (rather than modifying the existing list).
+                    
+                global debugging_started
+                if not debugging_started and get_global_debugger() is not None :  
+                    logger.debug("Our debugging_started flag is cleared, and yet the global debugger object exists (possibly left over from a previous run/stop cycle of this add in), so we will go ahead and set the debugging_started flag.")
+                    debugging_started = True  
+                    addin._simpleFusionCustomCommands.append(SimpleFusionCustomCommand(name="D_indicator")) 
+                # We are assuming that if the global debugger object exists, then debugging is active and configured as desired.
+                # I am not sure that this is always a safe assumption, but oh well.
+
+                # ensure that debugging is started:
+                #  ideally, we would look for an existing global debugger with the correct configuration
+                # in order to determine whether debugging was started, rather than maintaining our own blind debugging_started flag.
+                # the problem is that our flag can be wrong in the case where this add-in was started with debugging already active (started
+                # by a previous run/stop cycle of this add in).  
+                # Also, we should be doing something to stop debugging when this add-in is stopped, rather than just leaving it running, which we are doing now.
+                # It seems that pydevd, or, at least the parts of the pydevd behavior that debugpy exposes, is not geared toward stopping the debugging, only starting it.
+                # what about pydevd.stoptrace() ? -- that's what Ben Gruver does.
+                if not debugging_started:
+                    logger.debug("Commencing listening on port %d" % port)
+                    
+                    # debugpy.listen(port)
+                    (lambda : debugpy.listen(port))()
+                    # the code-reachability analysis system that is built into VS code (is this Pylance?) falsely 
+                    # believes that the debugpy.listen()
+                    # function will always result in an exception, and therefore regards all code below this point
+                    # as unreachable, which causes vscode to display all code below this point in a dimmed color.
+                    # I find this so annoying that I have wrapped the debugpy.listen() in a lambda function
+                    # that I immediately call.  This seems to be sufficient to throw the code reachability analysis system 
+                    # off the scent, and hopefully will not change the effect of the code.
+                
+                    class LoggingDapMessagesListener(pydevd.IDAPMessagesListener):
+                        # @overrides(pydevd.IDAPMessagesListener.after_receive)
+                        def after_receive(self, message_as_dict):
+                            logger.debug(f"LoggingDapMessagesListener::after_receive({message_as_dict})")
+                        
+                        def before_send(self, message_as_dict):
+                            logger.debug(f"LoggingDapMessagesListener::before_send({message_as_dict})")  
+                    pydevd.add_dap_messages_listener(LoggingDapMessagesListener())
+                    
+                    #display a "D" button in the quick-access toolbar as a visual indicator to the user that debugging is now active.
+                    debugging_started = True
+                    addin._simpleFusionCustomCommands.append(SimpleFusionCustomCommand(name="D_indicator"))
+                
+                
+                
+            if debug and script_path:
+                debugpy.wait_for_client()
+                # to more closely mimic the behavior of Fusion's ui-based debugging button, we should 
+                # do this waiting for client in a separate thread, so as not to block the main thread.
+                
+
+            if script_path:
+                script_path = os.path.abspath(script_path)
+                script_dir = os.path.dirname(script_path)
+
+                try:
+                    # This mostly mimics the package name that Fusion uses when running the script
+                    module_name = "__main__" + urllib.parse.quote(script_path.replace('.', '_'))
+                    spec = importlib.util.spec_from_file_location(
+                        module_name, script_path, submodule_search_locations=[script_dir])
+                    module = importlib.util.module_from_spec(spec)
+
+                    existing_module = sys.modules.get(module_name)
+                    if existing_module and hasattr(existing_module, "stop"):
+                        existing_module.stop({"isApplicationClosing": False})
+
+                    self.unload_submodules(module_name)
+
+                    sys.modules[module_name] = module
+                    spec.loader.exec_module(module)
+                    logger.debug("Running script")
+                    module.run({"isApplicationStartup": False})
+                except Exception:
+                    logger.fatal(
+                        "Unhandled exception while importing and running script.",
+                        exc_info=sys.exc_info()
+                    )
             
-            
-            try:
-                if debug:
-                    # sys.path.append(os.path.join(pydevd_path, "pydevd_attach_to_process"))
-                    try:
-                        # import attach_script
-                        global debugging_started
-                        if not debugging_started:
-                            import debugpy
-                            import debugpy._vendored
-                            with debugpy._vendored.vendored(project='pydevd'):
-                                # from debugpy._vendored.pydevd._pydevd_bundle.pydevd_constants import get_global_debugger
-                                from _pydevd_bundle.pydevd_constants import get_global_debugger
-                                from pydevd import PyDB
-                                import pydevd
-                            port = int(args["debug_port"])
-                            logger.debug("Initiating attach on port %d" % port)
-                            # attach_script.attach(port, "localhost")
-                            debugpy.listen(port)
 
-                            # we have managed to reproduce much of the behavior of the fusion-ui-based launching of add-ins and scripts in debug mode,
-                            # but one thing we have not been able to reproduce is the behavior where clicking the "reload" button in VS code debugging interface
-                            # causes the add-in or script to run again.
-                            #also, we have not reprodfuced the behavior where fusion waits for the ide to connect to the debug adapter before running the 
-                            # script.  Somehow, we need to inject a wait-for-client function call just before running the script (but in another thread so as not to black
-                            # fusion's main thread), and somehow we need to catch the client refresh button press and re-launch jthe script in response.
+            # i = 0
+            # # wait_for_client experiment
+            # while i<5:
+            #     debugpy.wait_for_client()
+            #     # we seem to be iterating on the initial connection (i.e. pressing F5 in VS code)
+            #     # and on pressing the restart button in VS code.
+            #     # this is good -- this observation is consistent with Fusion using wait_for_client to
+            #     # for all interaction with vs code.
+            #     # Presumably, when I press F5 in vs code, vs code sends to the debug adapter information
+            #     # about which file is active in VS code.  Is this information accessible here?
+            #     # Does Fusion's behavior when initiaiting debugging from the UI buttons require 
+            #     # Fusion to know which file is active in VS code?  In other words, once we have used
+            #     # the Fusion UI buttons to start a script or add-in in debug mode, does Fusion behave any differently in 
+            #     # response to a pres of F% in VS code depending on which file is active in VS code.  (My hunch is no.)
+            #     # Actually, fusion does seem to know at least the parent directory of the file active in vs code.
+            #     # I reckon Fusion must be getting this information from the gloabal PyDB object.
 
-                            # perhaps there is something already established between fusion and the gloabl PyDB object such that I do not need
-                            # to bother running the script here, but rather can rely on this pre-established configuration to run the script merely as a result of
-                            # hitting F5 in vs code.
-
-                            # debugpy.wait_for_client()
-                            #  we ought to ensure that only one debugger server instance runs at a time.
-                            debugging_started=True
-                            
-
-                            pydb :PyDB = get_global_debugger()
-                            if pydb is None:
-                                raise RuntimeError("oops.  could not get global debugger.")
-                            
-                            class LoggingDapMessagesListener(pydevd.IDAPMessagesListener):
-                                # @overrides(pydevd.IDAPMessagesListener.after_receive)
-                                def after_receive(self, message_as_dict):
-                                    logger.debug(f"LoggingDapMessagesListener::after_receive({message_as_dict})")
-                                
-                                def before_send(self, message_as_dict):
-                                    logger.debug(f"LoggingDapMessagesListener::before_send({message_as_dict})")
-                            
-                            pydevd.add_dap_messages_listener(LoggingDapMessagesListener())
+            #     #Based on the messages that I caught with my LoggingDapMessagesListener, it looks like
+            #     # the path information the vscode sends to the debug adapter is precisely the information
+            #     # defined in the vscode launch.json file -- that makes sense.  But how is it happening that
+            #     # fusion runs the add-in/script specified by that path.  Is Fusion doing that, or is Fusion 
+            #     # setting up debugpy to do that.  In either case, how?
 
 
-                        
-                        logger.debug("After attach")
-                    except Exception:
-                        logger.fatal("An error occurred while while starting debugger.", exc_info=sys.exc_info())
-                    finally:
-                        del(sys.path[-1])  # pydevd_attach_to_process dir
+            #     pydb.block_until_configuration_done
 
-                if script_path:
-                    script_path = os.path.abspath(script_path)
-                    script_dir = os.path.dirname(script_path)
- 
-                    try:
-                        # This mostly mimics the package name that Fusion uses when running the script
-                        module_name = "__main__" + urllib.parse.quote(script_path.replace('.', '_'))
-                        spec = importlib.util.spec_from_file_location(
-                            module_name, script_path, submodule_search_locations=[script_dir])
-                        module = importlib.util.module_from_spec(spec)
- 
-                        existing_module = sys.modules.get(module_name)
-                        if existing_module and hasattr(existing_module, "stop"):
-                            existing_module.stop({"isApplicationClosing": False})
+            #     i += 1
+            #     logger.debug(f"client connected {i}")
+            #     while debugpy.is_client_connected():
+            #         pass
 
-                        self.unload_submodules(module_name)
+            # have to let debugpy.listen() finish before we can attach message listeners (yes, I know
+            # that the right way to do this is with a threading.Event(), or do the attaching of the listeners
+            # inside debugPyListenerThreadTarget().  Sleeping is just a hack.
 
-                        sys.modules[module_name] = module
-                        spec.loader.exec_module(module)
-                        logger.debug("Running script")
-                        module.run({"isApplicationStartup": False})
+            # we have managed to reproduce much of the behavior of the fusion-ui-based launching of add-ins and scripts in debug mode,
+            # but one thing we have not been able to reproduce is the behavior where clicking the "reload" button in VS code debugging interface
+            # causes the add-in or script to run again.
+            #also, we have not reprodfuced the behavior where fusion waits for the ide to connect to the debug adapter before running the 
+            # script.  Somehow, we need to inject a wait-for-client function call just before running the script (but in another thread so as not to black
+            # fusion's main thread), and somehow we need to catch the client refresh button press and re-launch jthe script in response.
 
-                        i = 0
-                        # wait_for_client experiment
-                        while i<5:
-                            debugpy.wait_for_client()
-                            # we seem to be iterating on the initial connection (i.e. pressing F5 in VS code)
-                            # and on pressing the restart button in VS code.
-                            # this is good -- this observation is consistent with Fusion using wait_for_client to
-                            # for all interaction with vs code.
-                            # Presumably, when I press F5 in vs code, vs code sends to the debug adapter information
-                            # about which file is active in VS code.  Is this information accessible here?
-                            # Does Fusion's behavior when initiaiting debugging from the UI buttons require 
-                            # Fusion to know which file is active in VS code?  In other words, once we have used
-                            # the Fusion UI buttons to start a script or add-in in debug mode, does Fusion behave any differently in 
-                            # response to a pres of F% in VS code depending on which file is active in VS code.  (My hunch is no.)
-                            # Actually, fusion does seem to know at least the parent directory of the file active in vs code.
-                            # I reckon Fusion must be getting this information from the gloabal PyDB object.
-
-                            #Based on the messages that I caught with my LoggingDapMessagesListener, it looks like
-                            # the path information the vscode sends to the debug adapter is precisely the information
-                            # defined in the vscode launch.json file -- that makes sense.  But how is it happening that
-                            # fusion runs the add-in/script specified by that path.  Is Fusion doing that, or is Fusion 
-                            # setting up debugpy to do that.  In either case, how?
+            # perhaps there is something already established between fusion and the gloabl PyDB object such that I do not need
+            # to bother running the script here, but rather can rely on this pre-established configuration to run the script merely as a result of
+            # hitting F5 in vs code.
 
 
-                            pydb.block_until_configuration_done
-
-                            i += 1
-                            logger.debug(f"client connected {i}")
-                            while debugpy.is_client_connected():
-                                pass
-                        
-                        
-
-                    except Exception:
-                        logger.fatal("Unhandled exception while importing and running script.",
-                                     exc_info=sys.exc_info())
-            finally:
-                if detach:
-                    try:
-                        pass
-                        # import pydevd
-                        # logger.debug("Detaching")
-                        # pydevd.stoptrace()
-                    except Exception:
-                        logger.error("Error while stopping tracing.", exc_info=sys.exc_info())
         except Exception:
             logger.fatal("An error occurred while attempting to start script.", exc_info=sys.exc_info())
         finally:
-            # if pydevd_path:
-            #     del sys.path[-1]  # The pydevd dir
-            if debugpy_path:
-                del sys.path[-1] 
+            pass
 
     @staticmethod
     def unload_submodules(module_name):

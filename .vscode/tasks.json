@@ -16,8 +16,8 @@
         {
             "label": "f8_task",
             "detail": "a composite task that we will bind to the f8 key in the global keybindings.",
-            // "dependsOn": ["reload_fusion_script_runner_addin_with_keystrokes"]
-            "dependsOn": ["reload_fusion_script_runner_addin_then_monitor_log"]
+            "dependsOn": ["reload_fusion_script_runner_addin_with_keystrokes"]
+            // "dependsOn": ["reload_fusion_script_runner_addin_then_monitor_log"]
         },
         {
             "label": "execute_with_python",
@@ -76,7 +76,8 @@
         {
             "label":"restart_fusion",
             "type":"shell",
-            "command": "taskkill /f /t /im Fusion360.exe & start \"\" Fusion360"
+            "command": "taskkill /f /t /im Fusion360.exe & start \"\" Fusion360 --nologo",
+            "presentation": {"reveal": "silent"}
         }
     ]
 
