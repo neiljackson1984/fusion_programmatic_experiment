@@ -30,13 +30,14 @@ import threading
 import traceback
 from typing import Optional, Callable
 import urllib.parse
-import tempfile
+
 import shutil
-from PIL import Image
-from PIL import ImageFont
-from PIL import ImageDraw 
+
 import datetime
- 
+import pathlib
+sys.path.append(str(pathlib.Path(__file__).parent.parent.resolve()))
+from simple_fusion_custom_command import SimpleFusionCustomCommand
+
  
 import rpyc
 import rpyc.core
@@ -146,7 +147,7 @@ class AddIn(object):
                 logger.debug("myTestFunction was called.")
                 return None
 
-            self._simpleFusionCustomCommands.append(SimpleFusionCustomCommand(name="neil_cool_command1", action=myTestFunction))
+            self._simpleFusionCustomCommands.append(SimpleFusionCustomCommand(name="neil_cool_command1", action=myTestFunction, app=app(), logger=logger))
 
         except Exception:
             logger.fatal(f"Error while starting {NAME_OF_THIS_ADDIN}", exc_info=sys.exc_info())
@@ -242,75 +243,6 @@ class AddIn(object):
             ui().messageBox(f"Error while closing {NAME_OF_THIS_ADDIN}'s dialog logger.\n\n%s" % traceback.format_exc())
         self._logging_dialog_handler = None
 
-class SimpleFusionCustomCommand(object):
-    """ This class automates the housekeeping involved with creating a custom command linked to a toolbar button in Fusion """
-    # Given the way Fusion uses the word "command" to refer to an action currently in progress rather than 
-    # a meaning more closely aligned with my intuitive notion of command, which is something like "function",
-    # it might make sense not to name this class "command", but use some other term like "function" "task" "procedure" "routine" etc.
-
-    def __init__(self, name: str, action: Optional[ Callable[[adsk.core.CommandEventArgs] , None] ] = None, app: Optional[adsk.core.Application] = None):
-        self._name = name
-        self._action = action or self.doNothingAction
-        self._commandId = self._name # TO-DO: ensure that the commandId is unique and doesn't contain any illegal characters.
-        self._app = app or globals()['app']()
-        self._resourcesDirectory = tempfile.TemporaryDirectory()
-        logger.debug("self._resourcesDirectory.name: " + self._resourcesDirectory.name)
-        logger.debug("sys.version: " + sys.version)
-
-        iconText = self._name[0].capitalize()
-        for imageSize in (16, 32, 64):
-            img = Image.new(mode='RGB',size=(imageSize, imageSize),color='white')
-            draw :ImageDraw.ImageDraw = ImageDraw.Draw(img)
-            font = ImageFont.truetype("arial.ttf",imageSize)
-            draw.text((imageSize/2,imageSize/2),iconText ,font=font, fill='black',anchor='mm')
-            img.save(os.path.join(self._resourcesDirectory.name, f"{imageSize}x{imageSize}.png"))
-
-        self._commandDefinition = self._app.userInterface.commandDefinitions.addButtonDefinition(
-            #id=
-            self._commandId,
-            #name=
-            self._name,
-            #tootlip=
-            self._name,
-            #resourceFolder(optional)=
-            # (i'm omitting the resourceFolder argument for now)
-            self._resourcesDirectory.name
-        )
-        self._commandCreatedHandler = self.CommandCreatedEventHandler(owner=self)
-        self._commandDefinition.commandCreated.add(self._commandCreatedHandler)
-        self._commandEventHandler = self.CommandEventHandler(owner=self)
-        self._toolbarControl : adsk.core.CommandControl = self._app.userInterface.toolbars.itemById('QAT').controls.addCommand(self._commandDefinition)
-        self._toolbarControl.isVisible = True
-
-    def __del__(self):
-        self._commandDefinition.deleteMe()
-        del self._commandDefinition
-        self._toolbarControl.deleteMe()
-        del self._toolbarControl
-        self._resourcesDirectory.cleanup()
-        del self._resourcesDirectory
-
-    @staticmethod
-    def doNothingAction(eventArgs: adsk.core.CommandEventArgs) -> None:
-        ui().palettes.itemById('TextCommands').writeText(str(datetime.datetime.now()) + "\t" + 'Hello doNothing from ' + __file__)
-
-    class CommandCreatedEventHandler(adsk.core.CommandCreatedEventHandler):
-        def __init__(self, owner: 'SimpleFusionCustomCommand'):
-            super().__init__()
-            self._owner = owner
-        def notify(self, args: adsk.core.CommandCreatedEventArgs):
-            args.command.execute.add(self._owner._commandEventHandler)
-            args.command.destroy.add(self._owner._commandEventHandler)
-            args.command.executePreview.add(self._owner._commandEventHandler)
-
-    class CommandEventHandler(adsk.core.CommandEventHandler):
-        def __init__(self, owner: 'SimpleFusionCustomCommand'):
-            super().__init__()
-            self._owner = owner
-        def notify(self, args: adsk.core.CommandEventArgs):    
-            if args.firingEvent.name == 'OnExecute':
-                self._owner._action(args)
-
 class RunScriptRequestedEventHandler(adsk.core.CustomEventHandler):
     """
     An event handler that can run a python script in the main thread of fusion 360, and initiate debugging.
@@ -332,6 +264,7 @@ class RunScriptRequestedEventHandler(adsk.core.CustomEventHandler):
                 return
 
             if debug:
+                # make sure that debugging is running.
                 if not debugpy_path:
                     logger.warning("We have been instructed to do debugging, but you have not provided the necessary debugpy_path.  Therefore, we can do nothing.")
                     return
@@ -350,7 +283,7 @@ class RunScriptRequestedEventHandler(adsk.core.CustomEventHandler):
                 if not debugging_started and get_global_debugger() is not None :  
                     logger.debug("Our debugging_started flag is cleared, and yet the global debugger object exists (possibly left over from a previous run/stop cycle of this add in), so we will go ahead and set the debugging_started flag.")
                     debugging_started = True  
-                    addin._simpleFusionCustomCommands.append(SimpleFusionCustomCommand(name="D_indicator")) 
+                    addin._simpleFusionCustomCommands.append(SimpleFusionCustomCommand(name="D_indicator", app=app(), logger=logger)) 
                 # We are assuming that if the global debugger object exists, then debugging is active and configured as desired.
                 # I am not sure that this is always a safe assumption, but oh well.
 
@@ -386,7 +319,7 @@ class RunScriptRequestedEventHandler(adsk.core.CustomEventHandler):
                     
                     #display a "D" button in the quick-access toolbar as a visual indicator to the user that debugging is now active.
                     debugging_started = True
-                    addin._simpleFusionCustomCommands.append(SimpleFusionCustomCommand(name="D_indicator"))
+                    addin._simpleFusionCustomCommands.append(SimpleFusionCustomCommand(name="D_indicator", app=app(), logger=logger))
                 
                 
                 

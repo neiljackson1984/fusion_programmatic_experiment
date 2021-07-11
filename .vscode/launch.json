@@ -1,12 +1,12 @@
 {
 	"version":	"0.2.0",
 	"configurations":	[{
-			"name":	"Python: Attach",
+			"name":	"Python: Attach arbitrary_script_1",
 			"type":	"python",
 			"request":	"attach",
 			"pathMappings":	[{
-					"localRoot":	"${workspaceRoot}",
-					"remoteRoot":	"${workspaceRoot}"
+					"localRoot":	"${workspaceRoot}${pathSeparator}test_scripts${pathSeparator}arbitrary_script_1",
+					"remoteRoot":	"${workspaceRoot}${pathSeparator}test_scripts${pathSeparator}arbitrary_script_1"
 				}],
 			"port":	9000,
 			"host":	"localhost"
