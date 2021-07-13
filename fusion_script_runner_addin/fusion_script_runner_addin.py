@@ -74,9 +74,6 @@ class AddIn(object):
         self._logging_dialog_handler                : Optional[logging.Handler]                 = None
         self._http_server                           : Optional[http.server.HTTPServer]          = None
         self._rpyc_slave_server                     : Optional[rpyc.utils.server.Server]        = None
-        # self._toolbarControls                       : list[adsk.core.ToolbarControl]            = []
-        # self._commandDefinitions                    : list[adsk.core.CommandDefinition]         = []
-        # self._fusionCommand1                        : Optional[SimpleFusionCustomCommand]       = None
         self._simpleFusionCustomCommands            : list[SimpleFusionCustomCommand]           = []
 
     def start(self):
@@ -418,7 +415,6 @@ class RunScriptRequestedEventHandler(adsk.core.CustomEventHandler):
                 loaded_submodules.append(loaded_module_name)
         for loaded_submodule in loaded_submodules:
             del sys.modules[loaded_submodule]
-
 
 class ErrorDialogEventHandler(adsk.core.CustomEventHandler):
     """An event handler that shows an error dialog to the user."""

@@ -86,7 +86,11 @@ class AddIn(object):
                     name="arbitrary_add_in_1_command", 
                     app=app(), 
                     logger=logger,
-                    action=(lambda eventArgs: ui().palettes.itemById('TextCommands').writeText(str(datetime.datetime.now()) + "\t" + 'Hello from ' + __file__))
+                    action=(
+                        lambda eventArgs: 
+                        # ui().palettes.itemById('TextCommands').writeText(str(datetime.datetime.now()) + "\t" + 'Hello from ' + __file__)
+                        ui().messageBox(str(datetime.datetime.now()) + "\t" + 'Hello from ' + __file__)
+                    )
                 )
             )
 

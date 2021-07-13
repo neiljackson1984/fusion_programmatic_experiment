@@ -161,3 +161,13 @@ C:\WINDOWS\System32\cmd.exe
 C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825/Python\python C:\Users\Admin\.vscode\extensions\ms-python.python-2021.6.944021595\pythonFiles\lib\python\debugpy\adapter --for-server 49158 --host 127.0.0.1 --port 9000 --server-access-token 73e25b26a65b8cb09f3200329056c04a3adaa7972e66fc6a544a840fd7e89e2f
 
 tail -F "C:\work\fusion_programmatic_experiment\fusion_script_runner_addin\fusion_script_runner_addin_log.log"
+
+
+grep  --with-filename --recursive "pathMappings" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy/_vendored/pydevd"/*
+grep  --with-filename --recursive "attach" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy/_vendored/pydevd"/*
+grep  --with-filename --recursive "filePath" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy/_vendored/pydevd"/*
+grep  --with-filename --recursive "_get_handler_for" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy"/*
+grep  --with-filename --recursive "JsonMessageChannel" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy"/*
+
+#to-do: try setting the DEBUGPY_LOG_DIR environment variable, which should cause the debugpy adapter to dump logs to the specified directory.  These logs might offer some cluses as to how Fusion studio is 
+# configuring debugpy/pydevd to effectively hook into the ide attach events.
