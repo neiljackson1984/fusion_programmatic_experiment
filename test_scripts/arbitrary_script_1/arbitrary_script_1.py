@@ -3,7 +3,11 @@ print("this is an arbitrary script that is being used as a placeholder for testi
 
 import adsk.core, adsk.fusion, adsk.cam, traceback
 import datetime
-pathOfDebuggingLog = "C:\\work\\fusion_programmatic_experiment\\report2.txt"
+import tempfile
+import os
+import pathlib
+# pathOfDebuggingLog = "C:\\work\\fusion_programmatic_experiment\\report2.txt"
+pathOfDebuggingLog = os.path.join(tempfile.gettempdir(), pathlib.Path(__file__).with_suffix('.log').name)
 
 def printDebuggingMessage(x: str):
     global pathOfDebuggingLog

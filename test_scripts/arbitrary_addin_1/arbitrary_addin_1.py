@@ -20,12 +20,12 @@ import threading
 import traceback
 from typing import Optional, Callable
 import urllib.parse
-
+import tempfile
 import shutil
 
 import datetime
 import pathlib
-sys.path.append(str(pathlib.Path(__file__).parent.parent.parent.resolve()))
+sys.path.append(str(pathlib.Path(__file__).parent.parent.parent.joinpath('lib').resolve()))
 from simple_fusion_custom_command import SimpleFusionCustomCommand
 
 
@@ -37,6 +37,10 @@ from simple_fusion_custom_command import SimpleFusionCustomCommand
 
 NAME_OF_THIS_ADDIN = 'arbitrary_addin_1'
 ERROR_DIALOG_EVENT_ID = f"{NAME_OF_THIS_ADDIN}_error_dialog"
+
+# pathOfDebuggingLog = os.path.join(os.path.dirname(os.path.realpath(__file__)), f"{NAME_OF_THIS_ADDIN}_log.log")
+pathOfDebuggingLog = os.path.join(tempfile.gettempdir(), f"{NAME_OF_THIS_ADDIN}_log.log")
+
 
 def app() -> adsk.core.Application: return adsk.core.Application.get()
 def ui() -> adsk.core.UserInterface: return app().userInterface
@@ -59,7 +63,7 @@ class AddIn(object):
         # error messages in a more primitive way.
         try:
             self._logging_file_handler = logging.handlers.RotatingFileHandler(
-                filename=os.path.join(os.path.dirname(os.path.realpath(__file__)), f"{NAME_OF_THIS_ADDIN}_log.log"),
+                filename=pathOfDebuggingLog,
                 maxBytes=2**20,
                 backupCount=1)
             self._logging_file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))

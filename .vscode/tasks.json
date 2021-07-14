@@ -76,8 +76,23 @@
         {
             "label":"restart_fusion",
             "type":"shell",
-            "command": "taskkill /f /t /im Fusion360.exe & start \"\" Fusion360 --nologo",
+            "command": "taskkill /f /t /im Fusion360.exe & (set DEBUGPY_LOG_DIR=C:\\work\\fusion_programmatic_experiment\\debugpy_log && start \"\" Fusion360 --nologo)",
             "presentation": {"reveal": "silent"}
+            
+        },
+        {
+            "label":"monitor_the_log",
+            "type":"shell",
+            "command": "tail -F \"${env:TEMP}${pathSeparator}fusion_script_runner_addin_log.log\"",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel":  "dedicated",
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "isBackground": true
         }
     ]
 
