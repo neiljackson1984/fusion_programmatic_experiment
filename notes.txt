@@ -173,3 +173,75 @@ grep  --with-filename --recursive "JsonMessageChannel" "C:/Users/Admin/.vscode/e
 #to-do: try setting the DEBUGPY_LOG_DIR environment variable, which should cause the debugpy adapter to dump logs to the specified directory.  These logs might offer some cluses as to how Fusion studio is 
 # configuring debugpy/pydevd to effectively hook into the ide attach events.
 DEBUGPY_LOG_DIR=C:\work\fusion_programmatic_experiment\debugpy_log
+
+
+import pprint, inspect; pprint.pprint(inspect.getmembers(globals())) 
+import pprint, inspect; pprint.pprint(list(globals().keys()))  
+pp=pprint.PrettyPrinter(indent=4, width=-1, depth=2);
+
+pp.pprint(inspect.getmembers(pydevd_file_utils)) 
+pp.pprint(sorted(list(globals().keys())))
+pp.pprint(sorted(dir()))
+pp.pprint(inspect.getmembers(pydevd_file_utils)) 
+
+pp=pprint.PrettyPrinter(indent=4, width=-1, depth=1); pp.pprint(inspect.getmembers(pydevd_file_utils)) 
+pp=pprint.PrettyPrinter(indent=4, width=80, depth=2, compact=False); pp.pprint(
+    [
+        (name, type(value))
+        for (name, value) in inspect.getmembers(pydevd_file_utils)
+    ]
+) 
+
+pp=pprint.PrettyPrinter(indent=4, width=80, depth=2, compact=False); pp.pprint(
+    [
+        (name, type(value))
+        for (name, value) in globals().items()
+    ]
+) 
+
+pp.pprint(
+    [
+        (name, type(value))
+        for (name, value) in inspect.getmembers(debugpy)
+    ]
+) 
+
+pp=pprint.PrettyPrinter(indent=4, width=80, depth=2, compact=False); pp.pprint(
+    [
+        (name, type(value))
+        for (name, value) in debugpy.__builtins__['globals']().items()
+    ]
+) 
+
+pp.pprint(sys.modules)
+pp.pprint(sys.modules)
+
+pp.pprint(
+    [
+        (name, type(value))
+        for (name, value) in inspect.getmembers(sys.modules['neu_internal'])
+    ]
+) 
+
+pp.pprint(
+    [
+        (name, type(value))
+        for (name, value) in inspect.getmembers(sys.modules['pydevd'])
+    ]
+) 
+
+sys.modules['pydevd'].get_global_debugger()
+
+pp.pprint(
+    [
+        (name, type(value), value)
+        for (name, value) in inspect.getmembers(sys.modules['pydevd'].get_global_debugger())
+    ]
+) 
+
+
+set DEBUGPY_LOG_DIR=C:/work/fusion_programmatic_experiment/debugpy_log && "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825/Python/python.exe" C:\Users\Admin\.vscode\extensions\ms-python.python-2021.6.944021595\pythonFiles\lib\python\debugpy\adapter --for-server 63980 --host 127.0.0.1 --port 9000 --server-access-token 14f7030f88c84ca7ba96a4e6d7ddea1cf5ce006b17560ba7e9a38336b1e292c7
+set "DEBUGPY_LOG_DIR=C:/work/fusion_programmatic_experiment/debugpy_log" && "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825/Python/python.exe" C:\Users\Admin\.vscode\extensions\ms-python.python-2021.6.944021595\pythonFiles\lib\python\debugpy\adapter --for-server 63980 --host 127.0.0.1 --port 9000 --server-access-token 14f7030f88c84ca7ba96a4e6d7ddea1cf5ce006b17560ba7e9a38336b1e292c7
+set "DEBUGPY_LOG_DIR=" && "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825/Python/python.exe" C:\Users\Admin\.vscode\extensions\ms-python.python-2021.6.944021595\pythonFiles\lib\python\debugpy\adapter --for-server 63980 --host 127.0.0.1 --port 9000 --server-access-token 14f7030f88c84ca7ba96a4e6d7ddea1cf5ce006b17560ba7e9a38336b1e292c7
+
+#stupid trailing space in the DEBUGPY_LOG_DIR environment vaiorable was preventing debugpy adapter form running.

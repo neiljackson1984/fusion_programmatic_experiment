@@ -3,11 +3,7 @@
     // for the documentation about the tasks.json format
     "version": "2.0.0",
     "tasks": [
-        {
-            "label": "echo",
-            "type": "shell",
-            "command": "echo Hello"
-        },
+        
         {
             "label": "f7_task",
             "detail": "a composite task that we will bind to the f7 key in the global keybindings.",
@@ -19,6 +15,9 @@
             "dependsOn": ["reload_fusion_script_runner_addin_with_keystrokes"]
             // "dependsOn": ["reload_fusion_script_runner_addin_then_monitor_log"]
         },
+
+
+
         {
             "label": "execute_with_python",
             "type":"shell",
@@ -29,21 +28,7 @@
             "type":"shell",
             "command": "${config:python.pythonPath} \"${workspaceFolder}${pathSeparator}rpyc_playground.py\""
         },
-        // {
-        //     // to be mapped to the F8 key
-        //     // chmod ugo+x "$(which autohotkey)"
-        //     "label": "reload_fusion_script_runner_addin_with_keystrokes",
-        //     "type":"shell",
-        //     // "command": "autohotkey \"${workspaceFolder}${pathSeparator}reload_fusion_addin.ahk\" fusion_script_runner_addin ; tail -F \"${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}fusion_script_runner_addin_log.txt\"",
-        //     "command": "autohotkey",
-        //     "presentation": {
-        //         "reveal": "always",
-        //         "showReuseMessage": false
-        //         },
-        //     "isBackground": false,
-        //     "promptOnClose": false,
-        //     "options": {"shell": {"executable": "bash"}}
-        // }
+
         {
             "label": "reload_fusion_script_runner_addin_with_keystrokes",
             "type":"shell",
@@ -76,9 +61,15 @@
         {
             "label":"restart_fusion",
             "type":"shell",
-            "command": "taskkill /f /t /im Fusion360.exe & (set DEBUGPY_LOG_DIR=C:\\work\\fusion_programmatic_experiment\\debugpy_log && start \"\" Fusion360 --nologo)",
+            "command": "taskkill /f /t /im Fusion360.exe & (start \"\" Fusion360 --nologo)",
             "presentation": {"reveal": "silent"}
             
+        },
+        {
+            "label":"restart_fusion_with_debugpy_log_dir_defined",
+            "type":"shell",
+            "command": "taskkill /f /t /im Fusion360.exe & (set \"DEBUGPY_LOG_DIR=C:/work/fusion_programmatic_experiment/debugpy_log\" && start \"\" Fusion360 --nologo)",
+            "presentation": {"reveal": "silent"}            
         },
         {
             "label":"monitor_the_log",
@@ -93,6 +84,30 @@
                 "clear": false
             },
             "isBackground": true
+        },
+        {
+            "label":"run_script_in_fusion_without_debugging",
+            "type":"shell",
+            "command": "${config:python.pythonPath} \"${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}run_script_in_fusion.py\"",
+            "args":[
+                "--script", "${file}",
+                "--debug", "0",
+                "--debugpy_path", "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python",
+                "--addin_port", "19812",
+                "--debug_port", "9000"
+            ]
+        },
+        {
+            "label":"run_script_in_fusion_with_debugging",
+            "type":"shell",
+            "command": "${config:python.pythonPath} \"${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}run_script_in_fusion.py\"",
+            "args":[
+                "--script", "${file}",
+                "--debug", "1",
+                "--debugpy_path", "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python",
+                "--addin_port", "19812",
+                "--debug_port", "9000"
+            ]
         }
     ]
 

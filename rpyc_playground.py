@@ -17,6 +17,30 @@ PORT_NUMBER_FOR_HTTP_SERVER = 19812
 print("XXXXXXXXXXXX")
 conn = rpyc.classic.connect("localhost", port=PORT_NUMBER_FOR_RPYC_SLAVE_SERVER)
 print("Hello World!", file=conn.modules.sys.stdout)
+
+
+script='''
+
+message=""
+message += str(dir())
+
+
+'''
+
+conn.execute(script)
+print(conn.eval('message'))
+
+exit()
+
+
+
+
+
+
+
+
+
+
 print("conn.modules: " + str(conn.modules))
 print("conn.namespace: " + str(conn.namespace))
 # remoteBuiltins = conn.modules['builtins']
