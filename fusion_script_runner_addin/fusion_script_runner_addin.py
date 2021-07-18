@@ -332,6 +332,8 @@ class RunScriptRequestedEventHandler(adsk.core.CustomEventHandler):
 
             if script_path:
                 if debug:
+                    if not debugpy.is_client_connected():
+                        ui().palettes.itemById('TextCommands').writeText(str(datetime.datetime.now()) + "\t" + 'Waiting for connection from client, and will then run ' + script_path)
                     debugpy.wait_for_client()
                     # we might consider doing this waiting in a separate thread so as to not block the UI.
                     

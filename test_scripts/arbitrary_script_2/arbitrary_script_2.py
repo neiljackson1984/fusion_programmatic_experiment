@@ -6,7 +6,8 @@ import datetime
 import tempfile
 import os
 import pathlib
-# pathOfDebuggingLog = "C:\\work\\fusion_programmatic_experiment\\report2.txt"
+
+
 pathOfDebuggingLog = os.path.join(tempfile.gettempdir(), pathlib.Path(__file__).with_suffix('.log').name)
 
 def printDebuggingMessage(x: str):
@@ -24,7 +25,7 @@ def printDebuggingMessage(x: str):
 
 
 
-def run(context=None):
+def run(context:dict=None):
     ui = None
     try:
         printDebuggingMessage("ahoy matey")
@@ -33,12 +34,8 @@ def run(context=None):
         printDebuggingMessage("ahoy matey 2")
         # ui.messageBox('hello script')
         ui.palettes.itemById('TextCommands').writeText(str(datetime.datetime.now()) + "\t" + 'Hello from ' + __file__)
-        # app.userInterface.commandDefinitions.itemById('ScriptsManagerCommand').execute(adsk.core.NamedValues.create())
-        # app.userInterface.commandDefinitions.itemById('RunScriptCommand').execute(adsk.core.NamedValues.create())
-        # app.userInterface.commandDefinitions.itemById('PythonInteractiveCommand').execute(adsk.core.NamedValues.create())
     except:
         if ui:
             ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
         printDebuggingMessage('Failed:\n{}'.format(traceback.format_exc()))
 
-# run()

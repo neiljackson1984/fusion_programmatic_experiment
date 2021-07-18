@@ -178,9 +178,13 @@ grep  --with-filename --recursive --ignore-case "workspace" "C:/Users/Admin/.vsc
 grep  --with-filename --recursive --exclude '__pycache__' --ignore-case "PYDEVD_DEBUG_FILE" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy"/*
 grep  --with-filename --line-number --recursive --exclude-dir '__pycache__' --ignore-case "PYDEVD_DEBUG_FILE" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy"/*
 grep  --with-filename --line-number --recursive --exclude-dir '__pycache__' --ignore-case "force_pydevd" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy"/*
+grep  --with-filename --line-number --recursive --exclude-dir '__pycache__' --ignore-case "force_pydevd" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy"/*
 
 grep  --with-filename --recursive --ignore-case "This file is for the server to provide logic that" "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825"/*
 grep  --with-filename --recursive --ignore-case "isblockedVersion" "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825"/*
+grep  --with-filename --line-number --recursive --exclude-dir '__pycache__' --ignore-case "toast" "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825"/*
+grep  --with-filename --line-number --recursive --only-matching  --exclude-dir '__pycache__' --ignore-case "toast" "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825"/*
+
 
 #to-do: try setting the DEBUGPY_LOG_DIR environment variable, which should cause the debugpy adapter to dump logs to the specified directory.  These logs might offer some cluses as to how Fusion studio is 
 # configuring debugpy/pydevd to effectively hook into the ide attach events.

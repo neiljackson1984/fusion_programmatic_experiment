@@ -104,9 +104,9 @@ class Bolt (ScriptedComponent):
     #     return newlyCreatedClassInstance
 
     def _update(self, constructFromScratch: bool = False):
-        theComponent: adsk.fusion.Component = self._component
+        theComponent: adsk.fusion.Component = self._fusionComponent
         printDebuggingMessage("updateBolt() is running with constructFromScratch=" + str(constructFromScratch) + ", and theComponent.name=" + theComponent.name)
-        return
+        
 
         timestamp = "{0.hour}{0.minute}{0.second}".format(datetime.datetime.now())
         
@@ -167,8 +167,8 @@ class Bolt (ScriptedComponent):
 
         # find the headSketch and shankSketch
         # headSketch  = adsk.fusion.Sketch.cast( adsk.core.Attribute.cast( next(findAttributesInComponent(theComponent, attributeGroupName, "headSketch"))[0] ).parent )
-        headSketch  = adsk.fusion.Sketch.cast( findFirstTaggedEntityInComponent(theComponent, "headSketch") )
-        shankSketch = adsk.fusion.Sketch.cast( findFirstTaggedEntityInComponent(theComponent, "shankSketch") )
+        headSketch  = adsk.fusion.Sketch.cast( ScriptedComponent.findFirstTaggedEntityInComponent(theComponent, "headSketch") )
+        shankSketch = adsk.fusion.Sketch.cast( ScriptedComponent.findFirstTaggedEntityInComponent(theComponent, "shankSketch") )
     
         center = adsk.core.Point3D.create(0, 0, 0)
         vertices = [
@@ -195,7 +195,7 @@ class Bolt (ScriptedComponent):
             headExtrusion.name = timestamp + " " + "head extrusion"
             headExtrusion.faces[0].body.name = timestamp + " " + self.boltName
         
-        headExtrusion = adsk.fusion.ExtrudeFeature.cast(findFirstTaggedEntityInComponent(theComponent, "headExtrusion"))
+        headExtrusion = adsk.fusion.ExtrudeFeature.cast(ScriptedComponent.findFirstTaggedEntityInComponent(theComponent, "headExtrusion"))
         
         headExtrusion.timelineObject.rollTo(True)
         # headExtrusion.setDistanceExtent( False, adsk.core.ValueInput.createByReal(self.headHeight) )
@@ -215,7 +215,7 @@ class Bolt (ScriptedComponent):
             shankExtrusion.name = timestamp + " " + "shank extrusion"
             shankExtrusion.attributes.add(attributeGroupName, "shankExtrusion", "")
 
-        shankExtrusion = adsk.fusion.ExtrudeFeature.cast(findFirstTaggedEntityInComponent(theComponent, "shankExtrusion"))
+        shankExtrusion = adsk.fusion.ExtrudeFeature.cast(ScriptedComponent.findFirstTaggedEntityInComponent(theComponent, "shankExtrusion"))
         shankExtrusion.timelineObject.rollTo(True)
         shankExtrusion.participantBodies = list(headExtrusion.bodies)
         # shankExtrusion.setDistanceExtent(False, adsk.core.ValueInput.createByReal(self.length))
@@ -248,7 +248,7 @@ class Bolt (ScriptedComponent):
             chamfer = theComponent.features.chamferFeatures.add(chamferInput)
             chamfer.attributes.add(attributeGroupName, "chamfer", "")
             chamfer.name = timestamp + " " + "chamfer"
-        chamfer = adsk.fusion.ChamferFeature.cast(findFirstTaggedEntityInComponent(theComponent, "chamfer"))
+        chamfer = adsk.fusion.ChamferFeature.cast(ScriptedComponent.findFirstTaggedEntityInComponent(theComponent, "chamfer"))
         chamfer.timelineObject.rollTo(True)
 
         #in the case where we are not construction from scratch, edgeCollection computed above
@@ -299,7 +299,7 @@ class Bolt (ScriptedComponent):
             fillet = theComponent.features.filletFeatures.add(filletInput)
             fillet.attributes.add(attributeGroupName, "fillet", "")
             fillet.name = timestamp + " " + "fillet"
-        fillet = adsk.fusion.FilletFeature.cast(findFirstTaggedEntityInComponent(theComponent, "fillet"))
+        fillet = adsk.fusion.FilletFeature.cast(ScriptedComponent.findFirstTaggedEntityInComponent(theComponent, "fillet"))
         fillet.timelineObject.rollTo(True)
         
         edgeLoop = next(

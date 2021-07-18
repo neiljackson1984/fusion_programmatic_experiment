@@ -11,6 +11,17 @@ def printDebuggingMessage(x: str):
     # if app.userInterface:
     #     app.userInterface.messageBox(x)
 
+# get all descendants of the given class.
+def inheritors(klass):
+    subclasses = set()
+    work = [klass]
+    while work:
+        parent = work.pop()
+        for child in parent.__subclasses__():
+            if child not in subclasses:
+                subclasses.add(child)
+                work.append(child)
+    return subclasses
 
 class ScriptedComponent (object):
     # this is a static constant that we use as the name of the "attribute group name" 
@@ -47,17 +58,14 @@ class ScriptedComponent (object):
     @classmethod 
     def create(cls, parentFusionComponent: adsk.fusion.Component):
         newlyCreatedOccurence  = parentFusionComponent.occurrences.addNewComponent(adsk.core.Matrix3D.create())
-        newlyCreatedFusionComponent = adsk.fusion.Component(newlyCreatedOccurence.component)
-        self._fusionComponent.attributes.add(ScriptedComponent.attributeGroupName, "ScriptedComponent", "") # this is the special marker that designates a scripted component
-        self._fusionComponent.attributes.add(ScriptedComponent.attributeGroupName, "class", self.__class__.__name__)
-        # newlyCreatedComponent.attributes.add(ScriptedComponent.attributeGroupName, "ScriptedComponent", "") # this is the special marker that designates a scripted component
-        # newlyCreatedComponent.attributes.add(ScriptedComponent.attributeGroupName, "class", cls.__name__)
-        return cls(newlyCreatedComponent)
+        newlyCreatedFusionComponent = adsk.fusion.Component.cast(newlyCreatedOccurence.component)
+        newlyCreatedFusionComponent.attributes.add(ScriptedComponent.attributeGroupName, "ScriptedComponent", "") # this is the special marker that designates a scripted component
+        newlyCreatedFusionComponent.attributes.add(ScriptedComponent.attributeGroupName, "class", cls.__name__)
+        return cls(newlyCreatedFusionComponent)
 
 
     @staticmethod
     def getAllScriptedComponentsInAFusionDesign( fusionDesign: adsk.fusion.Design ):
-        printDebuggingMessage("ahoy")
         scriptedComponents = [
             adsk.fusion.Component.cast(adsk.core.Attribute.cast(attribute).parent) 
             for attribute in 
@@ -82,7 +90,11 @@ class ScriptedComponent (object):
         for scriptedComponent in ScriptedComponent.getAllScriptedComponentsInAFusionDesign(fusionDesign):
             scriptedComponent = adsk.fusion.Component.cast(scriptedComponent)
             className = scriptedComponent.attributes.itemByName(ScriptedComponent.attributeGroupName,"class").value
-            klass = globals()[className]
+            # klass = globals()[className]
+            # I seem to remember that the above way to get the klass worked in previous versions of Fusion
+            # (possibly due to something about previous versions of Python?)
+
+            klass = next(filter(lambda x: x.__name__ == className , inheritors(ScriptedComponent)))
             #to do: handle the case where the specified class does not exist.
-            instance = klass(classBackedComponent)
+            instance = klass(scriptedComponent)
             instance.update()

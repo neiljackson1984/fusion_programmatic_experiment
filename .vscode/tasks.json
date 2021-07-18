@@ -4,17 +4,13 @@
     "version": "2.0.0",
     "tasks": [
         
-        {
-            "label": "f7_task",
-            "detail": "a composite task that we will bind to the f7 key in the global keybindings.",
-            "dependsOn": ["run_rpyc_playground"]
-        },
-        {
-            "label": "f8_task",
-            "detail": "a composite task that we will bind to the f8 key in the global keybindings.",
-            "dependsOn": ["reload_fusion_script_runner_addin_with_keystrokes"]
-            // "dependsOn": ["reload_fusion_script_runner_addin_then_monitor_log"]
-        },
+        // the following "fx_task" tasks are intended to be triggered by the corresponding f key.
+        // In order for this to work, you must define keybindings like the following, which you shouild place in vs code's keybindings.json file.:
+        //   { "key": "f4"  ,  "command": "workbench.action.tasks.runTask"     ,    "args": "f4_task"    }
+        { "label": "f4_task",            "dependsOn": ["run_design1_with_debugging"]                           },
+        { "label": "f7_task",            "dependsOn": ["run_rpyc_playground"]                                  },
+        { "label": "f8_task",            "dependsOn": ["reload_fusion_script_runner_addin_with_keystrokes"]    },
+        { "label": "f9_task",            "dependsOn": ["run_script_in_fusion_without_debugging"]               },
 
 
 
@@ -132,6 +128,24 @@
                 "--addin_port", "19812",
                 "--debug_port", "9000"
             ]
+        },
+        {
+            "label":"run_design1_with_debugging",
+            "type":"shell",
+            "command": "${config:python.pythonPath} \"${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}run_script_in_fusion.py\"",
+            "args":[
+                "--script", "${workspaceFolder}${pathSeparator}design1.py",
+                "--debug", "1",
+                "--debugpy_path", "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python",
+                "--addin_port", "19812",
+                "--debug_port", "9000"
+            ],
+            "presentation": {"reveal" : "silent" }
+        },
+        {
+            "label":"hello_world",
+            "type":"shell",
+            "command": "echo hello world.",
         }
     ]
 
