@@ -169,6 +169,18 @@ grep  --with-filename --recursive "attach" "C:/Users/Admin/.vscode/extensions/ms
 grep  --with-filename --recursive "filePath" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy/_vendored/pydevd"/*
 grep  --with-filename --recursive "_get_handler_for" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy"/*
 grep  --with-filename --recursive "JsonMessageChannel" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy"/*
+grep  --with-filename --recursive "on_attach_request" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy"/*
+grep  --with-filename --recursive "ON_attach_request" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy"/*
+grep  --with-filename --recursive --ignore-case "ON_attach_request" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy"/*
+grep  --with-filename --recursive --ignore-case "filePath" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy"/*
+grep  --with-filename --recursive --ignore-case "workspaceFolder" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy"/*
+grep  --with-filename --recursive --ignore-case "workspace" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy"/*
+grep  --with-filename --recursive --exclude '__pycache__' --ignore-case "PYDEVD_DEBUG_FILE" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy"/*
+grep  --with-filename --line-number --recursive --exclude-dir '__pycache__' --ignore-case "PYDEVD_DEBUG_FILE" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy"/*
+grep  --with-filename --line-number --recursive --exclude-dir '__pycache__' --ignore-case "force_pydevd" "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy"/*
+
+grep  --with-filename --recursive --ignore-case "This file is for the server to provide logic that" "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825"/*
+grep  --with-filename --recursive --ignore-case "isblockedVersion" "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825"/*
 
 #to-do: try setting the DEBUGPY_LOG_DIR environment variable, which should cause the debugpy adapter to dump logs to the specified directory.  These logs might offer some cluses as to how Fusion studio is 
 # configuring debugpy/pydevd to effectively hook into the ide attach events.
@@ -245,3 +257,116 @@ set "DEBUGPY_LOG_DIR=C:/work/fusion_programmatic_experiment/debugpy_log" && "C:/
 set "DEBUGPY_LOG_DIR=" && "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825/Python/python.exe" C:\Users\Admin\.vscode\extensions\ms-python.python-2021.6.944021595\pythonFiles\lib\python\debugpy\adapter --for-server 63980 --host 127.0.0.1 --port 9000 --server-access-token 14f7030f88c84ca7ba96a4e6d7ddea1cf5ce006b17560ba7e9a38336b1e292c7
 
 #stupid trailing space in the DEBUGPY_LOG_DIR environment vaiorable was preventing debugpy adapter form running.
+
+import neu_dev, inspect, os, sys, pprint; pp=pprint.PrettyPrinter(indent=4, width=80, depth=2, compact=False); pp.pprint(
+    inspect.getmembers(neu_dev.run_script)
+)
+
+
+
+
+
+
+# yields, for instance, [('c:\\work\\fusion_programmatic_experiment\\test_scripts\\arbitrary_script_1', 'C:\\work\\fusion_programmatic_experiment\\test_scripts\\arbitrary_script_1')]
+# This is a good candidate for how Fusion might be detecting which script is mentioned in the vs code attach request.
+# experiment idea: with fusion in native debug mode (i.e. after running the text command "Python.IDE", for instance),
+# attempt to attach to the debug server with several various states of the vs code launch.json file:
+# 1) with the "filePath" entry removed.
+#>> in this case, fusion runs the script determined by the pathMappings entry.
+
+# 2) with the "pathMappings" entry removed (but the filePAth entry present.)
+#>> strangely, vs code still sent the usual pathMappings.
+# therefore, rather than remove pathMappings, I set the subproperties of the pathMappings entry to bogus values (empty string).
+#>> in this case, fusion really did send the empty strings that I specified, but amazingly fusion still ran the correct script.  How?
+#>> restart fusion
+#>> now, when rerunning the test, fusion fails to run the script.  This suggests that, in case receives invalid pathMappings value,
+#>> fusion assumes the previous value.  (Actually, this defaulting-to-last-valid-value might be done by the pydevd_file_utils module, which handles updating the pydevd_file_utils._last_client_server_paths_set value.)
+# I have tested and can confirm that, starting with pydevd_file_utils._last_client_server_paths_set having legitimate path values, doing an attach with empty-string path values
+# results in pydevd_file_utils._last_client_server_paths_set maintaining the same original legitimate path values.
+
+
+# 3) with the filePath and pathMappings entries each pointing to a different script.
+#>> in this case, fusion runs the script determined by the pathMappings entry.
+
+# if we have run an add-in in debug mode using the fusion UI, Will this put Fusion in a different state as running a 'script' in debug mode?  Specifically, if we have run  an add-in in debug mode, 
+# will subsequent attach requests for scripts fail to run the scripts?
+#>> No.  But, evidently, in the case where the first attach request after initiating debug mode via the Fusion UI contains bogus pathMappings values, subsequent atach requests with legitimate pathMappings values 
+#>> fail to cause the script to run.
+
+
+
+# regardless of what's in the launch.json file, vs code is sending, in the attach request arguments, a parameter named 'workspaceFolder', which is the path of the vscode workspace folder.
+# a text search through all files in the debugpy directory for the text "workspaceFolder" (case-insensitive) yields nothing.  This suggests that neither debugpy nor pydevd pay attention
+# to the 'workspaceFolder' argument in the 
+# attach request, and that therefore, Fusion probably does not pay attention to it either when deciding which script to run in response to the attach request.
+
+# Given that debugpy (and also, pydevd bundled within debugpy) do not seem to do anything with the filePath entry of the attach request (as evidence by the fact that 
+# a search through all files within the debugpy directory for the text "filePath" (case insensitive) yields nothing),
+# credence is lended to the theory that fusion is looking at pydevd_file_utils._last_client_server_paths_set to determine which script vs code is working with.
+# Probably, Fusion looks for the presence of an appropriately-named .manifest file in the specified directory.
+# Let's use procmon to see if Fusion does access the .manifest file.
+
+#Note: The Python.IDE textCommand launches the debugpy adapter process, but does not seem to put Fusion into quite the same state as using the Fusion UI to run a script in debug mode.
+# Specificlly, whereas initiating debug mode using the UI buttons within Fusion puts Fusion into a state where Fusion will run a script when debugpy receives an attach request (namely, the script
+# specified by the pathMappings argument in the attach request, it seems (apparently, by looking for
+# a .manifest file (but not acutally reading the contents of the .manifest file, according to procmon), and then loading the 
+# same-named .py file).), after initiaing debug mode using the Python.IDE textCommand, doing an attach with vs code does not cause fusion to run the script.
+
+# question: If we initiate debug mode using the Fusion UI buttons, then run the Python.IDE text command, will Fusion be in the run-on-attach state?
+# answer: yes.
+
+
+# question: If we run Python.IDE text command, then we click the Fusion UI button to debug a script, will Fusion be in the run-on-attach state?
+# answer: yes.
+
+# therefore, it would seem that, regardless of when and whether the Python.IDE text command has been run, clicking the Fusion UI debug button # is sufficient to put
+# fusion into the run-in-attach state (assuming that we have not first screwed things up by sending an attach request with empty-string pathMappings.)
+
+# question: Which of the two PaathMappings properties (namely, "localRoot" and "remoteRoot") does Fusion consider when deciding which script to run?
+# test: restart fusion.  Initiate debug mode using the UI button.  Send an attach request with an empty-string localRoot and a legitimate remoteRoot.
+#>> Does the debugpy adapter log show that the desired localRoot and remoteRoot values were actually sent?: yes
+#>> pydevd_file_utils._last_client_server_paths_set value is: []
+#>> which script runs: No script runs.
+#>> analysis: apparently, pydevd treats the case of an empty-string localroot the same as the case of both localroot and remoteroot being empty strings.
+
+# test: restart fusion.  Initiate debug mode using the UI button.  Send an attach request with a legitimate localRoot and an empty-string remoteRoot.
+#>> Does the debugpy adapter log show that the desired localRoot and remoteRoot values were actually sent?: yes
+#>> pydevd_file_utils._last_client_server_paths_set value is: []
+#>> which script runs: no script runs.
+
+# test: restart fusion.  Initiate debug mode using the UI button.  Send an attach request with localRoot pointing to arbitrary_Script1 and remoteRoot pointing to arbitrary script 2.
+#>> Does the debugpy adapter log show that the desired localRoot and remoteRoot values were actually sent?: yes
+#>> pydevd_file_utils._last_client_server_paths_set value is: [('c:\\work\\fusion_programmatic_experiment\\test_scripts\\arbitrary_script_1', 'c:\\work\\fusion_programmatic_experiment\\test_scripts\\arbitrary_script_2')]
+#>> which script runs: arbitrary_script_1
+#>> analysis: It appears that Fusion looks at pydevd_file_utils._last_client_server_paths_set[0][0] (which pydevd_file_utils will have set to match the "localRoot" property of the pathMAppings argument of the attach request)
+#>> to decide which script to run.
+
+
+# question: When we use the Fusion UI button to initiate debugging, does Fusion read any files or folders in the directory of the selected script?
+#>> yes, it appears that, upon clicking the debug UI button, Fusion checks to ensure that .vscode/settings.json and .vscode/launch.json and .env are present within the script's directory.
+
+# force_pydevd, a module within debugpy, configures pydevd logging to match the logging directory specified by the DEBUGPY_LOG_DIR environment variable.
+#force_py_devd is imported by the debugpy.server module.
+# when debug mode is initiated by fusion_script_runner_addin, pydevd logging does not get setup, suggesting that force_py_devd is never run.
+# On the other hand, when debug mode is initiated via Fusion UI button, pydevd logging does get set up.
+
+# In the Fusion UI, the debug button does the following things:
+#   1) ensures that debug mode is initiated.  To initiate debug mode, we import debugpy and call debugpy.listen, which in turn starts the pyhton interpreter as a separate process running the debugpy.adaptor script.
+#   2) Sets up a set of threads to implement what I call "run-on-attach" behavior.  This behavior relies on the debugpy.wait_for_client() function (running in a thread other than the main fusion thread so as not to block the ui),
+        and the pydevd_file_utils._last_client_server_paths_set value, which the debugpy/pydevd machinery causes to be set to the value of the pathMappings.localRoot and pathMappings.remoteRoot valuse that
+        the IDE sends in its attach request to the debugpy adaptor.  With run-on-attach "mode" active, when an attach request is received by the debugpy adaptor, Fusion responds by looking at pydevd_file_utils._last_client_server_paths_set
+        and then running the script (or add-in) contained in the directory pydevd_file_utils._last_client_server_paths_set[0][0] (i.e. the "run" function in the .py file in that directory that has the same name as a .manifest file in that directory)
+        Actually (I think), Fusion completely reloads the specified script (and first runs the "stop" method of the existing loaded version of the script, if the script has been loaded before) (actually, only add-ins have a "stop" function 
+        -- I am using the word "script" to refer to both "scripts" and add-ins, because they are very nearly the same thing.)
+    3) Launches VS code with the workspace directory being the directory of the specified script, and ensures that the standard .vscode/settings.json, .vscode/launch.json, and .env files exist in the 
+        script directory, creating them if they do not exist.
+It is notable that clicking the debug button in the Fusion ui does not directly cause the script to run, but rather puts Fusion into the aforementioned "run-on-attach" state, wherein Fusion will run scripts in
+response to attach requests being sent to the debug adaptor.
+
+To faithfully mimic the behavior of the Fusion UI's debug button, we would like to be able to command our fusion_script_runner_addin to set up its own implementation of the "run-on-attach" behavior.
+It makes sense to have the following commands:
+    1) start debug mode (or, more accurately, ensure that debug mode is started).  This would merely import debugpy and call debugpy.listen().
+    2) start "run-on-attach" mode.  This would ensure that debug mode as active, then set up a sort of "run-on-attach" behavior similar to that provided by the Fusion UI debug button.
+    3) Run a script.
+
+Notice that commands 1 and 2 above, are completely independent of any specific script to be run.  

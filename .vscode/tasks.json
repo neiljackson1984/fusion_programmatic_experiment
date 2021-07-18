@@ -108,6 +108,30 @@
                 "--addin_port", "19812",
                 "--debug_port", "9000"
             ]
+        },
+        {
+            "label":"run_test_script_in_fusion_without_debugging",
+            "type":"shell",
+            "command": "${config:python.pythonPath} \"${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}run_script_in_fusion.py\"",
+            "args":[
+                "--script", "${workspaceFolder}${pathSeparator}test_scripts${pathSeparator}arbitrary_script_1${pathSeparator}arbitrary_script_1.py",
+                "--debug", "0",
+                "--debugpy_path", "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python",
+                "--addin_port", "19812",
+                "--debug_port", "9000"
+            ]
+        },
+        {
+            "label":"run_test_script_in_fusion_with_debugging",
+            "type":"shell",
+            "command": "${config:python.pythonPath} \"${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}run_script_in_fusion.py\"",
+            "args":[
+                "--script", "${workspaceFolder}${pathSeparator}test_scripts${pathSeparator}arbitrary_script_1${pathSeparator}arbitrary_script_1.py",
+                "--debug", "1",
+                "--debugpy_path", "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python",
+                "--addin_port", "19812",
+                "--debug_port", "9000"
+            ]
         }
     ]
 

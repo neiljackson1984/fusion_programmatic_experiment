@@ -1,0 +1,9 @@
+{
+	"autodeskProduct":	"Fusion360",
+	"type":	"script",
+	"author":	"neil",
+	"description":	{
+		"":	"arbitrary script 2"
+	},
+	"supportedOS":	"windows|mac"
+}

@@ -8,27 +8,70 @@ import pathlib
 import rpyc.core.service
 import json
 import adsk.core, adsk.fusion, traceback
-import requests
 
 PORT_NUMBER_FOR_RPYC_SLAVE_SERVER = 18812
-PORT_NUMBER_FOR_HTTP_SERVER = 19812
 
 
-print("XXXXXXXXXXXX")
 conn = rpyc.classic.connect("localhost", port=PORT_NUMBER_FOR_RPYC_SLAVE_SERVER)
 print("Hello World!", file=conn.modules.sys.stdout)
+
+conn.execute('import adsk.core, adsk.fusion, traceback')
+rapp :adsk.core.Application = conn.eval('adsk.core.Application.get()')
+rsys = conn.modules['sys']
+ros = conn.modules['os']
+rpydevd_file_utils = conn.modules['pydevd_file_utils']
+rpydevd_constants = conn.modules['_pydevd_bundle.pydevd_constants']
+
+# rmodules = rsys.modules
+# report = "rsys.modules: " + "\n"
+
+# for k in rmodules:
+#     report += k + " "
+#     try:
+#         report += rmodules[k].__file__
+#     except Exception as e:
+#         # report += str(e)
+#         report += "oops"
+#     report += "\n"
+
+# print(report)
 
 
 script='''
 
-message=""
-message += str(dir())
+# message=""
+# message += str(dir())
 
+import io
+import pydevd_file_utils
+import _pydevd_bundle.pydevd_constants
+from contextlib import redirect_stdout
+
+
+with io.StringIO() as buf, redirect_stdout(buf):
+    import neu_dev, inspect, os, sys, pprint; pp=pprint.PrettyPrinter(indent=4, width=80, depth=2, compact=False); 
+    pp.pprint(
+        inspect.getmembers(neu_dev.run_script)
+    )
+    # print(inspect.getfile(neu_dev))
+    # print(inspect.signature(neu_dev.run_script))
+    # print(inspect.getfullargspec(neu_dev.run_script))
+    print("pydevd_file_utils._last_client_server_paths_set: " + str(pydevd_file_utils._last_client_server_paths_set))
+    print("_pydevd_bundle.pydevd_constants.DebugInfoHolder.PYDEVD_DEBUG_FILE: " + _pydevd_bundle.pydevd_constants.DebugInfoHolder.PYDEVD_DEBUG_FILE)
+
+    output = buf.getvalue()
 
 '''
 
 conn.execute(script)
-print(conn.eval('message'))
+print(conn.eval('output'))
+
+# print("rpydevd_file_utils._last_client_server_paths_set: " + str(rpydevd_file_utils._last_client_server_paths_set))
+print("rpydevd_constants.DebugInfoHolder.PYDEVD_DEBUG_FILE: " + rpydevd_constants.DebugInfoHolder.PYDEVD_DEBUG_FILE)
+
+# print(conn.eval('message'))
+
+# rapp.executeTextCommand()
 
 exit()
 
@@ -142,77 +185,3 @@ if conn.modules.__contains__('pydevd'):
 
 
 
-
-
-
-pathOfTheArbitraryScript=pathlib.Path(__file__).parent.joinpath('test_scripts').joinpath('arbitrary_script_1').joinpath("arbitrary_script_1.py").resolve()
-session = requests.Session()
-
-
-
-#as originally written, Ben Gruver's add-in expects the 
-# post request to be formatted like the following (note how we have to
-# serialize the 'message' property.
-# response = session.post(
-#     f"http://localhost:{PORT_NUMBER_FOR_HTTP_SERVER}",
-#     data=json.dumps(
-#             {
-#             # 'pubkey_modulus':,
-#             # 'pubkey_exponent':,
-#             # 'signature':,
-#             'message':json.dumps({
-#                 'script': "foo", # a string - the path of the script file
-#                 'debug':  "bar",   # an int, which is interpreted as a boolean.
-#                 'pydevd_path': "baz"    # a string
-#             })
-#         }
-#     )
-# )
-
-#with my modification, we do not have to (although we can if desired)
-# serialize the 'message' property.
-# response = session.post(
-#     f"http://localhost:{PORT_NUMBER_FOR_HTTP_SERVER}",
-#     data=json.dumps(
-#             {
-#             # 'pubkey_modulus':,
-#             # 'pubkey_exponent':,
-#             # 'signature':,
-#             'message':{
-#                 'debug':  True,   # an int or a boolean, or anything which can be cast to an int and then interp[reted as a boolean.
-#                 'debug_port': 9000,
-#                 'pydevd_path':'C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy/_vendored/pydevd',
-#                 'script': "C:/work/fusion_programmatic_experiment/arbitrary_script_1.py" # a string - the path of the script file
-                
-#                 # # the path that we must add to sys.path in order to be able to succesfully call 'import debugpy'
-#                 # 'debugpy_path': "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python",    # a string
-#             }
-#         }
-#     )
-# )
- 
-# 
-
-
-response = session.post(
-    f"http://localhost:{PORT_NUMBER_FOR_HTTP_SERVER}",
-    data=json.dumps(
-            {
-            # 'pubkey_modulus':,
-            # 'pubkey_exponent':,
-            # 'signature':,
-            'message':{
-                'debug':  True,   # an int or a boolean, or anything which can be cast to an int and then interp[reted as a boolean.
-                'debug_port': 9000,
-                # 'pydevd_path':'C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python/debugpy/_vendored/pydevd',
-                'script': str(pathOfTheArbitraryScript), # a string - the path of the script file
-                
-                # # the path that we must add to sys.path in order to be able to succesfully call 'import debugpy'
-                'debugpy_path': "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.6.944021595/pythonFiles/lib/python",    # a string
-            }
-        }
-    )
-)
- 
-# 
- 

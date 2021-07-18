@@ -299,6 +299,14 @@ class RunScriptRequestedEventHandler(adsk.core.CustomEventHandler):
                 if not debugging_started:
                     logger.debug("Commencing listening on port %d" % port)
                     
+                    # discovery: the text command "Python.IDE" configures and starts the debugpy adaptor process, just as happens when 
+                    # you use the Fusion UI to run a script in debug mode.  The text command also launches VS code.
+
+                    debugpy.configure(
+                        python= str(pathlib.Path(os.__file__).parents[1] / 'python')
+                        # this is a bit of a hack to get the path of the python executable that is bundled with Fusion.
+                    )
+
                     # debugpy.listen(port)
                     (lambda : debugpy.listen(port))()
                     # the code-reachability analysis system that is built into VS code (is this Pylance?) falsely 
@@ -321,8 +329,7 @@ class RunScriptRequestedEventHandler(adsk.core.CustomEventHandler):
                     #display a "D" button in the quick-access toolbar as a visual indicator to the user that debugging is now active.
                     debugging_started = True
                     addin._simpleFusionCustomCommands.append(SimpleFusionCustomCommand(name="D_indicator", app=app(), logger=logger))
-                
-                
+ 
                 
             if debug and script_path:
                 debugpy.wait_for_client()
