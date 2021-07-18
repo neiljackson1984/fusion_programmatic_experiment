@@ -1,0 +1,10 @@
+{
+  "config_version": 1,
+  "mirrors": {
+    "braids/fscad": {
+      "url": "https://github.com/JesusFreke/fscad",
+      "branch": "master",
+      "revision": "0f79ec27f9141b8735e2f66efdb7dc705fd1a574"
+    }
+  }
+}
