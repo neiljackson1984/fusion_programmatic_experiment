@@ -370,3 +370,6 @@ It makes sense to have the following commands:
     3) Run a script.
 
 Notice that commands 1 and 2 above, are completely independent of any specific script to be run.  
+
+
+https://github.com/JesusFreke/fscad

@@ -329,15 +329,12 @@ class RunScriptRequestedEventHandler(adsk.core.CustomEventHandler):
                     #display a "D" button in the quick-access toolbar as a visual indicator to the user that debugging is now active.
                     debugging_started = True
                     addin._simpleFusionCustomCommands.append(SimpleFusionCustomCommand(name="D_indicator", app=app(), logger=logger))
- 
-                
-            if debug and script_path:
-                debugpy.wait_for_client()
-                # to more closely mimic the behavior of Fusion's ui-based debugging button, we should 
-                # do this waiting for client in a separate thread, so as not to block the main thread.
-                
 
             if script_path:
+                if debug:
+                    debugpy.wait_for_client()
+                    # we might consider doing this waiting in a separate thread so as to not block the UI.
+                    
                 script_path = os.path.abspath(script_path)
                 script_dir = os.path.dirname(script_path)
 
@@ -364,7 +361,6 @@ class RunScriptRequestedEventHandler(adsk.core.CustomEventHandler):
                         exc_info=sys.exc_info()
                     )
             
-
             # i = 0
             # # wait_for_client experiment
             # while i<5:
@@ -434,13 +430,11 @@ class ErrorDialogEventHandler(adsk.core.CustomEventHandler):
     def notify(self, args):
         ui().messageBox(args.additionalInfo, f"{NAME_OF_THIS_ADDIN} error")
 
-
 class FusionErrorDialogLoggingHandler(logging.Handler):
     """A logging handler that shows a error dialog to the user in Fusion 360."""
 
     def emit(self, record: logging.LogRecord) -> None:
         adsk.core.Application.get().fireCustomEvent(ERROR_DIALOG_EVENT_ID, self.format(record))
-
 
 class RunScriptHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
     """An HTTP request handler that queues an event in the main thread of fusion 360 to run a script."""
@@ -481,7 +475,6 @@ class RunScriptHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(traceback.format_exc().encode())
             logger.error("An error occurred while handling http request.", exc_info=sys.exc_info())
 
- 
 addin = AddIn()
 
 def run(context:dict):
