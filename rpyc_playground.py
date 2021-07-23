@@ -8,6 +8,9 @@ import pathlib
 import rpyc.core.service
 import json
 import adsk.core, adsk.fusion, traceback
+import pprint
+
+pp=pprint.PrettyPrinter(indent=4, width=80, depth=2, compact=False); 
 
 PORT_NUMBER_FOR_RPYC_SLAVE_SERVER = 18812
 
@@ -22,6 +25,14 @@ ros = conn.modules['os']
 rpydevd_file_utils = conn.modules['pydevd_file_utils']
 rpydevd_constants = conn.modules['_pydevd_bundle.pydevd_constants']
 
+# print("rsys.modules.keys(): " + str(rsys.modules.keys()))
+print("sorted(list(rsys.modules.keys())): " )
+pp.pprint(sorted(list(rsys.modules.keys())))
+
+print("list(rsys.modules.keys()): " )
+pp.pprint(list(rsys.modules.keys()))
+
+exit()
 # rmodules = rsys.modules
 # report = "rsys.modules: " + "\n"
 

@@ -8,6 +8,7 @@ exactly identical to the action of manual commands issued in Fusion360's user in
 
 # The structure and much of the function of this code is inspired by Ben Gruver's fusion_idea_addin
 
+import adsk
 import adsk.core
 import adsk.fusion
 import hashlib
@@ -38,6 +39,7 @@ import datetime
 import pathlib
 sys.path.append(str(pathlib.Path(__file__).parent.parent.joinpath('lib').resolve()))
 from simple_fusion_custom_command import SimpleFusionCustomCommand
+import fusion_main_thread_runner
 
  
 import rpyc
@@ -51,8 +53,6 @@ import rpyc.utils.server
 
 
 NAME_OF_THIS_ADDIN = 'fusion_script_runner_addin'
-RUN_SCRIPT_REQUESTED_EVENT_ID = f"{NAME_OF_THIS_ADDIN}_run_script_requested"
-ERROR_DIALOG_EVENT_ID = f"{NAME_OF_THIS_ADDIN}_error_dialog"
 
 PORT_NUMBER_FOR_RPYC_SLAVE_SERVER = 18812
 PORT_NUMBER_FOR_HTTP_SERVER = 19812
@@ -70,14 +70,11 @@ logger.propagate = False
 
 class AddIn(object):
     def __init__(self):
-        self._run_script_requested_event_handler    : Optional[RunScriptRequestedEventHandler]  = None
-        self._run_script_requested_event            : Optional[adsk.core.CustomEvent]           = None
-        self._error_dialog_event_handler            : Optional[ErrorDialogEventHandler]         = None
-        self._error_dialog_event                    : Optional[adsk.core.CustomEvent]           = None
         self._logging_file_handler                  : Optional[logging.Handler]                 = None
         self._logging_dialog_handler                : Optional[logging.Handler]                 = None
         self._http_server                           : Optional[http.server.HTTPServer]          = None
         self._rpyc_slave_server                     : Optional[rpyc.utils.server.Server]        = None
+        self._fusionMainThreadRunner                : Optional[fusion_main_thread_runner.FusionMainThreadRunner]          = None
         self._simpleFusionCustomCommands            : list[SimpleFusionCustomCommand]           = []
 
     def start(self):
@@ -87,6 +84,7 @@ class AddIn(object):
         # but here, before logging infrasturcture is set up, the Except block will report
         # error messages in a more primitive way.
         try:
+            
             self._logging_file_handler = logging.handlers.RotatingFileHandler(
                 filename=pathOfDebuggingLog,
                 maxBytes=2**20,
@@ -96,13 +94,10 @@ class AddIn(object):
             # logger.setLevel(logging.WARNING)
             logger.setLevel(logging.DEBUG)
 
-            self._error_dialog_event = app().registerCustomEvent(ERROR_DIALOG_EVENT_ID)
-            self._error_dialog_event_handler = ErrorDialogEventHandler()
-            self._error_dialog_event.add(self._error_dialog_event_handler)
-
             self._logging_dialog_handler = FusionErrorDialogLoggingHandler()
             self._logging_dialog_handler.setFormatter(logging.Formatter("%(message)s"))
             self._logging_dialog_handler.setLevel(logging.FATAL)
+            self._fusionMainThreadRunner = fusion_main_thread_runner.FusionMainThreadRunner(logger=logger)
             logger.addHandler(self._logging_dialog_handler)
         except Exception:
             # The logging infrastructure may not be set up yet, so we directly show an error dialog instead
@@ -118,9 +113,11 @@ class AddIn(object):
             logger.debug("ahoy there")
             logger.debug("os.getcwd(): " + os.getcwd())
 
-            self._run_script_requested_event = app().registerCustomEvent(RUN_SCRIPT_REQUESTED_EVENT_ID)
-            self._run_script_requested_event_handler = RunScriptRequestedEventHandler()
-            self._run_script_requested_event.add(self._run_script_requested_event_handler)
+            
+
+            # self._run_script_requested_event = app().registerCustomEvent(RUN_SCRIPT_REQUESTED_EVENT_ID)
+            # self._run_script_requested_event_handler = RunScriptRequestedEventHandler()
+            # self._run_script_requested_event.add(self._run_script_requested_event_handler)
 
             # Ben Gruver would run the http server on a random port, to avoid conflicts when multiple instances of Fusion 360 are
             # running, and would have the client use SSDP to discover the correct desired port to connect to.
@@ -165,175 +162,20 @@ class AddIn(object):
         #TO DO: add exception handling
         self._rpyc_slave_server.start()
 
-    def stop(self):
-        if self._http_server:
-            try:
-                self._http_server.shutdown()
-                self._http_server.server_close()
-            except Exception:
-                logger.error(f"Error while stopping {NAME_OF_THIS_ADDIN}'s HTTP server.", exc_info=sys.exc_info())
-        self._http_server = None
-
-        if self._rpyc_slave_server:
-            try:
-                self._rpyc_slave_server.close()
-                # is it thread-safe to call the server's close() method here in a thread
-                # other than the thread in which the server is running?
-                # perhaps we need to .join(timeout=0) the thread in which the server is running and then 
-                # run server's close() method.
-            except Exception:
-                logger.error(f"Error while stopping {NAME_OF_THIS_ADDIN}'s rpyc slave server.", exc_info=sys.exc_info())
-        self._rpyc_slave_server = None
-
-        # #clean up any ui commands and controls that we may have created
-        # for commandDefinition in self._commandDefinitions:
-        #     commandDefinition.deleteMe()
-        # self._commandDefinitions = []
-
-        # for toolbarControl in self._toolbarControls:
-        #     toolbarControl.deleteMe()
-        # self._toolbarControls = []
-
-        # clean up _run_script_requested_event and the associated handler:
+    #this is intended to be run in Fusion's main thread.
+    def runScript(self, script_path: str, debug: bool = False, debugpy_path: str = "", debug_port: int = 0):
         try:
-            if self._run_script_requested_event_handler and self._run_script_requested_event:
-                self._run_script_requested_event.remove(self._run_script_requested_event_handler)
-
-            if self._run_script_requested_event:
-                app().unregisterCustomEvent(RUN_SCRIPT_REQUESTED_EVENT_ID)
-        except Exception:
-            logger.error("Error while unregistering {NAME_OF_THIS_ADDIN}'s run_script event handler.",
-                         exc_info=sys.exc_info())
-        self._run_script_requested_event_handler = None
-        self._run_script_requested_event = None
-
-        # del self._fusionCommand1
-
-        del self._simpleFusionCustomCommands
-
-        # clean up _error_dialog_event and the associated handler:
-        try:
-            if self._error_dialog_event_handler and self._error_dialog_event:
-                self._error_dialog_event.remove(self._error_dialog_event_handler)
-
-            if self._error_dialog_event:
-                app().unregisterCustomEvent(ERROR_DIALOG_EVENT_ID)
-        except Exception:
-            logger.error(f"Error while unregistering {NAME_OF_THIS_ADDIN}'s error_dialog event handler.",
-                         exc_info=sys.exc_info())
-        self._error_dialog_event_handler = None
-        self._error_dialog_event = None
-
-
-
-        # clean up _logging_file_handler:
-        try:
-            if self._logging_file_handler:
-                self._logging_file_handler.close()
-                logger.removeHandler(self._logging_file_handler)
-        except Exception:
-            ui().messageBox(f"Error while closing {NAME_OF_THIS_ADDIN}'s file logger.\n\n%s" % traceback.format_exc())
-        self._logging_file_handler = None
-
-        # clean up _logging_dialog_handler:
-        try:
-            if self._logging_dialog_handler:
-                self._logging_dialog_handler.close()
-                logger.removeHandler(self._logging_dialog_handler)
-        except Exception:
-            ui().messageBox(f"Error while closing {NAME_OF_THIS_ADDIN}'s dialog logger.\n\n%s" % traceback.format_exc())
-        self._logging_dialog_handler = None
-
-class RunScriptRequestedEventHandler(adsk.core.CustomEventHandler):
-    """
-    An event handler that can run a python script in the main thread of fusion 360, and initiate debugging.
-    """
-
-    def notify(self, args: adsk.core.CustomEventArgs):
-        try:
-            # logger.debug("RunScriptRequestedEventHandler::notify is running with args.additionalInfo " + args.additionalInfo)
-            
-            # collect the arguments:
-            _args :dict = json.loads(args.additionalInfo)
-            script_path     = _args.get("script")
-            debug           = bool(_args.get("debug"))
-            debugpy_path    = _args.get("debugpy_path")
-            port            = int(_args.get("debug_port",0))
-
             if not script_path and not debug:
                 logger.warning("No script provided and debugging not requested. There's nothing to do.")
                 return
 
-            if debug:
-                # make sure that debugging is running.
-                if not debugpy_path:
-                    logger.warning("We have been instructed to do debugging, but you have not provided the necessary debugpy_path.  Therefore, we can do nothing.")
-                    return
-                initialSystemPath=sys.path.copy()
-                sys.path.append(debugpy_path)
-                import debugpy
-                import debugpy._vendored
-                with debugpy._vendored.vendored(project='pydevd'):
-                    from _pydevd_bundle.pydevd_constants import get_global_debugger
-                    from pydevd import PyDB
-                    import pydevd
-                sys.path=initialSystemPath
-                # I hope that it won't screw anything up to replace the sys.path value with a newly-created list (rather than modifying the existing list).
-                    
-                global debugging_started
-                if not debugging_started and get_global_debugger() is not None :  
-                    logger.debug("Our debugging_started flag is cleared, and yet the global debugger object exists (possibly left over from a previous run/stop cycle of this add in), so we will go ahead and set the debugging_started flag.")
-                    debugging_started = True  
-                    addin._simpleFusionCustomCommands.append(SimpleFusionCustomCommand(name="D_indicator", app=app(), logger=logger)) 
-                # We are assuming that if the global debugger object exists, then debugging is active and configured as desired.
-                # I am not sure that this is always a safe assumption, but oh well.
-
-                # ensure that debugging is started:
-                #  ideally, we would look for an existing global debugger with the correct configuration
-                # in order to determine whether debugging was started, rather than maintaining our own blind debugging_started flag.
-                # the problem is that our flag can be wrong in the case where this add-in was started with debugging already active (started
-                # by a previous run/stop cycle of this add in).  
-                # Also, we should be doing something to stop debugging when this add-in is stopped, rather than just leaving it running, which we are doing now.
-                # It seems that pydevd, or, at least the parts of the pydevd behavior that debugpy exposes, is not geared toward stopping the debugging, only starting it.
-                # what about pydevd.stoptrace() ? -- that's what Ben Gruver does.
-                if not debugging_started:
-                    logger.debug("Commencing listening on port %d" % port)
-                    
-                    # discovery: the text command "Python.IDE" configures and starts the debugpy adaptor process, just as happens when 
-                    # you use the Fusion UI to run a script in debug mode.  The text command also launches VS code.
-
-                    debugpy.configure(
-                        python= str(pathlib.Path(os.__file__).parents[1] / 'python')
-                        # this is a bit of a hack to get the path of the python executable that is bundled with Fusion.
-                    )
-
-                    # debugpy.listen(port)
-                    (lambda : debugpy.listen(port))()
-                    # the code-reachability analysis system that is built into VS code (is this Pylance?) falsely 
-                    # believes that the debugpy.listen()
-                    # function will always result in an exception, and therefore regards all code below this point
-                    # as unreachable, which causes vscode to display all code below this point in a dimmed color.
-                    # I find this so annoying that I have wrapped the debugpy.listen() in a lambda function
-                    # that I immediately call.  This seems to be sufficient to throw the code reachability analysis system 
-                    # off the scent, and hopefully will not change the effect of the code.
+            if debug: ensureThatDebuggingIsStarted(debugpy_path=debugpy_path, debug_port=debug_port)
                 
-                    class LoggingDapMessagesListener(pydevd.IDAPMessagesListener):
-                        # @overrides(pydevd.IDAPMessagesListener.after_receive)
-                        def after_receive(self, message_as_dict):
-                            logger.debug(f"LoggingDapMessagesListener::after_receive({message_as_dict})")
-                        
-                        def before_send(self, message_as_dict):
-                            logger.debug(f"LoggingDapMessagesListener::before_send({message_as_dict})")  
-                    pydevd.add_dap_messages_listener(LoggingDapMessagesListener())
-                    
-                    #display a "D" button in the quick-access toolbar as a visual indicator to the user that debugging is now active.
-                    debugging_started = True
-                    addin._simpleFusionCustomCommands.append(SimpleFusionCustomCommand(name="D_indicator", app=app(), logger=logger))
-
             if script_path:
                 if debug:
                     if not debugpy.is_client_connected():
                         ui().palettes.itemById('TextCommands').writeText(str(datetime.datetime.now()) + "\t" + 'Waiting for connection from client, and will then run ' + script_path)
+                        adsk.doEvents()
                     debugpy.wait_for_client()
                     # we might consider doing this waiting in a separate thread so as to not block the UI.
                     
@@ -351,7 +193,7 @@ class RunScriptRequestedEventHandler(adsk.core.CustomEventHandler):
                     if existing_module and hasattr(existing_module, "stop"):
                         existing_module.stop({"isApplicationClosing": False})
 
-                    self.unload_submodules(module_name)
+                    unload_submodules(module_name)
 
                     sys.modules[module_name] = module
                     spec.loader.exec_module(module)
@@ -362,7 +204,6 @@ class RunScriptRequestedEventHandler(adsk.core.CustomEventHandler):
                         "Unhandled exception while importing and running script.",
                         exc_info=sys.exc_info()
                     )
-            
             # i = 0
             # # wait_for_client experiment
             # while i<5:
@@ -408,35 +249,138 @@ class RunScriptRequestedEventHandler(adsk.core.CustomEventHandler):
             # perhaps there is something already established between fusion and the gloabl PyDB object such that I do not need
             # to bother running the script here, but rather can rely on this pre-established configuration to run the script merely as a result of
             # hitting F5 in vs code.
-
-
         except Exception:
             logger.fatal("An error occurred while attempting to start script.", exc_info=sys.exc_info())
         finally:
             pass
 
-    @staticmethod
-    def unload_submodules(module_name):
-        search_prefix = module_name + '.'
-        loaded_submodules = []
-        for loaded_module_name in sys.modules:
-            if loaded_module_name.startswith(search_prefix):
-                loaded_submodules.append(loaded_module_name)
-        for loaded_submodule in loaded_submodules:
-            del sys.modules[loaded_submodule]
+    def stop(self):
+        if self._http_server:
+            try:
+                self._http_server.shutdown()
+                self._http_server.server_close()
+            except Exception:
+                logger.error(f"Error while stopping {NAME_OF_THIS_ADDIN}'s HTTP server.", exc_info=sys.exc_info())
+        self._http_server = None
 
-class ErrorDialogEventHandler(adsk.core.CustomEventHandler):
-    """An event handler that shows an error dialog to the user."""
+        if self._rpyc_slave_server:
+            try:
+                self._rpyc_slave_server.close()
+                # is it thread-safe to call the server's close() method here in a thread
+                # other than the thread in which the server is running?
+                # perhaps we need to .join(timeout=0) the thread in which the server is running and then 
+                # run server's close() method.
+            except Exception:
+                logger.error(f"Error while stopping {NAME_OF_THIS_ADDIN}'s rpyc slave server.", exc_info=sys.exc_info())
+        self._rpyc_slave_server = None
 
-    # noinspection PyMethodMayBeStatic
-    def notify(self, args):
-        ui().messageBox(args.additionalInfo, f"{NAME_OF_THIS_ADDIN} error")
+        del self._simpleFusionCustomCommands
+        del self._fusionMainThreadRunner
+
+        # clean up _logging_file_handler:
+        try:
+            if self._logging_file_handler:
+                self._logging_file_handler.close()
+                logger.removeHandler(self._logging_file_handler)
+        except Exception:
+            ui().messageBox(f"Error while closing {NAME_OF_THIS_ADDIN}'s file logger.\n\n%s" % traceback.format_exc())
+        self._logging_file_handler = None
+
+        # clean up _logging_dialog_handler:
+        try:
+            if self._logging_dialog_handler:
+                self._logging_dialog_handler.close()
+                logger.removeHandler(self._logging_dialog_handler)
+        except Exception:
+            ui().messageBox(f"Error while closing {NAME_OF_THIS_ADDIN}'s dialog logger.\n\n%s" % traceback.format_exc())
+        self._logging_dialog_handler = None
+
+def unload_submodules(module_name):
+    search_prefix = module_name + '.'
+    loaded_submodules = []
+    for loaded_module_name in sys.modules:
+        if loaded_module_name.startswith(search_prefix):
+            loaded_submodules.append(loaded_module_name)
+    for loaded_submodule in loaded_submodules:
+        logger.debug(f"unloading module {loaded_submodule}")
+        del sys.modules[loaded_submodule]
+
+def ensureThatDebuggingIsStarted(debugpy_path: str, debug_port: int) -> None:
+    global debugpy
+    global debugging_started
+
+    # make sure that debugging is running.
+    if not debugpy_path:
+        logger.warning("We have been instructed to do debugging, but you have not provided the necessary debugpy_path.  Therefore, we can do nothing.")
+        return
+    initialSystemPath=sys.path.copy()
+    sys.path.append(debugpy_path)
+    import debugpy
+    import debugpy._vendored
+    with debugpy._vendored.vendored(project='pydevd'):
+        from _pydevd_bundle.pydevd_constants import get_global_debugger
+        from pydevd import PyDB
+        import pydevd
+    sys.path=initialSystemPath
+    # I hope that it won't screw anything up to replace the sys.path value with a newly-created list (rather than modifying the existing list).
+        
+    
+    if not debugging_started and get_global_debugger() is not None :  
+        logger.debug("Our debugging_started flag is cleared, and yet the global debugger object exists (possibly left over from a previous run/stop cycle of this add in), so we will go ahead and set the debugging_started flag.")
+        debugging_started = True  
+        addin._simpleFusionCustomCommands.append(SimpleFusionCustomCommand(name="D_indicator", app=app(), logger=logger)) 
+    # We are assuming that if the global debugger object exists, then debugging is active and configured as desired.
+    # I am not sure that this is always a safe assumption, but oh well.
+
+    # ensure that debugging is started:
+    #  ideally, we would look for an existing global debugger with the correct configuration
+    # in order to determine whether debugging was started, rather than maintaining our own blind debugging_started flag.
+    # the problem is that our flag can be wrong in the case where this add-in was started with debugging already active (started
+    # by a previous run/stop cycle of this add in).  
+    # Also, we should be doing something to stop debugging when this add-in is stopped, rather than just leaving it running, which we are doing now.
+    # It seems that pydevd, or, at least the parts of the pydevd behavior that debugpy exposes, is not geared toward stopping the debugging, only starting it.
+    # what about pydevd.stoptrace() ? -- that's what Ben Gruver does.
+    if not debugging_started:
+        logger.debug("Commencing listening on port %d" % debug_port)
+        
+        # discovery: the text command "Python.IDE" configures and starts the debugpy adaptor process, just as happens when 
+        # you use the Fusion UI to run a script in debug mode.  The text command also launches VS code.
+
+        debugpy.configure(
+            python= str(pathlib.Path(os.__file__).parents[1] / 'python')
+            # this is a bit of a hack to get the path of the python executable that is bundled with Fusion.
+        )
+
+        # debugpy.listen(debug_port)
+        (lambda : debugpy.listen(debug_port))()
+        # the code-reachability analysis system that is built into VS code (is this Pylance?) falsely 
+        # believes that the debugpy.listen()
+        # function will always result in an exception, and therefore regards all code below this point
+        # as unreachable, which causes vscode to display all code below this point in a dimmed color.
+        # I find this so annoying that I have wrapped the debugpy.listen() in a lambda function
+        # that I immediately call.  This seems to be sufficient to throw the code reachability analysis system 
+        # off the scent, and hopefully will not change the effect of the code.
+    
+        class LoggingDapMessagesListener(pydevd.IDAPMessagesListener):
+            # @overrides(pydevd.IDAPMessagesListener.after_receive)
+            def after_receive(self, message_as_dict):
+                logger.debug(f"LoggingDapMessagesListener::after_receive({message_as_dict})")
+            
+            def before_send(self, message_as_dict):
+                logger.debug(f"LoggingDapMessagesListener::before_send({message_as_dict})")  
+        pydevd.add_dap_messages_listener(LoggingDapMessagesListener())
+        
+        #display a "D" button in the quick-access toolbar as a visual indicator to the user that debugging is now active.
+        debugging_started = True
+        addin._simpleFusionCustomCommands.append(SimpleFusionCustomCommand(name="D_indicator", app=app(), logger=logger))
 
 class FusionErrorDialogLoggingHandler(logging.Handler):
     """A logging handler that shows a error dialog to the user in Fusion 360."""
 
     def emit(self, record: logging.LogRecord) -> None:
-        adsk.core.Application.get().fireCustomEvent(ERROR_DIALOG_EVENT_ID, self.format(record))
+        addin._fusionMainThreadRunner.doTaskInMainFusionThread(
+            lambda : ui().messageBox(self.format(record), f"{NAME_OF_THIS_ADDIN} error")
+        )
 
 class RunScriptHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
     """An HTTP request handler that queues an event in the main thread of fusion 360 to run a script."""
@@ -459,14 +403,28 @@ class RunScriptHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
             # handle the case where it is a string
             # (in which case we assume that it is the json-serialized version of the object.)
 
-            app().fireCustomEvent( 
-                RUN_SCRIPT_REQUESTED_EVENT_ID,  
-                # request_json["message"]
-                ( request_json['message'] if isinstance(request_json['message'], str) else json.dumps(request_json['message']))
-            )
+            # app().fireCustomEvent( 
+            #     RUN_SCRIPT_REQUESTED_EVENT_ID,  
+            #     # request_json["message"]
+            #     ( request_json['message'] if isinstance(request_json['message'], str) else json.dumps(request_json['message']))
+            # )
+
             # additionalInfo (the second argument to fireCustomeEvent()) is a string that will be retrievable in the notify(args) method of the 
             # customEventHandler
             # as args.additionalInfo 
+
+            message = ( json.loads(request_json['message']) if isinstance(request_json['message'], str) else request_json['message'])
+
+            addin._fusionMainThreadRunner.doTaskInMainFusionThread(
+                lambda : addin.runScript(
+                    script_path     = message.get("script"),
+                    debug           = bool(message.get("debug")),
+                    debugpy_path    = message.get("debugpy_path"),
+                    debug_port      = int(message.get("debug_port",0))
+                )
+            )
+
+
 
             self.send_response(200)
             self.end_headers()

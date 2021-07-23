@@ -5,11 +5,16 @@ import pprint;
 
 sys.path.append(os.path.join(os.path.dirname(__file__)))
 # from bolt import *
-import bolt, scripted_component
+# import bolt, scripted_component
 def app() -> adsk.core.Application: return adsk.core.Application.get()
 def ui() -> adsk.core.UserInterface: return app().userInterface
 
 def run(context:dict):
+    a = 3 + 3
+    pass
+    raise Exception("bogus exception")
+    return
+    
     design = adsk.fusion.Design.cast(app().activeProduct)
     rootComponent = design.rootComponent
     # ScriptedComponent.updateAllScriptedComponentsInAFusionDesign(design)

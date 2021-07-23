@@ -48,25 +48,66 @@
         },
         {
             "label": "reload_fusion_script_runner_addin_then_monitor_log",
+            "dependsOrder": "sequence",
             "dependsOn": [
                 "reload_fusion_script_runner_addin_with_keystrokes",
                 "monitor_fusion_script_runnner_addin_log"
-            ],
-            "dependsOrder": "sequence"
+            ]
+        },
+        {
+            "label":"kill_fusion",
+            "type":"shell",
+            "command": "(tasklist | grep Fusion360.exe) &&  (taskkill /f /t /im Fusion360.exe & sleep 3)  & exit 0",
+            "presentation": {
+                "reveal": "silent",
+                "panel":  "dedicated",
+                "showReuseMessage": false,
+                "close": true
+            }
+        },
+        {
+            "label":"run_fusion",
+            "type":"shell",
+            "command": "Fusion360 --nologo",
+            "presentation": {
+                "reveal": "silent",
+                "panel":  "dedicated",
+                "showReuseMessage": false,
+                "close": false
+            }
+        },
+        {
+            "label":"run_fusion_with_debugpy_log_dir_defined",
+            "type":"shell",
+            "command": "Fusion360 --nologo",
+            "presentation": {
+                "reveal": "silent",
+                "panel":  "dedicated",
+                "showReuseMessage": false,
+                "close": false
+            },
+            "options": {
+                "env": {
+                    "DEBUGPY_LOG_DIR":"C:/work/fusion_programmatic_experiment/debugpy_log"
+                }
+            }
         },
         {
             "label":"restart_fusion",
-            "type":"shell",
-            "command": "taskkill /f /t /im Fusion360.exe & (start \"\" Fusion360 --nologo)",
-            "presentation": {"reveal": "silent"}
-            
+            "dependsOn":["kill_fusion", "run_fusion"],
+            "dependsOrder": "sequence"
         },
         {
             "label":"restart_fusion_with_debugpy_log_dir_defined",
-            "type":"shell",
-            "command": "taskkill /f /t /im Fusion360.exe & (set \"DEBUGPY_LOG_DIR=C:/work/fusion_programmatic_experiment/debugpy_log\" && start \"\" Fusion360 --nologo)",
-            "presentation": {"reveal": "silent"}            
+            "dependsOn":["kill_fusion", "run_fusion_with_debugpy_log_dir_defined"],
+            "dependsOrder": "sequence"
         },
+        // {
+        //     "label":"restart_fusion_with_debugpy_log_dir_defined",
+        //     "type":"shell",
+        //     "command": "taskkill /f /t /im Fusion360.exe & (set \"DEBUGPY_LOG_DIR=C:/work/fusion_programmatic_experiment/debugpy_log\" && start \"\" Fusion360 --nologo)",
+        //     "presentation": {"reveal": "silent"}            
+        // },
         {
             "label":"monitor_the_log",
             "type":"shell",
