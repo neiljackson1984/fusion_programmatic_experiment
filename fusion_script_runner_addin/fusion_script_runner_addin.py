@@ -44,23 +44,20 @@ import fusion_main_thread_runner
  
 import rpyc
 import rpyc.core
-# import rpyc.lib
 import rpyc.utils.server
 
-# from rpyc.core import SlaveService
-# from rpyc.lib import setup_logger
-# from rpyc.utils.server import Server, ThreadedServer, ForkingServer, OneShotServer 
 
 
 NAME_OF_THIS_ADDIN = 'fusion_script_runner_addin'
-
 PORT_NUMBER_FOR_RPYC_SLAVE_SERVER = 18812
 PORT_NUMBER_FOR_HTTP_SERVER = 19812
 
-# pathOfDebuggingLog = os.path.join(os.path.dirname(os.path.realpath(__file__)), f"{NAME_OF_THIS_ADDIN}_log.log")
+debugpy = None
+debugging_started = False
+
 pathOfDebuggingLog = os.path.join(tempfile.gettempdir(), f"{NAME_OF_THIS_ADDIN}_log.log")
 
-debugging_started=False
+
 
 def app() -> adsk.core.Application: return adsk.core.Application.get()
 def ui() -> adsk.core.UserInterface: return app().userInterface
@@ -84,7 +81,7 @@ class AddIn(object):
         # but here, before logging infrasturcture is set up, the Except block will report
         # error messages in a more primitive way.
         try:
-            
+            self._fusionMainThreadRunner = fusion_main_thread_runner.FusionMainThreadRunner(logger=logger)
             self._logging_file_handler = logging.handlers.RotatingFileHandler(
                 filename=pathOfDebuggingLog,
                 maxBytes=2**20,
@@ -94,21 +91,27 @@ class AddIn(object):
             # logger.setLevel(logging.WARNING)
             logger.setLevel(logging.DEBUG)
 
-            self._logging_dialog_handler = FusionErrorDialogLoggingHandler()
-            self._logging_dialog_handler.setFormatter(logging.Formatter("%(message)s"))
-            self._logging_dialog_handler.setLevel(logging.FATAL)
-            self._fusionMainThreadRunner = fusion_main_thread_runner.FusionMainThreadRunner(logger=logger)
-            logger.addHandler(self._logging_dialog_handler)
+            if False:
+                self._logging_dialog_handler = FusionErrorDialogLoggingHandler()
+                self._logging_dialog_handler.setFormatter(logging.Formatter("%(message)s"))
+                self._logging_dialog_handler.setLevel(logging.FATAL)
+                logger.addHandler(self._logging_dialog_handler)
+
+            self._logging_textcommands_palette_handler = FusionTextCommandsPalletteLoggingHandler()
+            self._logging_textcommands_palette_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+            self._logging_textcommands_palette_handler.setLevel(logging.FATAL)
+            logger.addHandler(self._logging_textcommands_palette_handler)
+
         except Exception:
             # The logging infrastructure may not be set up yet, so we directly show an error dialog instead
             ui().messageBox(f"Error while starting {NAME_OF_THIS_ADDIN}.\n\n%s" % traceback.format_exc())
             return
 
         try:
-            try:
-                app().unregisterCustomEvent(RUN_SCRIPT_REQUESTED_EVENT_ID)
-            except Exception:
-                pass
+            # try:
+            #     app().unregisterCustomEvent(RUN_SCRIPT_REQUESTED_EVENT_ID)
+            # except Exception:
+            #     pass
 
             logger.debug("ahoy there")
             logger.debug("os.getcwd(): " + os.getcwd())
@@ -163,7 +166,12 @@ class AddIn(object):
         self._rpyc_slave_server.start()
 
     #this is intended to be run in Fusion's main thread.
-    def runScript(self, script_path: str, debug: bool = False, debugpy_path: str = "", debug_port: int = 0):
+    def runScript(self, 
+        script_path  : str, 
+        debug        : bool = False, 
+        debugpy_path : str  = "", 
+        debug_port   : int  = 0
+    ):
         try:
             if not script_path and not debug:
                 logger.warning("No script provided and debugging not requested. There's nothing to do.")
@@ -295,10 +303,23 @@ class AddIn(object):
             ui().messageBox(f"Error while closing {NAME_OF_THIS_ADDIN}'s dialog logger.\n\n%s" % traceback.format_exc())
         self._logging_dialog_handler = None
 
+
+        # clean up _logging_textcommands_palette_handler:
+        try:
+            if self._logging_textcommands_palette_handler:
+                self._logging_textcommands_palette_handler.close()
+                logger.removeHandler(self._logging_textcommands_palette_handler)
+        except Exception:
+            ui().messageBox(f"Error while closing {NAME_OF_THIS_ADDIN}'s textcommands palette logger.\n\n%s" % traceback.format_exc())
+        self._logging_textcommands_palette_handler = None
+
+
 def unload_submodules(module_name):
     search_prefix = module_name + '.'
+    logger.debug(f"unloading modules whose name starts with {search_prefix}")
     loaded_submodules = []
     for loaded_module_name in sys.modules:
+        # logger.debug(f"considering whether to unload {loaded_module_name}")
         if loaded_module_name.startswith(search_prefix):
             loaded_submodules.append(loaded_module_name)
     for loaded_submodule in loaded_submodules:
@@ -368,7 +389,8 @@ def ensureThatDebuggingIsStarted(debugpy_path: str, debug_port: int) -> None:
             
             def before_send(self, message_as_dict):
                 logger.debug(f"LoggingDapMessagesListener::before_send({message_as_dict})")  
-        pydevd.add_dap_messages_listener(LoggingDapMessagesListener())
+        if False:
+            pydevd.add_dap_messages_listener(LoggingDapMessagesListener())
         
         #display a "D" button in the quick-access toolbar as a visual indicator to the user that debugging is now active.
         debugging_started = True
@@ -381,6 +403,16 @@ class FusionErrorDialogLoggingHandler(logging.Handler):
         addin._fusionMainThreadRunner.doTaskInMainFusionThread(
             lambda : ui().messageBox(self.format(record), f"{NAME_OF_THIS_ADDIN} error")
         )
+
+class FusionTextCommandsPalletteLoggingHandler(logging.Handler):
+    """A logging handler that writes log messages to the Fusion TextCommands palette."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        addin._fusionMainThreadRunner.doTaskInMainFusionThread(
+            lambda : 
+                ui().palettes.itemById('TextCommands').writeText(self.format(record))
+        )
+
 
 class RunScriptHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
     """An HTTP request handler that queues an event in the main thread of fusion 360 to run a script."""
@@ -423,8 +455,6 @@ class RunScriptHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
                     debug_port      = int(message.get("debug_port",0))
                 )
             )
-
-
 
             self.send_response(200)
             self.end_headers()

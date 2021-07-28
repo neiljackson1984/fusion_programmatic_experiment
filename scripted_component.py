@@ -1,5 +1,6 @@
 import adsk.core, adsk.fusion, traceback
 import datetime
+from typing import Iterable
 
 
 def printDebuggingMessage(x: str):
@@ -53,7 +54,11 @@ class ScriptedComponent (object):
                     )
                 )
             ).parent
-        
+
+    #virtual
+    def update(self) -> None:
+        pass
+
 
     @classmethod 
     def create(cls, parentFusionComponent: adsk.fusion.Component):
@@ -63,14 +68,21 @@ class ScriptedComponent (object):
         newlyCreatedFusionComponent.attributes.add(ScriptedComponent.attributeGroupName, "class", cls.__name__)
         return cls(newlyCreatedFusionComponent)
 
-
     @staticmethod
-    def getAllScriptedComponentsInAFusionDesign( fusionDesign: adsk.fusion.Design ):
+    def getAllScriptedComponentsInAFusionDesign( fusionDesign: adsk.fusion.Design ) -> Iterable['ScriptedComponent']:
         scriptedComponents = [
             adsk.fusion.Component.cast(adsk.core.Attribute.cast(attribute).parent) 
             for attribute in 
             fusionDesign.findAttributes(ScriptedComponent.attributeGroupName, "ScriptedComponent")
         ]
+
+        scriptedComponents = []
+        attribute: adsk.core.Attribute
+        for attribute in fusionDesign.findAttributes(ScriptedComponent.attributeGroupName, "ScriptedComponent"):
+            fusionComponent = adsk.fusion.Component.cast(attribute.parent)
+            className = fusionComponent.attributes.itemByName(ScriptedComponent.attributeGroupName,"class").value
+            klass = next(filter(lambda x: x.__name__ == className , inheritors(ScriptedComponent)))
+            scriptedComponents.append(klass(fusionComponent))
 
         printDebuggingMessage("found " + str(len(scriptedComponents)) + " scripted components.")
 
@@ -84,17 +96,7 @@ class ScriptedComponent (object):
 
         return scriptedComponents
 
-    
     @staticmethod
-    def updateAllScriptedComponentsInAFusionDesign(fusionDesign: adsk.fusion.Design):
+    def updateAllScriptedComponentsInAFusionDesign(fusionDesign: adsk.fusion.Design) -> None:
         for scriptedComponent in ScriptedComponent.getAllScriptedComponentsInAFusionDesign(fusionDesign):
-            scriptedComponent = adsk.fusion.Component.cast(scriptedComponent)
-            className = scriptedComponent.attributes.itemByName(ScriptedComponent.attributeGroupName,"class").value
-            # klass = globals()[className]
-            # I seem to remember that the above way to get the klass worked in previous versions of Fusion
-            # (possibly due to something about previous versions of Python?)
-
-            klass = next(filter(lambda x: x.__name__ == className , inheritors(ScriptedComponent)))
-            #to do: handle the case where the specified class does not exist.
-            instance = klass(scriptedComponent)
-            instance.update()
+            scriptedComponent.update()

@@ -22,8 +22,8 @@ conn.execute('import adsk.core, adsk.fusion, traceback')
 rapp :adsk.core.Application = conn.eval('adsk.core.Application.get()')
 rsys = conn.modules['sys']
 ros = conn.modules['os']
-rpydevd_file_utils = conn.modules['pydevd_file_utils']
-rpydevd_constants = conn.modules['_pydevd_bundle.pydevd_constants']
+# rpydevd_file_utils = conn.modules['pydevd_file_utils']
+# rpydevd_constants = conn.modules['_pydevd_bundle.pydevd_constants']
 
 # print("rsys.modules.keys(): " + str(rsys.modules.keys()))
 print("sorted(list(rsys.modules.keys())): " )
@@ -31,6 +31,17 @@ pp.pprint(sorted(list(rsys.modules.keys())))
 
 print("list(rsys.modules.keys()): " )
 pp.pprint(list(rsys.modules.keys()))
+
+print("filtered list(rsys.modules.keys()): " )
+pp.pprint(
+    list(
+        filter(
+            lambda x:
+            'scripted_component' in x,
+            list(rsys.modules.keys())
+        )
+    )
+)
 
 exit()
 # rmodules = rsys.modules

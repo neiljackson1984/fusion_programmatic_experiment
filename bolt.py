@@ -1,8 +1,10 @@
-from scripted_component import *
+from . import scripted_component
 import math
+import adsk.core, adsk.fusion, traceback
+import datetime
 
 
-class Bolt (ScriptedComponent):
+class Bolt (scripted_component.ScriptedComponent):
     defaultBoltName         = 'Bolt'
     defaultHeadDiameter     = 1.2
     defaultShankDiameter    = 0.4
@@ -25,7 +27,13 @@ class Bolt (ScriptedComponent):
         self._cutAngle         = Bolt.defaultCutAngle
         self._chamferDistance  = Bolt.defaultChamferDistance #adsk.core.ValueInput.createByReal(Bolt.defaultChamferDistance)
         self._filletRadius     = Bolt.defaultFilletRadius #adsk.core.ValueInput.createByReal(Bolt.defaultFilletRadius)
-        
+
+    @classmethod 
+    def create(cls, parentFusionComponent: adsk.fusion.Component):
+        self = super().create(parentFusionComponent)
+        print("Here in Bolt's create() method, self.__class__.__name__ is " + self.__class__.__name__)
+        # produces: Here in Bolt's create() method, self.__class__.__name__ is Bolt
+        self._update(constructFromScratch=True) 
 
     #properties
     @property
@@ -84,7 +92,7 @@ class Bolt (ScriptedComponent):
     def filletRadius(self, value):
         self._filletRadius = value
 
-    def update(self):
+    def update(self)  -> None:
         self._update(constructFromScratch = False)
 
     # # static function to create a new class-backed component and return the 
@@ -104,8 +112,7 @@ class Bolt (ScriptedComponent):
     #     return newlyCreatedClassInstance
 
     def _update(self, constructFromScratch: bool = False):
-        theComponent: adsk.fusion.Component = self._fusionComponent
-        printDebuggingMessage("updateBolt() is running with constructFromScratch=" + str(constructFromScratch) + ", and theComponent.name=" + theComponent.name)
+        scripted_component.printDebuggingMessage("updateBolt() is running with constructFromScratch=" + str(constructFromScratch) + ", and self._fusionComponent.name=" + self._fusionComponent.name)
         
 
         timestamp = "{0.hour}{0.minute}{0.second}".format(datetime.datetime.now())
@@ -130,18 +137,18 @@ class Bolt (ScriptedComponent):
         doBaseFeature = False
 
         if doBaseFeature:
-            baseFeature = theComponent.features.baseFeatures.add()
+            baseFeature = self._fusionComponent.features.baseFeatures.add()
             baseFeature.name = timestamp + " " + self.boltName
             baseFeature.startEdit()
 
         # if not constructFromScratch:
-        #     savedReferences = theComponent.attributes.itemByName(attributeGroupName, "savedReferences")
+        #     savedReferences = self._fusionComponent.attributes.itemByName(self.attributeGroupName, "savedReferences")
         
         
         if constructFromScratch: 
             # Create headSketch - a sketch containing 6 lines
-            headSketch = theComponent.sketches.add(theComponent.xYConstructionPlane)
-            headSketch.attributes.add(attributeGroupName, "headSketch", "")
+            headSketch = self._fusionComponent.sketches.add(self._fusionComponent.xYConstructionPlane)
+            headSketch.attributes.add(self.attributeGroupName, "headSketch", "")
 
             # printDebuggingMessage("headSketch.attributes.groupNames: " + repr(headSketch.attributes.groupNames ) )
             # printDebuggingMessage("attributes of headSketch: " + 
@@ -158,17 +165,17 @@ class Bolt (ScriptedComponent):
                 headSketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create(0, 0, 0), adsk.core.Point3D.create(1, 1, 0))
             
             #create shankSketch - a sketch containing a circle
-            shankSketch = theComponent.sketches.add(theComponent.xYConstructionPlane)
-            shankSketch.attributes.add(attributeGroupName, "shankSketch", "")
+            shankSketch = self._fusionComponent.sketches.add(self._fusionComponent.xYConstructionPlane)
+            shankSketch.attributes.add(self.attributeGroupName, "shankSketch", "")
             shankSketch.name=timestamp + " " + "shank sketch"
 
             shankSketch.sketchCurves.sketchCircles.addByCenterRadius(adsk.core.Point3D.create(0, 0, 0), 1)
 
 
         # find the headSketch and shankSketch
-        # headSketch  = adsk.fusion.Sketch.cast( adsk.core.Attribute.cast( next(findAttributesInComponent(theComponent, attributeGroupName, "headSketch"))[0] ).parent )
-        headSketch  = adsk.fusion.Sketch.cast( ScriptedComponent.findFirstTaggedEntityInComponent(theComponent, "headSketch") )
-        shankSketch = adsk.fusion.Sketch.cast( ScriptedComponent.findFirstTaggedEntityInComponent(theComponent, "shankSketch") )
+        # headSketch  = adsk.fusion.Sketch.cast( adsk.core.Attribute.cast( next(findAttributesInComponent(self._fusionComponent, self.attributeGroupName, "headSketch"))[0] ).parent )
+        headSketch  = adsk.fusion.Sketch.cast( self.findFirstTaggedEntity("headSketch") )
+        shankSketch = adsk.fusion.Sketch.cast( self.findFirstTaggedEntity("shankSketch") )
     
         center = adsk.core.Point3D.create(0, 0, 0)
         vertices = [
@@ -188,14 +195,14 @@ class Bolt (ScriptedComponent):
         #we might also consider enforcing that headSketch and shankCrossSection have the xy plane as their sketch plane.
 
         if constructFromScratch: 
-            headExtrusionInput = theComponent.features.extrudeFeatures.createInput(headSketch.profiles[0], adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+            headExtrusionInput = self._fusionComponent.features.extrudeFeatures.createInput(headSketch.profiles[0], adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
             headExtrusionInput.setDistanceExtent(False, adsk.core.ValueInput.createByReal(1))
-            headExtrusion = theComponent.features.extrudeFeatures.add(headExtrusionInput)
-            headExtrusion.attributes.add(attributeGroupName, "headExtrusion", "")
+            headExtrusion = self._fusionComponent.features.extrudeFeatures.add(headExtrusionInput)
+            headExtrusion.attributes.add(self.attributeGroupName, "headExtrusion", "")
             headExtrusion.name = timestamp + " " + "head extrusion"
             headExtrusion.faces[0].body.name = timestamp + " " + self.boltName
         
-        headExtrusion = adsk.fusion.ExtrudeFeature.cast(ScriptedComponent.findFirstTaggedEntityInComponent(theComponent, "headExtrusion"))
+        headExtrusion = adsk.fusion.ExtrudeFeature.cast(self.findFirstTaggedEntity("headExtrusion"))
         
         headExtrusion.timelineObject.rollTo(True)
         # headExtrusion.setDistanceExtent( False, adsk.core.ValueInput.createByReal(self.headHeight) )
@@ -204,18 +211,18 @@ class Bolt (ScriptedComponent):
         # 
         adsk.fusion.DistanceExtentDefinition.cast(headExtrusion.extentOne).distance.value = self.headHeight
 
-        theComponent.parentDesign.timeline.moveToEnd()
+        self._fusionComponent.parentDesign.timeline.moveToEnd()
         #or, alternatively, might do headExtrusion.timelineObject.rollTo(False (we don't need to roll al the way to the end, just to the right of the headExtrusion feature.)
 
         if constructFromScratch: 
-            shankExtrusionInput = theComponent.features.extrudeFeatures.createInput(shankSketch.profiles[0], adsk.fusion.FeatureOperations.JoinFeatureOperation)
+            shankExtrusionInput = self._fusionComponent.features.extrudeFeatures.createInput(shankSketch.profiles[0], adsk.fusion.FeatureOperations.JoinFeatureOperation)
             shankExtrusionInput.setDistanceExtent(False, adsk.core.ValueInput.createByReal(1))
             shankExtrusionInput.participantBodies = list(headExtrusion.bodies)
-            shankExtrusion = theComponent.features.extrudeFeatures.add(shankExtrusionInput)
+            shankExtrusion = self._fusionComponent.features.extrudeFeatures.add(shankExtrusionInput)
             shankExtrusion.name = timestamp + " " + "shank extrusion"
-            shankExtrusion.attributes.add(attributeGroupName, "shankExtrusion", "")
+            shankExtrusion.attributes.add(self.attributeGroupName, "shankExtrusion", "")
 
-        shankExtrusion = adsk.fusion.ExtrudeFeature.cast(ScriptedComponent.findFirstTaggedEntityInComponent(theComponent, "shankExtrusion"))
+        shankExtrusion = adsk.fusion.ExtrudeFeature.cast(self.findFirstTaggedEntity("shankExtrusion"))
         shankExtrusion.timelineObject.rollTo(True)
         shankExtrusion.participantBodies = list(headExtrusion.bodies)
         # shankExtrusion.setDistanceExtent(False, adsk.core.ValueInput.createByReal(self.length))
@@ -223,13 +230,13 @@ class Bolt (ScriptedComponent):
         adsk.fusion.DistanceExtentDefinition.cast(shankExtrusion.extentOne).distance.value = self.length
         
 
-        theComponent.parentDesign.timeline.moveToEnd()
+        self._fusionComponent.parentDesign.timeline.moveToEnd()
         # printDebuggingMessage("shankSketch.attributes.groupNames: " + repr(shankSketch.attributes.groupNames))
 
         # create chamfer
         # edgeCollection = adsk.core.ObjectCollection.create() 
         # for edge in shankExtrusion.endFaces[0].edges: edgeCollection.add(edgeI)
-        # chamferInput = theComponent.features.chamferFeatures.createInput(edgeCollection, True)
+        # chamferInput = self._fusionComponent.features.chamferFeatures.createInput(edgeCollection, True)
         
         #edgeCollection = adsk.core.ObjectCollection.cast(shankExtrusion.endFaces[0].edges)
         # the above casting does not work
@@ -240,15 +247,15 @@ class Bolt (ScriptedComponent):
         # printDebuggingMessage("edgeCollection.count: " + str(edgeCollection.count))
 
         if constructFromScratch:
-            chamferInput = theComponent.features.chamferFeatures.createInput(edgeCollection, True)
+            chamferInput = self._fusionComponent.features.chamferFeatures.createInput(edgeCollection, True)
             chamferInput.setToEqualDistance(adsk.core.ValueInput.createByReal(self.chamferDistance))
             #is it possible to add a chamfer feature without specifying any edges or any of the distance properties?  Will fusion let me add a non-buildable feature programmatically
             # (it certainly will not let me add one via the ui, but for our purposes here, we would like to add a non-buildable chamfer feature initially, and then set its properties later.
             # Adding the chamfer is the essence of what we do uniquely when we are consturcting from scratch, whereas setting the properties of the chamfer is something we will do every time.) 
-            chamfer = theComponent.features.chamferFeatures.add(chamferInput)
-            chamfer.attributes.add(attributeGroupName, "chamfer", "")
+            chamfer = self._fusionComponent.features.chamferFeatures.add(chamferInput)
+            chamfer.attributes.add(self.attributeGroupName, "chamfer", "")
             chamfer.name = timestamp + " " + "chamfer"
-        chamfer = adsk.fusion.ChamferFeature.cast(ScriptedComponent.findFirstTaggedEntityInComponent(theComponent, "chamfer"))
+        chamfer = adsk.fusion.ChamferFeature.cast(self.findFirstTaggedEntity("chamfer"))
         chamfer.timelineObject.rollTo(True)
 
         #in the case where we are not construction from scratch, edgeCollection computed above
@@ -268,7 +275,7 @@ class Bolt (ScriptedComponent):
         # The above call to adsk.core.ValueInput.createByReal() (commented out) would create a new parameter every time we update, 
         # which is not what we want, and I am not even sure that Fusion would allow it (I suspect that parameters can only be created when you are creating a feature)
         adsk.fusion.EqualDistanceChamferTypeDefinition.cast(chamfer.chamferTypeDefinition).distance.value = self.chamferDistance
-        theComponent.parentDesign.timeline.moveToEnd()
+        self._fusionComponent.parentDesign.timeline.moveToEnd()
 
         # create fillet
         
@@ -294,12 +301,12 @@ class Bolt (ScriptedComponent):
 
 
         if constructFromScratch:
-            filletInput = theComponent.features.filletFeatures.createInput()
+            filletInput = self._fusionComponent.features.filletFeatures.createInput()
             filletInput.addConstantRadiusEdgeSet(edgeCollection, adsk.core.ValueInput.createByReal(self.filletRadius), True)
-            fillet = theComponent.features.filletFeatures.add(filletInput)
-            fillet.attributes.add(attributeGroupName, "fillet", "")
+            fillet = self._fusionComponent.features.filletFeatures.add(filletInput)
+            fillet.attributes.add(self.attributeGroupName, "fillet", "")
             fillet.name = timestamp + " " + "fillet"
-        fillet = adsk.fusion.FilletFeature.cast(ScriptedComponent.findFirstTaggedEntityInComponent(theComponent, "fillet"))
+        fillet = adsk.fusion.FilletFeature.cast(self.findFirstTaggedEntity("fillet"))
         fillet.timelineObject.rollTo(True)
         
         edgeLoop = next(
@@ -319,11 +326,11 @@ class Bolt (ScriptedComponent):
         #oops, that property does not exist -- are fillets half-baked?
         constantRadiusFilletEdgeSet.radius.value = self.filletRadius
         
-        theComponent.parentDesign.timeline.moveToEnd()
-        printDebuggingMessage("finished updating " + theComponent.name)
+        self._fusionComponent.parentDesign.timeline.moveToEnd()
+        scripted_component.printDebuggingMessage("finished updating " + self._fusionComponent.name)
 
         # #create revolve feature 1
-        # revolveSketch = theComponent.sketches.add(theComponent.xZConstructionPlane)
+        # revolveSketch = self._fusionComponent.sketches.add(self._fusionComponent.xZConstructionPlane)
         # revolveSketch.name=timestamp + " " + "revolve sketch"
         # radius = self.headDiameter/2
         # point1 = revolveSketch.modelToSketchSpace(adsk.core.Point3D.create(center.x + radius*math.cos(math.pi/6), 0, center.y))
@@ -343,29 +350,29 @@ class Bolt (ScriptedComponent):
         # revolveSketch.sketchCurves.sketchLines.addByTwoPoints(point6, point4)
 
         # revolve1Profile = revolveSketch.profiles[0]
-        # revolve1Input = theComponent.features.revolveFeatures.createInput(revolve1Profile, theComponent.zConstructionAxis, adsk.fusion.FeatureOperations.CutFeatureOperation)
+        # revolve1Input = self._fusionComponent.features.revolveFeatures.createInput(revolve1Profile, self._fusionComponent.zConstructionAxis, adsk.fusion.FeatureOperations.CutFeatureOperation)
 
         # revolveAngle = adsk.core.ValueInput.createByReal(math.pi*2)
         # revolve1Input.setAngleExtent(False,revolveAngle)
-        # revolve1 = theComponent.features.revolveFeatures.add(revolve1Input)
+        # revolve1 = self._fusionComponent.features.revolveFeatures.add(revolve1Input)
         # revolve1.name = timestamp + " " + "revolve1"
 
         # revolve2Profile = revolveSketch.profiles[1]
-        # revolve2Input = theComponent.features.revolveFeatures.createInput(revolve2Profile, theComponent.zConstructionAxis, adsk.fusion.FeatureOperations.CutFeatureOperation)
+        # revolve2Input = self._fusionComponent.features.revolveFeatures.createInput(revolve2Profile, self._fusionComponent.zConstructionAxis, adsk.fusion.FeatureOperations.CutFeatureOperation)
 
         # revolve2Input.setAngleExtent(False,revolveAngle)
-        # revolve2 = theComponent.features.revolveFeatures.add(revolve2Input)
+        # revolve2 = self._fusionComponent.features.revolveFeatures.add(revolve2Input)
         # revolve2.name = timestamp + " " + "revolve2"
 
         # sideFace = shankExtrusion.sideFaces[0]
-        # threadDataQuery = theComponent.features.threadFeatures.threadDataQuery
+        # threadDataQuery = self._fusionComponent.features.threadFeatures.threadDataQuery
         # defaultThreadType = threadDataQuery.defaultMetricThreadType
         # recommendData = threadDataQuery.recommendThreadData(self.shankDiameter, False, defaultThreadType)
         # if recommendData[0] :
-        #     threadInfo = theComponent.features.threadFeatures.createThreadInfo(False, defaultThreadType, recommendData[1], recommendData[2])
+        #     threadInfo = self._fusionComponent.features.threadFeatures.createThreadInfo(False, defaultThreadType, recommendData[1], recommendData[2])
         #     faces = adsk.core.ObjectCollection.create()
         #     faces.add(sideFace)
-        #     threadInput = theComponent.features.threadFeatures.createInput(faces, threadInfo)
-        #     thread = theComponent.features.threadFeatures.add(threadInput)
+        #     threadInput = self._fusionComponent.features.threadFeatures.createInput(faces, threadInfo)
+        #     thread = self._fusionComponent.features.threadFeatures.add(threadInput)
         #     thread.name = timestamp + " " + "thread"
         # if doBaseFeature: baseFeature.finishEdit()

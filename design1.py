@@ -3,17 +3,20 @@ import adsk.core, adsk.fusion, traceback
 import inspect
 import pprint; 
 
-sys.path.append(os.path.join(os.path.dirname(__file__)))
-# from bolt import *
-# import bolt, scripted_component
+# sys.path.append(os.path.join(os.path.dirname(__file__)))
+from . import scripted_component
+from . import bolt
+
+
+
 def app() -> adsk.core.Application: return adsk.core.Application.get()
 def ui() -> adsk.core.UserInterface: return app().userInterface
 
 def run(context:dict):
-    a = 3 + 3
-    pass
-    raise Exception("bogus exception")
-    return
+    # a = 3 + 3
+    # pass
+    # raise Exception("xxxbogus exception")
+    # return
     
     design = adsk.fusion.Design.cast(app().activeProduct)
     rootComponent = design.rootComponent
@@ -31,7 +34,7 @@ def run(context:dict):
     if len(scripted_component.ScriptedComponent.getAllScriptedComponentsInAFusionDesign(design)) < 3:
         bolt.Bolt.create(design.rootComponent)
 
-    scripted_component.ScriptedComponent.updateAllScriptedComponentsInAFusionDesign(design)
+    # scripted_component.ScriptedComponent.updateAllScriptedComponentsInAFusionDesign(design)
     # prevent this module from being terminated when the script returns
     # adsk.autoTerminate(False)
 
