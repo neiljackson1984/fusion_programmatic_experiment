@@ -25,6 +25,11 @@ def inheritors(klass):
     return subclasses
 
 class ScriptedComponent (object):
+    """ 
+    A ScriptedComponent is a wrapper around an adsk.fusion.Component
+
+    """
+
     # this is a static constant that we use as the name of the "attribute group name" 
     # -- an identifier within Fusion that is associated with the metadata that we attach to 
     # Fusion entities using Fusion's "atttributes" system (a mechanism for attaching arbitrary third-party data 

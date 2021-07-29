@@ -183,8 +183,10 @@ class AddIn(object):
                 if debug:
                     if not debugpy.is_client_connected():
                         ui().palettes.itemById('TextCommands').writeText(str(datetime.datetime.now()) + "\t" + 'Waiting for connection from client, and will then run ' + script_path)
-                        adsk.doEvents()
+                        adsk.doEvents() #this seems to be necessary to make the message appear in the textCommands palette right away.
                     debugpy.wait_for_client()
+                    ui().palettes.itemById('TextCommands').writeText(str(datetime.datetime.now()) + "\t" + 'Client connected.  Now running ' + script_path + ' ...')
+                    adsk.doEvents() 
                     # we might consider doing this waiting in a separate thread so as to not block the UI.
                     
                 script_path = os.path.abspath(script_path)

@@ -1,10 +1,11 @@
 from . import scripted_component
+from .scripted_component import ScriptedComponent
 import math
 import adsk.core, adsk.fusion, traceback
 import datetime
 
 
-class Bolt (scripted_component.ScriptedComponent):
+class Bolt (ScriptedComponent):
     defaultBoltName         = 'Bolt'
     defaultHeadDiameter     = 1.2
     defaultShankDiameter    = 0.4
@@ -29,11 +30,12 @@ class Bolt (scripted_component.ScriptedComponent):
         self._filletRadius     = Bolt.defaultFilletRadius #adsk.core.ValueInput.createByReal(Bolt.defaultFilletRadius)
 
     @classmethod 
-    def create(cls, parentFusionComponent: adsk.fusion.Component):
+    def create(cls, parentFusionComponent: adsk.fusion.Component) -> 'Bolt':
         self = super().create(parentFusionComponent)
         print("Here in Bolt's create() method, self.__class__.__name__ is " + self.__class__.__name__)
         # produces: Here in Bolt's create() method, self.__class__.__name__ is Bolt
         self._update(constructFromScratch=True) 
+        return self
 
     #properties
     @property
@@ -95,25 +97,8 @@ class Bolt (scripted_component.ScriptedComponent):
     def update(self)  -> None:
         self._update(constructFromScratch = False)
 
-    # # static function to create a new class-backed component and return the 
-    # # (newly-created) class instance
-    # # def create(parentComponent: adsk.fusion.Component) -> Bolt: 
-    # #oops:  >>   NameError: name 'Bolt' is not defined
-    # # not sure the right way to type-hint this.
-    # def create(parentComponent: adsk.fusion.Component):
-    #     global attributeGroupName
-    #     newlyCreatedOccurence  = parentComponent.occurrences.addNewComponent(adsk.core.Matrix3D.create())
-    #     newlyCreatedComponent = adsk.fusion.Component(newlyCreatedOccurence.component)
-    #     newlyCreatedComponent.attributes.add(attributeGroupName, "class_backed_component", "")
-    #     newlyCreatedComponent.attributes.add(attributeGroupName, "class", "Bolt")
-    #     newlyCreatedComponent.name = "{0.hour}{0.minute}{0.second}".format(datetime.datetime.now()) + " " + "bolt"
-    #     newlyCreatedClassInstance = Bolt(newlyCreatedComponent)
-    #     newlyCreatedClassInstance._update(constructFromScratch=True)
-    #     return newlyCreatedClassInstance
-
     def _update(self, constructFromScratch: bool = False):
         scripted_component.printDebuggingMessage("updateBolt() is running with constructFromScratch=" + str(constructFromScratch) + ", and self._fusionComponent.name=" + self._fusionComponent.name)
-        
 
         timestamp = "{0.hour}{0.minute}{0.second}".format(datetime.datetime.now())
         
@@ -123,16 +108,14 @@ class Bolt (scripted_component.ScriptedComponent):
         # "update" them in the future.  Now, we could certainly delete and re-create everything, but the goal is to maintain the internal identities that Fusion
         # assigns to the geometric elements, and deleting and recreating would wipe out any sense of identity that Fusion had already assigned (and, annoyingly, we 
         # cannot directly control Fusion's internal identity-assignment system).  Therefore, we must carefully look for and edit the existing features (or create them
-        # if they do not already exist.  We are missing OnShape's elegant partially-user-controllable identity assignment system wherein the user assigns each feature an id
+        # if they do not already exist.  We are missing OnShape's elegant partially-user-controllable, hierarchical identity assignment system wherein the user assigns each feature an id
         # (an arbitrary string), and the id of an edge or a face, etc. is some magical composite of the ids of all the features that contributed to it.
-
 
         # So, in the case of the sketch for instance, we want a makeSketch function that takes an id parameter, and returns the sketch designated by that id (creating it if
         # it does not exist), and an analogous function for each thing that we want to create/update.  Ideally, we would want this system to be able to handle an exisintg component 
         # that is based on a radically different design than the code is currently designed to produce, so that we can take a component that has some extra elements, some missing elements, 
         # some re-arranged elements (as we might encounter when the design has changed), and we can "update" that component, to the new design in the most identity-preserving way
         # possible (The fallback strategy always being to delete and recreate everything).
-
 
         doBaseFeature = False
 
@@ -143,7 +126,6 @@ class Bolt (scripted_component.ScriptedComponent):
 
         # if not constructFromScratch:
         #     savedReferences = self._fusionComponent.attributes.itemByName(self.attributeGroupName, "savedReferences")
-        
         
         if constructFromScratch: 
             # Create headSketch - a sketch containing 6 lines
@@ -173,13 +155,16 @@ class Bolt (scripted_component.ScriptedComponent):
 
 
         # find the headSketch and shankSketch
-        # headSketch  = adsk.fusion.Sketch.cast( adsk.core.Attribute.cast( next(findAttributesInComponent(self._fusionComponent, self.attributeGroupName, "headSketch"))[0] ).parent )
         headSketch  = adsk.fusion.Sketch.cast( self.findFirstTaggedEntity("headSketch") )
         shankSketch = adsk.fusion.Sketch.cast( self.findFirstTaggedEntity("shankSketch") )
     
         center = adsk.core.Point3D.create(0, 0, 0)
         vertices = [
-            adsk.core.Point3D.create(center.x + (self.headDiameter/2) * math.cos(math.pi * i / 3), center.y + (self.headDiameter/2) * math.sin(math.pi * i / 3),0)
+            adsk.core.Point3D.create(
+                center.x + (self.headDiameter/2) * math.cos(math.pi * i / 3), 
+                center.y + (self.headDiameter/2) * math.sin(math.pi * i / 3),
+                0
+            )
             for i in range(0,6)
         ]
 

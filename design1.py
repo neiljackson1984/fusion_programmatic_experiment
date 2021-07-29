@@ -5,7 +5,8 @@ import pprint;
 
 # sys.path.append(os.path.join(os.path.dirname(__file__)))
 from . import scripted_component
-from . import bolt
+from .scripted_component import ScriptedComponent
+from .bolt import Bolt
 
 
 
@@ -20,21 +21,21 @@ def run(context:dict):
     
     design = adsk.fusion.Design.cast(app().activeProduct)
     rootComponent = design.rootComponent
-    # ScriptedComponent.updateAllScriptedComponentsInAFusionDesign(design)
-    print("ScriptedComponent.__subclasses__(): " + str(scripted_component.ScriptedComponent.__subclasses__()))
+    ScriptedComponent.updateAllScriptedComponentsInAFusionDesign(design)
+    print("ScriptedComponent.__subclasses__(): " + str(ScriptedComponent.__subclasses__()))
 
     pp=pprint.PrettyPrinter(indent=4, width=80, depth=2, compact=False); 
     pp.pprint(
-        inspect.getmembers(scripted_component.ScriptedComponent.__subclasses__()[0])
+        inspect.getmembers(ScriptedComponent.__subclasses__()[0])
     )
-    print(scripted_component.ScriptedComponent.__subclasses__()[0].__qualname__)
-    print(scripted_component.ScriptedComponent.__subclasses__()[0].__name__)
+    print(ScriptedComponent.__subclasses__()[0].__qualname__)
+    print(ScriptedComponent.__subclasses__()[0].__name__)
 
 
-    if len(scripted_component.ScriptedComponent.getAllScriptedComponentsInAFusionDesign(design)) < 3:
-        bolt.Bolt.create(design.rootComponent)
+    if len(ScriptedComponent.getAllScriptedComponentsInAFusionDesign(design)) < 3:
+        Bolt.create(design.rootComponent)
 
-    # scripted_component.ScriptedComponent.updateAllScriptedComponentsInAFusionDesign(design)
+    # ScriptedComponent.updateAllScriptedComponentsInAFusionDesign(design)
     # prevent this module from being terminated when the script returns
     # adsk.autoTerminate(False)
 
