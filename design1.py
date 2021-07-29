@@ -22,19 +22,21 @@ def run(context:dict):
     design = adsk.fusion.Design.cast(app().activeProduct)
     rootComponent = design.rootComponent
     ScriptedComponent.updateAllScriptedComponentsInAFusionDesign(design)
-    print("ScriptedComponent.__subclasses__(): " + str(ScriptedComponent.__subclasses__()))
+    # print("ScriptedComponent.__subclasses__(): " + str(ScriptedComponent.__subclasses__()))
 
     pp=pprint.PrettyPrinter(indent=4, width=80, depth=2, compact=False); 
-    pp.pprint(
-        inspect.getmembers(ScriptedComponent.__subclasses__()[0])
-    )
-    print(ScriptedComponent.__subclasses__()[0].__qualname__)
-    print(ScriptedComponent.__subclasses__()[0].__name__)
+    # pp.pprint(
+    #     inspect.getmembers(ScriptedComponent.__subclasses__()[0])
+    # )
+    # print(ScriptedComponent.__subclasses__()[0].__qualname__)
+    # print(ScriptedComponent.__subclasses__()[0].__name__)
 
 
     if len(ScriptedComponent.getAllScriptedComponentsInAFusionDesign(design)) < 3:
-        Bolt.create(design.rootComponent)
+        thisBolt = Bolt.create(design.rootComponent)
+        # thisBolt.length += 1.0 * len(ScriptedComponent.getAllScriptedComponentsInAFusionDesign(design))
 
+    print("finished creating new bolts")
     # ScriptedComponent.updateAllScriptedComponentsInAFusionDesign(design)
     # prevent this module from being terminated when the script returns
     # adsk.autoTerminate(False)

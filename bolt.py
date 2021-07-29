@@ -3,31 +3,38 @@ from .scripted_component import ScriptedComponent
 import math
 import adsk.core, adsk.fusion, traceback
 import datetime
+import json
 
 
 class Bolt (ScriptedComponent):
-    defaultBoltName         = 'Bolt'
-    defaultHeadDiameter     = 1.2
-    defaultShankDiameter    = 0.4
-    defaultHeadHeight       = 1
-    defaultLength           = 4.0
-    defaultCutAngle         = 30.0 * (math.pi / 180)
-    defaultChamferDistance  = 0.06
-    defaultFilletRadius     = 0.02994
-        
     
+    defaultProperties = {
+        'boltName'          :     'Bolt',
+        'headDiameter'      :     1.2,
+        'shankDiameter'     :     0.4,
+        'headHeight'        :     1,
+        'length'            :     4.0,
+        'cutAngle'          :     30.0 * (math.pi / 180),
+        'chamferDistance'   :     0.06,
+        'filletRadius'      :     0.02994,
+        'headVertexCount'   :     6
+    }      
     
     def __init__(self, fusionComponent: adsk.fusion.Component):
         super().__init__(fusionComponent)
+        propertiesAttribute = self._fusionComponent.attributes.itemByName(ScriptedComponent.attributeGroupName, 'properties')
+        embeddedProperties:dict  = json.loads( propertiesAttribute.value if propertiesAttribute else '{}' )
+        resolvedProperties:dict  = {**self.defaultProperties, **embeddedProperties} 
 
-        self._boltName         = Bolt.defaultBoltName
-        self._headDiameter     = Bolt.defaultHeadDiameter
-        self._shankDiameter    = Bolt.defaultShankDiameter
-        self._headHeight       = Bolt.defaultHeadHeight
-        self._length           = Bolt.defaultLength #adsk.core.ValueInput.createByReal(Bolt.defaultLength)
-        self._cutAngle         = Bolt.defaultCutAngle
-        self._chamferDistance  = Bolt.defaultChamferDistance #adsk.core.ValueInput.createByReal(Bolt.defaultChamferDistance)
-        self._filletRadius     = Bolt.defaultFilletRadius #adsk.core.ValueInput.createByReal(Bolt.defaultFilletRadius)
+        self.boltName           = resolvedProperties['boltName'        ]
+        self.headDiameter       = resolvedProperties['headDiameter'    ]
+        self.shankDiameter      = resolvedProperties['shankDiameter'   ]
+        self.headHeight         = resolvedProperties['headHeight'      ]
+        self.length             = resolvedProperties['length'          ]
+        self.cutAngle           = resolvedProperties['cutAngle'        ]
+        self.chamferDistance    = resolvedProperties['chamferDistance' ]
+        self.filletRadius       = resolvedProperties['filletRadius'    ]
+        self.headVertexCount    = resolvedProperties['headVertexCount' ]
 
     @classmethod 
     def create(cls, parentFusionComponent: adsk.fusion.Component) -> 'Bolt':
@@ -36,6 +43,30 @@ class Bolt (ScriptedComponent):
         # produces: Here in Bolt's create() method, self.__class__.__name__ is Bolt
         self._update(constructFromScratch=True) 
         return self
+
+    def embedPropertiesIntoFusionComponent(self) -> None:
+        self._fusionComponent.attributes.add(ScriptedComponent.attributeGroupName, 'properties', 
+            json.dumps(
+                {
+                    'boltName'          :     self.boltName,          
+                    'headDiameter'      :     self.headDiameter,      
+                    'shankDiameter'     :     self.shankDiameter,     
+                    'headHeight'        :     self.headHeight,          
+                    'length'            :     self.length,              
+                    'cutAngle'          :     self.cutAngle,          
+                    'chamferDistance'   :     self.chamferDistance,    
+                    'filletRadius'      :     self.filletRadius,      
+                    'headVertexCount'   :     self.headVertexCount             
+                }
+            )
+        )
+    
+    def __del__(self) -> None:
+        print("delete is running.")
+        self.embedPropertiesIntoFusionComponent()
+
+    def getSerializedRepresentationForStorageInAttribute(self) -> str:
+        return 
 
     #properties
     @property
@@ -94,6 +125,15 @@ class Bolt (ScriptedComponent):
     def filletRadius(self, value):
         self._filletRadius = value
 
+
+    @property
+    def headVertexCount(self):
+        return self._headVertexCount
+    @headVertexCount.setter
+    def headVertexCount(self, value: int):
+        self._headVertexCount = value
+
+
     def update(self)  -> None:
         self._update(constructFromScratch = False)
 
@@ -143,7 +183,7 @@ class Bolt (ScriptedComponent):
             # )
 
             headSketch.name=timestamp + " " + "head sketch"
-            for i in range(0, 6):
+            for i in range(0, self.headVertexCount):
                 headSketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create(0, 0, 0), adsk.core.Point3D.create(1, 1, 0))
             
             #create shankSketch - a sketch containing a circle
@@ -161,16 +201,16 @@ class Bolt (ScriptedComponent):
         center = adsk.core.Point3D.create(0, 0, 0)
         vertices = [
             adsk.core.Point3D.create(
-                center.x + (self.headDiameter/2) * math.cos(math.pi * i / 3), 
-                center.y + (self.headDiameter/2) * math.sin(math.pi * i / 3),
+                center.x + (self.headDiameter/2) * math.cos(i * 2 * math.pi / self.headVertexCount), 
+                center.y + (self.headDiameter/2) * math.sin(i * 2 * math.pi / self.headVertexCount),
                 0
             )
-            for i in range(0,6)
+            for i in range(0,self.headVertexCount)
         ]
 
-        for i in range(0, 6):
+        for i in range(0, self.headVertexCount):
             thisLine = headSketch.sketchCurves.sketchLines.item(i)
-            thisLine.startSketchPoint.move(thisLine.startSketchPoint.geometry.vectorTo(vertices[(i+1) %6]) )
+            thisLine.startSketchPoint.move(thisLine.startSketchPoint.geometry.vectorTo(vertices[(i+1) % self.headVertexCount]) )
             thisLine.endSketchPoint.move(thisLine.endSketchPoint.geometry.vectorTo(vertices[i]) )  
         
         shankCrossSectionCircle = adsk.fusion.SketchCircle.cast(shankSketch.sketchCurves.sketchCircles[0])
