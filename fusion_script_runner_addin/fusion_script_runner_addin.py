@@ -204,10 +204,18 @@ class AddIn(object):
                         try:
                             existing_module.stop({"isApplicationClosing": False})
                         except Exception:
-                            logger.warning(
-                                "Unhandled exception while attempting to call the script's 'stop' function.",
-                                exc_info=sys.exc_info()
-                            )
+                            if debug:
+                                logger.warning(
+                                    "Unhandled exception while attempting to call the script's 'stop' function.",
+                                    exc_info=sys.exc_info()
+                                )
+                                # if debug is true, we assume that we could be dealing with a buggy script and we also assume that
+                                # the user is probably someone working on the script being run rather than simply a user wanting to 
+                                # use the script.  Therefore, if the debug flag is true, we will swallow an exception 
+                                # caused by invoking the script's stop method and let the show go on (possibly toward an eventual crash).
+                                # If the debug flag is not set, we will raise the exception caused by invoking the script's 'stop' function.
+                            else:
+                                raise
 
                     unload_submodules(module_name)
 

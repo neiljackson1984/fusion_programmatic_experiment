@@ -7,6 +7,9 @@ import pprint;
 from . import scripted_component
 from .scripted_component import ScriptedComponent
 from .bolt import Bolt
+from .braids.fscad.src import fscad
+
+
 
 
 
@@ -44,5 +47,6 @@ def run(context:dict):
 # prevent this module from being terminated when the script returns
 # adsk.autoTerminate(False)
 
-# def stop():
-#     pass
+def stop(context:dict):
+    print(__file__ + " is stopping.")
+    pass
