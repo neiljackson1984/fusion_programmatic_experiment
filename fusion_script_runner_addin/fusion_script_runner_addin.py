@@ -81,7 +81,7 @@ class AddIn(object):
         # but here, before logging infrasturcture is set up, the Except block will report
         # error messages in a more primitive way.
         try:
-            self._fusionMainThreadRunner = fusion_main_thread_runner.FusionMainThreadRunner(logger=logger)
+            
             self._logging_file_handler = logging.handlers.RotatingFileHandler(
                 filename=pathOfDebuggingLog,
                 maxBytes=2**20,
@@ -99,7 +99,7 @@ class AddIn(object):
 
             self._logging_textcommands_palette_handler = FusionTextCommandsPalletteLoggingHandler()
             self._logging_textcommands_palette_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
-            self._logging_textcommands_palette_handler.setLevel(logging.FATAL)
+            self._logging_textcommands_palette_handler.setLevel(logging.DEBUG)
             logger.addHandler(self._logging_textcommands_palette_handler)
 
         except Exception:
@@ -117,7 +117,7 @@ class AddIn(object):
             logger.debug("os.getcwd(): " + os.getcwd())
 
             
-
+            self._fusionMainThreadRunner = fusion_main_thread_runner.FusionMainThreadRunner(logger=logger)
             # self._run_script_requested_event = app().registerCustomEvent(RUN_SCRIPT_REQUESTED_EVENT_ID)
             # self._run_script_requested_event_handler = RunScriptRequestedEventHandler()
             # self._run_script_requested_event.add(self._run_script_requested_event_handler)
@@ -201,7 +201,13 @@ class AddIn(object):
 
                     existing_module = sys.modules.get(module_name)
                     if existing_module and hasattr(existing_module, "stop"):
-                        existing_module.stop({"isApplicationClosing": False})
+                        try:
+                            existing_module.stop({"isApplicationClosing": False})
+                        except Exception:
+                            logger.warning(
+                                "Unhandled exception while attempting to call the script's 'stop' function.",
+                                exc_info=sys.exc_info()
+                            )
 
                     unload_submodules(module_name)
 
@@ -401,19 +407,50 @@ def ensureThatDebuggingIsStarted(debugpy_path: str, debug_port: int) -> None:
 class FusionErrorDialogLoggingHandler(logging.Handler):
     """A logging handler that shows a error dialog to the user in Fusion 360."""
 
+    def __init__(self):
+        super().__init__()
+        # we use our own private instance of FusionMainThreadRunner rather than some externally-created instance
+        # because we want our instance's logger NOT to be the same logger for which we are a handler,
+        # else we might have infinite loops while logging.
+        self._fusionMainThreadRunner = fusion_main_thread_runner.FusionMainThreadRunner()
+
     def emit(self, record: logging.LogRecord) -> None:
-        addin._fusionMainThreadRunner.doTaskInMainFusionThread(
+        self._fusionMainThreadRunner.doTaskInMainFusionThread(
             lambda : ui().messageBox(self.format(record), f"{NAME_OF_THIS_ADDIN} error")
         )
 
 class FusionTextCommandsPalletteLoggingHandler(logging.Handler):
     """A logging handler that writes log messages to the Fusion TextCommands palette."""
 
+    def __init__(self):
+        super().__init__()
+        # we use our own private instance of FusionMainThreadRunner rather than some externally-created instance
+        # because we want our instance's logger NOT to be the same logger for which we are a handler,
+        # else we might have infinite loops while logging.
+        self._fusionMainThreadRunner = fusion_main_thread_runner.FusionMainThreadRunner()
+
     def emit(self, record: logging.LogRecord) -> None:
-        addin._fusionMainThreadRunner.doTaskInMainFusionThread(
+
+        # we need to have a way to ensure that, while the fusionMainThreadRunner is running this task,
+        # that no loggin calls occur, or at least that, if the running of the task by fusionMainThreadRunner 
+        # does cause a logging record to be emitted, that we do not call doTaskInMainFusionThread again.
+        # The goal is to avoid an infinite loop, wherein the act of logging a message itself causes another 
+        # message to be logged.
+        # addin._fusionMainThreadRunner.doTaskInMainFusionThread(
+        #     lambda : 
+        #         ui().palettes.itemById('TextCommands').writeText(self.format(record)),
+        #     suppressLogging=True
+        # )
+        self._fusionMainThreadRunner.doTaskInMainFusionThread(
             lambda : 
                 ui().palettes.itemById('TextCommands').writeText(self.format(record))
         )
+        # We do not want the logging system to rely on fusionMainThreadRunner, because fusionMainThreadRunner might itself use
+        # the logging system.  Therefore, we will manually set up the fusion custom event and associated handler here, rather than relying on 
+        # the equivalent functionality in fusionMainThreadRunner.
+
+
+    
 
 
 class RunScriptHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
