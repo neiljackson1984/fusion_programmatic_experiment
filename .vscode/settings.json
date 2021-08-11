@@ -1,26 +1,42 @@
 {
+	"neil.debugpyPath":"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.8.1105858891/pythonFiles/lib/python",
+	"neil.x":"${config:neil.debugpyPath}",
 	"python.autoComplete.extraPaths":	[
 		"C:/Users/Admin/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs",
-		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.7.1060902895/pythonFiles/lib/python",
-		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.7.1060902895/pythonFiles/lib/python/debugpy/_vendored/pydevd",
+		
+		// it does not seem to work to define one setting value in terms of another, unfortunately.
+		// "${config:neil.debugpyPath}",
+		// "${config:neil.debugpyPath}/debugpy/_vendored/pydevd",
+
+		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.8.1105858891/pythonFiles/lib/python",
+		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.8.1105858891/pythonFiles/lib/python/debugpy/_vendored/pydevd",
 		"./fusion_script_runner_addin",
 		"./lib",
+		"./braids/fscad/src/fscad",
 		"./braids/fscad/src",
+		"C:/work/lalboard",
 		"."
 	],
 	"python.pythonPath":	"C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/48ac19808c8c18863dd6034eee218407ecc49825/Python/python.exe",
 	"python.linting.pylintEnabled": false,
 	"python.analysis.extraPaths": [
 		"C:/Users/Admin/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs",
-		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.7.1060902895/pythonFiles/lib/python",
-		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.7.1060902895/pythonFiles/lib/python/debugpy/_vendored/pydevd",
+
+		// it does not seem to work to define one setting value in terms of another, unfortunately.
+		// "${config:neil.debugpyPath}",
+		// "${config:neil.debugpyPath}/debugpy/_vendored/pydevd",
+
+		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.8.1105858891/pythonFiles/lib/python",
+		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.8.1105858891/pythonFiles/lib/python/debugpy/_vendored/pydevd",
 		"./fusion_script_runner_addin",
 		"./lib",
+		"./braids/fscad/src/fscad",
 		"./braids/fscad/src",
+		"C:/work/lalboard",
 		"."
 	],
 	"VsCodeTaskButtons.tasks": [ 
 			{"label":"restart_fusion" , "task":"restart_fusion"}
-	 ],
+	 ]
 	 
 }

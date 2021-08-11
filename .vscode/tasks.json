@@ -129,7 +129,7 @@
             "args":[
                 "--script", "${file}",
                 "--debug", "0",
-                "--debugpy_path", "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.7.1060902895/pythonFiles/lib/python",
+                "--debugpy_path", "${config:neil.debugpyPath}",
                 "--addin_port", "19812",
                 "--debug_port", "9000"
             ]
@@ -141,7 +141,7 @@
             "args":[
                 "--script", "${file}",
                 "--debug", "1",
-                "--debugpy_path", "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.7.1060902895/pythonFiles/lib/python",
+                "--debugpy_path", "${config:neil.debugpyPath}",
                 "--addin_port", "19812",
                 "--debug_port", "9000"
             ]
@@ -153,7 +153,7 @@
             "args":[
                 "--script", "${workspaceFolder}${pathSeparator}test_scripts${pathSeparator}arbitrary_script_1${pathSeparator}arbitrary_script_1.py",
                 "--debug", "0",
-                "--debugpy_path", "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.7.1060902895/pythonFiles/lib/python",
+                "--debugpy_path", "${config:neil.debugpyPath}",
                 "--addin_port", "19812",
                 "--debug_port", "9000"
             ]
@@ -165,7 +165,7 @@
             "args":[
                 "--script", "${workspaceFolder}${pathSeparator}test_scripts${pathSeparator}arbitrary_script_1${pathSeparator}arbitrary_script_1.py",
                 "--debug", "1",
-                "--debugpy_path", "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.7.1060902895/pythonFiles/lib/python",
+                "--debugpy_path", "${config:neil.debugpyPath}",
                 "--addin_port", "19812",
                 "--debug_port", "9000"
             ]
@@ -177,17 +177,32 @@
             "args":[
                 "--script", "${workspaceFolder}${pathSeparator}design1.py",
                 "--debug", "1",
-                "--debugpy_path", "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.7.1060902895/pythonFiles/lib/python",
+                "--debugpy_path", "${config:neil.debugpyPath}",
                 "--addin_port", "19812",
-                "--debug_port", "9000"
+                "--debug_port", "9000",
+                "--prefix_of_submodule_not_to_be_reloaded", "braids.fscad"
             ],
             "presentation": {"reveal" : "silent" }
         },
         {
             "label":"hello_world",
             "type":"shell",
-            "command": "echo ${config:python.pythonPath}",
+            // "command": "echo ${config:python.pythonPath}",
+            // "command": "echo ${config:python.analysis.symbolsHierarchyDepthLimit}",
+            // "command": "echo here it is ${config:python.analysis}",
+            // "command": "echo here it is ${config:neil.debugpyPath}",
+            // "command": "echo here it is ${config:neil.x}",
+            "command": "echo here it is ${config:python.autoComplete.extraPaths}",
+            // "command": "echo here it is $(echo ahoy)",
         }
+    ],
+    "inputs": [
+      {
+        "id": "terminate",
+        "type": "command",
+        "command": "workbench.action.tasks.terminate",
+        "args": "terminateAll"
+      }
     ]
 
 }

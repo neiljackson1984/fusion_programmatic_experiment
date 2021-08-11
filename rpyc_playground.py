@@ -37,11 +37,22 @@ pp.pprint(
     list(
         filter(
             lambda x:
-            'scripted_component' in x,
+                # 'scripted_component' in x
+                'pre-run' in x
+            ,
             list(rsys.modules.keys())
         )
     )
 )
+
+pp.pprint(
+    sorted(
+        list(
+            rsys.path
+        )
+    )
+)
+
 
 exit()
 # rmodules = rsys.modules

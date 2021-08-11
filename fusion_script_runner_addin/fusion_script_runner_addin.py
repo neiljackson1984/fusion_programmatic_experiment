@@ -170,7 +170,8 @@ class AddIn(object):
         script_path  : str, 
         debug        : bool = False, 
         debugpy_path : str  = "", 
-        debug_port   : int  = 0
+        debug_port   : int  = 0,
+        prefixes_of_submodules_not_to_be_reloaded : 'list[str]' = []
     ):
         try:
             if not script_path and not debug:
@@ -217,7 +218,7 @@ class AddIn(object):
                             else:
                                 raise
 
-                    unload_submodules(module_name)
+                    unload_submodules(module_name, prefixes_of_submodules_not_to_be_reloaded)
 
                     sys.modules[module_name] = module
                     spec.loader.exec_module(module)
@@ -330,17 +331,24 @@ class AddIn(object):
         self._logging_textcommands_palette_handler = None
 
 
-def unload_submodules(module_name):
+def unload_submodules(module_name, prefixes_of_submodules_not_to_be_reloaded: 'list[str]'):
     search_prefix = module_name + '.'
-    logger.debug(f"unloading modules whose name starts with {search_prefix}")
-    loaded_submodules = []
+    logger.debug(
+        f"unloading modules whose name starts with {search_prefix}"
+        + (
+            "except those whose name starts with any of " + ", ".join((search_prefix + y for y in prefixes_of_submodules_not_to_be_reloaded))
+            if prefixes_of_submodules_not_to_be_reloaded
+            else ""
+        )  
+    )
+    loaded_submodules_to_be_unloaded = []
     for loaded_module_name in sys.modules:
         # logger.debug(f"considering whether to unload {loaded_module_name}")
-        if loaded_module_name.startswith(search_prefix):
-            loaded_submodules.append(loaded_module_name)
-    for loaded_submodule in loaded_submodules:
-        logger.debug(f"unloading module {loaded_submodule}")
-        del sys.modules[loaded_submodule]
+        if loaded_module_name.startswith(search_prefix) and not any( loaded_module_name.startswith(search_prefix + x) for x in  prefixes_of_submodules_not_to_be_reloaded ):
+            loaded_submodules_to_be_unloaded.append(loaded_module_name)
+    for loaded_submodule_to_be_unloaded in loaded_submodules_to_be_unloaded:
+        logger.debug(f"unloading module {loaded_submodule_to_be_unloaded}")
+        del sys.modules[loaded_submodule_to_be_unloaded]
 
 def ensureThatDebuggingIsStarted(debugpy_path: str, debug_port: int) -> None:
     global debugpy
@@ -493,13 +501,16 @@ class RunScriptHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
             # as args.additionalInfo 
 
             message = ( json.loads(request_json['message']) if isinstance(request_json['message'], str) else request_json['message'])
+            # we ought to do some validation of the contents of message here and produce a meaningful error message
+            # to the caller if arguments are not as expected.
 
             addin._fusionMainThreadRunner.doTaskInMainFusionThread(
                 lambda : addin.runScript(
                     script_path     = message.get("script"),
                     debug           = bool(message.get("debug")),
                     debugpy_path    = message.get("debugpy_path"),
-                    debug_port      = int(message.get("debug_port",0))
+                    debug_port      = int(message.get("debug_port",0)),
+                    prefixes_of_submodules_not_to_be_reloaded = message.get("prefixes_of_submodules_not_to_be_reloaded")
                 )
             )
 

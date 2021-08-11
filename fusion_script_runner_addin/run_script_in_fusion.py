@@ -9,6 +9,8 @@ import json
 import requests
 import argparse
 import pathlib
+import os
+import re
 
 ##==========================================
 ##   COLLECT THE PARAMETERS: 
@@ -103,20 +105,77 @@ parser.add_argument('--debugpy_path',
     required=False, default='',
     help="the path that we must append to sys.path in order to be able to succesfully call 'import debugpy'.  Required only if debug is true."
 )
+
 # I do not know (and am not at this moment going to bother to find out) how to set up parser so that debugpy_path
 # is required only when debug=True is specified.  For now, we will specify that debugpy_path is not required and 
 # then let the program crash and burn in case the user fails to specify it when it is actually needed.
+
+
+parser.add_argument('--prefix_of_submodule_not_to_be_reloaded',
+    dest='prefixes_of_submodules_not_to_be_reloaded',
+    action='append',
+    nargs='?', default=[],
+    required=False, 
+    help=(
+        "By default, the fusion_script_runner_addin unloads all submodules " 
+        + "of the script before running it.  This argument lets you specify "
+        + "zero or more strings, and for each such string x, fusion_script_runner_addin "
+        + "will take care not to unload any submodules whose name starts with <module_name>.x"
+    )
+)
+
+
+# I ahve copied the locatePythonToolFolder() function from  C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\vscode\pre-run.py
+"""
+figure out the ms-python install location for PTVSD library
+"""
+def locatePythonToolFolder():
+
+    vscodeExtensionPath = ''
+    if sys.platform.startswith('win'):
+        vscodeExtensionPath = os.path.expandvars(r'%USERPROFILE%\.vscode\extensions')
+    else:
+        vscodeExtensionPath = os.path.expanduser('~/.vscode/extensions')
+
+    if os.path.exists(vscodeExtensionPath) == False:
+        return ''
+
+    msPythons = []
+    versionPattern = re.compile(r'ms-python.python-(?P<major>\d+).(?P<minor>\d+).(?P<patch>\d+)')
+    for entry in os.scandir(vscodeExtensionPath):
+        if entry.is_dir(follow_symlinks=False):
+            match = versionPattern.match(entry.name)
+            if match:
+                try:
+                    version = tuple(int(match[key]) for key in ('major', 'minor', 'patch'))
+                    msPythons.append((entry, version))
+                except:
+                    pass
+
+    msPythons.sort(key=lambda pair: pair[1], reverse=True)
+    if (msPythons):
+        if None == msPythons[0]:
+            return ''
+        msPythonPath = os.path.expandvars(msPythons[0][0].path)
+        index = msPythonPath.rfind('.')
+        version  = int(msPythonPath[index+1:])
+        msPythonPath = os.path.join(msPythonPath, 'pythonFiles', 'lib','python')
+        msPythonPath = os.path.normpath(msPythonPath)
+        if os.path.exists(msPythonPath) and os.path.isdir(msPythonPath):
+            return msPythonPath
+    return ''
+
+
+
+# example debugpy_path argument:
+# --debugpy_path "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.7.1060902895/pythonFiles/lib/python"
 
 
 args, unknownArgs = parser.parse_known_args()
 
 if(args.debug):
     # normalize args.debugpy_path
-    args.debugpy_path = ( 
-        str(pathlib.Path(args.debugpy_path).resolve())
-        if args.debugpy_path
-        else ''
-    )
+    args.debugpy_path = str(pathlib.Path( args.debugpy_path or locatePythonToolFolder() ).resolve())
 
 ##==========================================
 ##   ISSUE THE REQUEST: 
@@ -203,6 +262,10 @@ response = session.post(
                 'debugpy_path': 
                     # the path that we must add to sys.path in order to be able to succesfully call 'import debugpy'
                     args.debugpy_path,    
+
+                'prefixes_of_submodules_not_to_be_reloaded': 
+                    # the path that we must add to sys.path in order to be able to succesfully call 'import debugpy'
+                    args.prefixes_of_submodules_not_to_be_reloaded    
             }
         }
     )
