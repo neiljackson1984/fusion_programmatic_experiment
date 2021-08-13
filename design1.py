@@ -10,11 +10,6 @@ from .scripted_component import ScriptedComponent
 from .bolt import Bolt
 from .braids.fscad.src.fscad import fscad as fscad
 
-
-
-
-
-
 def app() -> adsk.core.Application: return adsk.core.Application.get()
 def ui() -> adsk.core.UserInterface: return app().userInterface
 
@@ -119,10 +114,13 @@ def run(context:dict):
 
         # TODO: identify the lip edges
         # Strategy 1: use fscad's 'named faces' system
-        tempIdsOfBoxFaces = box.add_named_faces('initialFaces', *box.faces)
+        box.add_named_faces('initialFaces', *box.faces)
         # entitiesToHighlight += box.named_faces('initialFaces')
         
-        # base = fscad.Difference(box, holeTool)
+        base = fscad.Difference(box, holeTool)
+        entitiesToHighlight += base.named_faces('initialFaces') or []
+        #that doesn't work; face names do not appear to survive a difference operation (or,  because the difference operation does not so much modify its arguments 
+        # as construct a new component, it is more accurate to say that face names are not propagated into a Difference component from the precursors of the difference).
 
         # y = fscad.RegularPolygon(5, 3.2, is_outer_radius=False)
 
@@ -172,17 +170,6 @@ def run(context:dict):
     # prevent this module from being terminated when the script returns
     # adsk.autoTerminate(False)
 
-HighlightableThing = (
-        Union[
-            adsk.fusion.BRepEdge, 
-            adsk.fusion.BRepFace, 
-            adsk.core.Curve3D, 
-            adsk.fusion.BRepBody, 
-            adsk.fusion.Occurrence, 
-            fscad.BRepEntity
-        ]
-    )
-
 FusionBRepEntity = (
     Union[
         adsk.fusion.BRepBody,
@@ -191,16 +178,17 @@ FusionBRepEntity = (
         adsk.fusion.BRepEdge,
         adsk.fusion.BRepVertex,
         # might consider including all adsk.fusion.BRep* classes, because pretty much all of them can be logically converted into a BRepBody
-    ]
-)
+    ])
 
 def makeFusionBRepBodyFromFusionBRepEntity(fusionBRepEntity : FusionBRepEntity) -> Optional[adsk.fusion.BRepBody]:
     temporaryBRepManager : adsk.fusion.TemporaryBRepManager = adsk.fusion.TemporaryBRepManager.get()
-    # we end up not having to reinvent the wheel as much as I first thought because this functionality is already built into fusion,
+    # we end up not having to reinvent the wheel as much as I first thought because this functionality is already built into fusion
+    # # in the form of the temporaryBRepManager.copy() function,
     # at least for the case of BRepFace, BRepLoop, and BRepEdge, according to the codumentation
     # (although I would think that maybe BRepVertex might work exactly the same way?):
     # temporaryBRepManager.copy() takes any of the following types of object as argument:
-    # adsk.fusion.BRepBody, adsk.fusion.BRepFace, adsk.fusion.BRepLoop, adsk.fusion.BRepEdge
+    # adsk.fusion.BRepBody, adsk.fusion.BRepFace, adsk.fusion.BRepLoop, adsk.fusion.BRepEdge'
+    # what happens if we try to give it a BRepVertex or a BRepCoedge?
     
     if   isinstance(fusionBRepEntity, (adsk.fusion.BRepBody, adsk.fusion.BRepFace, adsk.fusion.BRepLoop, adsk.fusion.BRepEdge)):
         newBRepBody = temporaryBRepManager.copy(fusionBRepEntity)
@@ -292,9 +280,18 @@ def makeFusionBRepBodyFromFusionBRepEntity(fusionBRepEntity : FusionBRepEntity) 
         #     return
     #endregion
 
-
     return newBRepBody
 
+
+HighlightableThing = (
+        Union[
+            adsk.fusion.BRepEdge, 
+            adsk.fusion.BRepFace, 
+            adsk.core.Curve3D, 
+            adsk.fusion.BRepBody, 
+            adsk.fusion.Occurrence, 
+            fscad.BRepEntity
+        ])
 
 # The highlight will consist of custom graphics entities.  Custom graphics objects must exist as a member of a custom graphics group, and a custom graphics group is contained either in another custom graphics group or
 # in a component's CustomGraphicsGroups collection (i.e. a custom graphics entity is contained within a custom graphics group which is contained (possibly nested within other groups) within a component.
@@ -495,7 +492,7 @@ def highlight(
         return
         #this is a type error
 
-
+#region DEPRECATED_HIGHLIGHTING
 # def highlightEntities(entities: Sequence[HighlightableThing], 
     
 #     _customGraphicsGroupToReceiveTheCustomGraphics : Optional[adsk.fusion.CustomGraphicsGroup] = None
@@ -662,7 +659,7 @@ def highlight(
 #             ewrt
 #         else:
 #             #this is a type error
-
+#endregion DEPRECATED_HIGHLIGHTING
 
 # prevent this module from being terminated when the script returns
 # adsk.autoTerminate(False)
