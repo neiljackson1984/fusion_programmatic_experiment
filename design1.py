@@ -3,21 +3,60 @@ import adsk.core, adsk.fusion, traceback
 import inspect
 import pprint
 from typing import Optional, Sequence, Union
-
-# sys.path.append(os.path.join(os.path.dirname(__file__)))
 from . import scripted_component
 from .scripted_component import ScriptedComponent
 from .bolt import Bolt
 from .braids.fscad.src.fscad import fscad as fscad
+import pathlib
+import itertools
 
-def app() -> adsk.core.Application: return adsk.core.Application.get()
-def ui() -> adsk.core.UserInterface: return app().userInterface
+def app()           -> adsk.core.Application   : return adsk.core.Application.get()
+def ui()            -> adsk.core.UserInterface : return app().userInterface
+def design()        -> adsk.fusion.Design      : return adsk.fusion.Design.cast(app().activeProduct)
+def rootComponent() -> adsk.fusion.Component   : return design().rootComponent
+
+
+def renderEntityToken(entityToken: str) -> str:
+    # return "\n".join( entityToken.split('/'))
+    import base64
+    import string
+    import zlib
+    
+    bb = base64.b64decode(entityToken)
+    ss = []
+
+    for i in range(len(bb)):
+        # try:
+        #     s = ba[i:i+1].decode('ascii')
+        # except:
+        #     s = ba[i:i+1].hex()
+
+        if (
+            bb[i] in string.printable.encode('ascii') 
+            and not (bb[i] in "\t\r\n\x0b\x0c".encode('ascii'))
+            and bb[i] != 255
+            and False
+        ) :
+            s = bb[i:i+1].decode('ascii')
+        else:
+            s = bb[i:i+1].hex()
+        ss.append(s)
+
+    # zlib.decompress(bb[21:])
+
+    return  "".join(ss)
+    # + "\n" + "\n".join( 
+    #     (
+    #         str(len(piece)) + ' ' + piece
+    #         for piece in entityToken.split('/')
+    #     )
+    
+    # )
+    return entityToken
+
+
 
 def run(context:dict):
-    # a = 3 + 3
-    # pass
-    # raise Exception("xxxbogus exception")
-    # return
     
     if False:
         design = adsk.fusion.Design.cast(app().activeProduct)
@@ -40,135 +79,358 @@ def run(context:dict):
         return
 
     def my_design():
-        
-        
-
         base_polygon = fscad.RegularPolygon(6, 1, is_outer_radius=False)
         box = fscad.Extrude(base_polygon, 2)
 
-    
         # ball = fscad.Sphere(0.6, "ball")
         holeTool = fscad.Cylinder(height=2,radius=0.2)
-        holeTool.rotate(rx=27).rotate(rz=80).translate(tz=1)
-
-
-        # TODO: identify the lip edges
-        # Strategy 1: tag prior to boolean
-        
-        base = fscad.Difference(box, holeTool)
-
-        y = fscad.RegularPolygon(5, 3.2, is_outer_radius=False)
-
-        base = fscad.Group((base, y))
-        base = fscad.BRepComponent( *(fscadbody.brep for fscadbody in base.bodies ) )
-
-        mainOccurence = base.create_occurrence(create_children=False, scale=1)
-
-        # I would like to be able to pick out the edges within base adjacent to any face that was present in box,
-        # and that were newly created as a result of the Difference operation.  Thinking of the Difference operation
-        # as drilling a blind hole, the edges I am interested in are the "lip" of the hole.
-        # How can I pick out these edges?
-        # One idea is to, before doing the Difference, tag all of the faces and edges of box (with
-        # a tagging system that will preserve tags across body-modifying operations).  Then, after the difference operation,
-        # I pick out untagged edges of the tagged faces -- these have to be the newly-created edges that I am interested in.
-
-        # adsk.fusion.BRepBody.findByTempId
-        # adsk.fusion.Design.findEntityByToken
-
-        # adsk.fusion.BRepEdge.tempId 
-        # # Returns the temporary ID of this edge. 
-        # # This ID is only good while the document remains open and 
-        # # as long as the owning BRepBody is not modified in any way. 
-        # # The findByTempId method of the BRepBody will return the entity 
-        # # in the body with the given ID.
-
-        # adsk.fusion.BRepEdge.entityToken
-        # # Returns a token for the BRepEdge object. 
-        # # This can be saved and used at a later time with the 
-        # # Design.findEntityByToken method to get back the same edge. When 
-        # # using entity tokens it's important to understand that the token 
-        # # string returned for a specific entity can be different over time. 
-        # # However, even if you have two different token strings that were 
-        # # obtained from the same entity, when you use findEntityByToken they 
-        # # will both return the same entity. Because of that you should never 
-        # # compare entity tokens as way to determine what the token represents.
-        # # Instead, you need to use the findEntityByToken method to get the 
-        # # two entities identified by the tokens and then compare them. This 
-        # # is only valid for edges that exist in the design, 
-        # # (the isTemporary property is false).
-
-        # # BRepFace  has the same tempId and entityToken properties.
-        
-        # edgesToHighlight : Sequence[fscad.Edge] = base.bodies[0].edges[0:2]
-        # edgesToHighlight : Sequence[fscad.Edge] = base.bodies[0].edges
-        # edgesToHighlight : Sequence[fscad.Edge] = base.edges
-        # curvesToHighlight : Sequence[adsk.core.Curve3D] = [ x.brep.geometry for x in edgesToHighlight  ]
-        # temporaryBRepManager : adsk.fusion.TemporaryBRepManager = adsk.fusion.TemporaryBRepManager.get()
-        # (wireBodyToHighlight, edgeMap) = temporaryBRepManager.createWireFromCurves(curvesToHighlight)
-        # print('bool(wireBodyToHighlight): ' + str(bool(wireBodyToHighlight)))
-        # rootComponent = mainOccurence.component.parentDesign.rootComponent
-
-        entitiesToHighlight : Sequence[HighlightableThing] = []
-        entitiesToHighlight += base.bodies[0].edges[1:2]
-        
-
-        # TODO: identify the lip edges
-        # Strategy 1: use fscad's 'named faces' system
-        box.add_named_faces('initialFaces', *box.faces)
-        # entitiesToHighlight += box.named_faces('initialFaces')
-        
-        base = fscad.Difference(box, holeTool)
-        entitiesToHighlight += base.named_faces('initialFaces') or []
-        #that doesn't work; face names do not appear to survive a difference operation (or,  because the difference operation does not so much modify its arguments 
-        # as construct a new component, it is more accurate to say that face names are not propagated into a Difference component from the precursors of the difference).
+        holeTool.rotate(rx=50).rotate(rz=84).translate(tz=1)
+        # base = fscad.Difference(box, holeTool)
 
         # y = fscad.RegularPolygon(5, 3.2, is_outer_radius=False)
 
         # base = fscad.Group((base, y))
         # base = fscad.BRepComponent( *(fscadbody.brep for fscadbody in base.bodies ) )
 
-        # mainOccurence = base.create_occurrence(create_children=False, scale=1)
+        # mainOccurrence = base.create_occurrence(create_children=False, scale=1)
         
-        
-        
-        
-        
-        
-        # print('mainOccurence.component.parentDesign.rootComponent.name: ' + mainOccurence.component.parentDesign.rootComponent.name)
-        # highlight( edgesToHighlight,  _fallbackComponentToReceiveTheCustomGraphics=mainOccurence.component.parentDesign.rootComponent )
+        ''' I would like to be able to pick out the edges within base adjacent
+         to any face that was present in box, and that were newly created as a
+         result of the Difference operation.  Thinking of the Difference
+         operation as drilling a blind hole, the edges I am interested in are
+         the "lip" of the hole. How can I pick out these edges? One idea is to,
+         before doing the Difference, tag all of the faces and edges of box
+         (with a tagging system that will preserve tags across body-modifying
+         operations).  Then, after the difference operation, I pick out untagged
+         edges of the tagged faces -- these have to be the newly-created edges
+         that I am interested in. '''
 
-        #trying to highlight the edges at this stage runs counter to the fscad philosophy that 
-        # the true assembly structure exists only within the fscad-native 'Component' object, and that the 
-        # fusion-native object is merely ephemeral.
-        # The correct way to do highlighitin in keeping with the fscad philosophy would be to have fscad be aware of the hihglighting, and
-        # have the creation of the customgraphicsentities occur as part of the fscad create_occurence routine.
-        # Alternatively, we could imagine augmenting the fscad component object with the ability to remember the various fusion components and occurences that it had created, so that,
-        # , even after calling fscad.component::create_occurence(), we could make subsequent changes to the already-crerated fusion-native objects by calling other methods on the 
-        # original fscad.component.  As it is, fscad.component::create_occurence() causes zero modification of the fscad.componetn object.  The fscad.component has no knowledge of, or connection with,
-        # the fusion-native objects that it created during a porevious running of its create_occurence() method.  
-        # Thus, for our goal of doing the highlighting at this point starting with the fscad-native edge object,
-        # we are in the dark about where within the fusion component hierarchy to put the graphics entities that constitute the highlight.
-        # actually, we are not entirely in the dark -- we do have the Occurence object that create_occurence() produced.
+        # adsk.fusion.BRepBody.findByTempId
+        # adsk.fusion.Design.findEntityByToken
+
+        # adsk.fusion.BRepEdge.tempId 
+        ''' Returns the temporary ID of this edge. This ID is only good while
+         the document remains open and as long as the owning BRepBody is not
+         modified in any way. The findByTempId method of the BRepBody will
+         return the entity in the body with the given ID. '''
+
+        # adsk.fusion.BRepEdge.entityToken
+        ''' Returns a token for the BRepEdge object. This can be saved and used
+         at a later time with the Design.findEntityByToken method to get back
+         the same edge. When using entity tokens it's important to understand
+         that the token string returned for a specific entity can be different
+         over time. However, even if you have two different token strings that
+         were obtained from the same entity, when you use findEntityByToken they
+         will both return the same entity. Because of that you should never
+         compare entity tokens as way to determine what the token represents.
+         Instead, you need to use the findEntityByToken method to get the two
+         entities identified by the tokens and then compare them. This is only
+         valid for edges that exist in the design, (the isTemporary property is
+         false).'''
+
+        ''' BRepFace  has the same tempId and entityToken properties.'''
+        ##
+         # edgesToHighlight : Sequence[fscad.Edge] = base.bodies[0].edges[0:2]
+         # edgesToHighlight : Sequence[fscad.Edge] = base.bodies[0].edges
+         # edgesToHighlight : Sequence[fscad.Edge] = base.edges
+         # curvesToHighlight : Sequence[adsk.core.Curve3D] = [ x.brep.geometry for x in edgesToHighlight  ]
+         # temporaryBRepManager : adsk.fusion.TemporaryBRepManager = adsk.fusion.TemporaryBRepManager.get()
+         # (wireBodyToHighlight, edgeMap) = temporaryBRepManager.createWireFromCurves(curvesToHighlight)
+         # print('bool(wireBodyToHighlight): ' + str(bool(wireBodyToHighlight)))
+         # rootComponent = mainOccurrence.component.parentDesign.rootComponent
+
+        # entitiesToHighlight : Sequence[HighlightableThing] = []
+        # entitiesToHighlight += base.bodies[0].edges[1:2]
+
+        # # goal: identify the lip edges
+        # # Strategy 1: use fscad's 'named faces' system
+        # box.add_named_faces('initialFaces', *box.faces) 
+        # base = fscad.Difference(box, holeTool) 
+        # entitiesToHighlight += base.named_faces('initialFaces') or [] 
+        # ''' that doesn't work; face names do not appear to survive a difference
+        #  operation (or,  because the difference operation does not so much
+        #  modify its arguments as construct a new component, it is more accurate
+        #  to say that face names are not propagated into a Difference component
+        #  from the precursors of the difference).'''
+
+        # Strategy 2: fusion's entityToken
+        ''' in order to make use of entityToken, we will have to do our
+        operation within the fusion model, rather than in the la-la land of
+        tempory brep bodies '''
+        boxOccurrence         = box.create_occurrence()
+        boxOccurrence.component.name = 'box'
+        boxBody               = boxOccurrence.bRepBodies.item(0)
+        holeToolOccurrence    = holeTool.create_occurrence()
+        holeToolBody          = holeToolOccurrence.bRepBodies.item(0)
+        # highlight([holeToolBody,boxBody])
+        initialEntityTokens = {
+            'boxBodyFaces'        : [face.entityToken for face in boxBody.faces],
+            'boxBodyEdges'        : [edge.entityToken for edge in boxBody.edges],
+            'boxBody'             :                          boxBody.entityToken,
+            'holeToolBody'        :                     holeToolBody.entityToken,
+            'boxComponent'        :          boxOccurrence.component.entityToken,
+            'boxOccurrence'       :                    boxOccurrence.entityToken,
+            'holeToolComponent'   :     holeToolOccurrence.component.entityToken,
+            'holeToolOccurrence'  :               holeToolOccurrence.entityToken,
+        }
+
+        initialEdges = list(boxBody.edges)
+        
+
+        toolBodies=adsk.core.ObjectCollection.create()
+        toolBodies.add(holeToolBody)
+        global rootComponent
+        global design
+        
+
+        combineFeatureInput = rootComponent().features.combineFeatures.createInput(targetBody=boxBody, toolBodies=toolBodies)
+        combineFeatureInput.operation = adsk.fusion.FeatureOperations.CutFeatureOperation
+        combineFeature = rootComponent().features.combineFeatures.add(combineFeatureInput)
+        # boxBody = design().findEntityByToken(initialEntityTokens['boxBody'])[0]
+        # the above does not seem to be necessary; the boxBody survives the opreration with identity (in the memory address sense) preserved.
+
+        # highlight(boxBody)
+
+        finalEntityTokens = {
+                'boxBodyFaces'        :                            [face.entityToken for face in boxBody.faces]      ,
+                'boxBodyEdges'        :                            [edge.entityToken for edge in boxBody.edges]      ,
+                'boxBody'             :                          boxBody.entityToken                                 ,
+                'boxComponent'        :          boxOccurrence.component.entityToken                                 ,
+                'boxOccurrence'       :                    boxOccurrence.entityToken                                 ,
+                # 'holeToolBody'        :                     holeToolBody.entityToken                                 ,
+                'holeToolComponent'   :     holeToolOccurrence.component.entityToken                                 ,
+                'holeToolOccurrence'  :               holeToolOccurrence.entityToken                                 ,
+            }
+        # print('design().findEntityByToken(combineFeature.entityToken): ')
+        # print(
+        #     "\n".join(
+        #         map(
+        #             renderEntityToken, 
+        #             design().findEntityByToken(combineFeature.entityToken)
+        #             )
+        #         )
+        #     )
+        # of course: in a design that has design().designType ==  adsk.fusion.DesignTypes.DirectDesignType ,
+        # the result of doing CombineFeatures::add() is null, even though "Adding" the feature did have an effect on the document.
+
+        edgesDescendedFromInitialEdges = [
+            entity 
+            for initialEntityToken in initialEntityTokens['boxBodyEdges']
+            for entity in design().findEntityByToken(initialEntityToken)
+        ]
+        # we have to be a bit careful when speaking about the identity of BRep entities across
+        # operations.  From an intuitive point of view, we want to talk about "an edge" which existed
+        # before the operation, and continues to exist after the operation.
+        # However, we cannot trust that the equality operator acting on BRepEdge objects will represent
+        # the intuitive sense of identity.  If I were to call this list "initialEdges", it would be unclear whether I 
+        # were talking about the collection of edge objects that I might have obtained by storing the members of 
+        # boxBody.edges before performing the operation, or whether I am talking about the adge objects belonging to 
+        # the current incarnation of boxBody, which are "the same", in the intuitive sense" as the edge objects
+        # that existed before the operation.  In fact, my meaning is the latter.  Therefore, I call this
+        # variable 'edgesDescendedFromInitialEdges'.
+
+        facesDescendedFromInitialFaces = [
+            entity 
+            for initialEntityToken in initialEntityTokens['boxBodyFaces']
+            for entity in design().findEntityByToken(initialEntityToken)
+        ]
+
+        edgesUsedByFacesDescendedFromIntialFaces = [
+            edge 
+            for face in facesDescendedFromInitialFaces
+            for edge in face.edges
+        ]
+
+        finalEdges = list(boxBody.edges)
+
+        # equivalently (and more computationally efficient, but perhaps harder to read):
+        # initiallyExistingEdges = list(
+        #     itertools.chain.from_iterable(
+        #         map(
+        #             design().findEntityByToken,
+        #             initialEntityTokens['boxBodyEdges']
+        #         )
+        #     )
+        # )
 
 
+        print('edgesDescendedFromInitialEdges: ' + str(edgesDescendedFromInitialEdges))
+        print('len(edgesDescendedFromInitialEdges): ' + str(len(edgesDescendedFromInitialEdges)))
+        print("len(initialEntityTokens['boxBodyEdges']): " + str( len(initialEntityTokens['boxBodyEdges']) )    )
+
+        # initialEdgeIds = set(map(id, initialEdges))
+        # finalEdgeIds = set(map(id, finalEdges))
+
+        # print("initialOnlyIds:" + str(initialEdgeIds.difference(finalEdgeIds)))
+        # print("finalOnlyIds:" + str(finalEdgeIds.difference(initialEdgeIds)))
+        # print("commonIds:" + str(finalEdgeIds.intersection(initialEdgeIds)))
+        # # There are no commonIds (a python id being, in our case, the same as the memory address of the object)
+        # # even though there are, intuitively, edges that have survived the operation.
+
+        # newEdges = set(boxBody.edges) - set(edgesDescendedFromInitialEdges)  #TypeError: unhashable type: 'BRepEdge'
+        newEdges = [
+            edge 
+            for edge in boxBody.edges
+            if (
+                edge not in edgesDescendedFromInitialEdges
+            )
+        ]
+
+        edgesOfInterest = [
+            edge
+            for edge in newEdges
+            if edge in edgesUsedByFacesDescendedFromIntialFaces
+        ]
+
+        # highlight(edgesOfInterest,_fallbackComponentToReceiveTheCustomGraphics= rootComponent())
+        highlight(edgesOfInterest)
+        print('len(edgesOfInterest): ' + str(len(edgesOfInterest)))
+
+        # edgesOfInterest = [
+        #     edge in boxBody.edges
+        #     if (
+        #         # the edge is "the same" as one of the originally-present edges.design().findEntityByToken()
+        # ]
+
+
+        # edgesOfInterest : list[adsk.fusion.BRepEdge] = list(
+        #     map(
+        #         lambda x: design().findEntityByToken(x)[0],
+
+        #         # we are looking for newly created edges that are used in one fo the original face's coedges.
+
+        #     )
+        # )
+
+
+
+        if False : 
+            finalCorrespondingFaceEntityTokens = [
+                design().findEntityByToken(initialEntityToken)[0].entityToken
+                for initialEntityToken in initialEntityTokens['boxBodyFaces'] 
+            ]
+
+            finalCorrespondingEdgeEntityTokens = [
+                design().findEntityByToken(initialEntityToken)[0].entityToken
+                for initialEntityToken in initialEntityTokens['boxBodyEdges'] 
+            ]
+
+           
+            # intialFaceReport = ('initialFaceEntityTokens: ' + "\n" + "\n".join( map(renderEntityToken, initialFaceEntityTokens) ))
+
+            # finalFaceReport = ('finalFaceEntityTokens: ' + "\n" + "\n".join( 
+            #             (
+            #                 entityToken
+            #                 for entityToken in finalFaceEntityTokens 
+            #             ) 
+            #         )
+            #     )
+
+            # finalCorrespondingFaceReport = ('finalCorrespondingEntityTokens: ' + "\n" + "\n".join( 
+            #             (
+            #                 entityToken
+            #                 for entityToken in finalCorrespondingFaceEntityTokens 
+            #             ) 
+            #         )
+            #     )
+
+            # pathlib.Path(__file__).parent.joinpath('intialFaceReport.txt').write_text(intialFaceReport)
+            # pathlib.Path(__file__).parent.joinpath('finalCorrespondingFaceReport.txt').write_text(finalCorrespondingFaceReport)
+            # pathlib.Path(__file__).parent.joinpath('finalFaceReport.txt').write_text(finalFaceReport)
+
+            pathlib.Path(__file__).parent.joinpath('entityTokenReport.txt').write_text(
+                    "\n\n".join((
+                        "rootComponent().entityToken: "                + renderEntityToken(rootComponent().entityToken),
+                        
+                        "initialEntityTokens['boxBodyFaces'] : "       + "\n" + "\n".join( map(renderEntityToken, initialEntityTokens['boxBodyFaces']   ) ),
+                        "finalCorrespondingFaceEntityTokens: "         + "\n" + "\n".join( map(renderEntityToken, finalCorrespondingFaceEntityTokens    ) ) ,
+                        "finalEntityTokens['boxBodyFaces'] : "         + "\n" + "\n".join( map(renderEntityToken, finalEntityTokens['boxBodyFaces']     ) ),
+                        
+                        "initialEntityTokens['boxBodyEdges']: "        + "\n" + "\n".join( map(renderEntityToken, initialEntityTokens['boxBodyEdges']   ) ),
+                        "finalCorrespondingEdgeEntityTokens: "         + "\n" + "\n".join( map(renderEntityToken, finalCorrespondingEdgeEntityTokens    ) ),
+                        "finalEntityTokens['boxBodyEdges']: "          + "\n" + "\n".join( map(renderEntityToken, finalEntityTokens['boxBodyEdges']     ) ),
+
+                        "initialEntityTokens [ 'boxComponent'       ]: "  + renderEntityToken(initialEntityTokens [ 'boxComponent'       ]),
+                        "finalEntityTokens   [ 'boxComponent'       ]: "  + renderEntityToken(finalEntityTokens   [ 'boxComponent'       ]),
+                        "initialEntityTokens [ 'boxOccurrence'      ]: "  + renderEntityToken(initialEntityTokens [ 'boxOccurrence'      ]),
+                        "finalEntityTokens   [ 'boxOccurrence'      ]: "  + renderEntityToken(finalEntityTokens   [ 'boxOccurrence'      ]),
+                        "initialEntityTokens [ 'boxBody'            ]: "  + renderEntityToken(initialEntityTokens [ 'boxBody'            ]),
+                        "finalEntityTokens   [ 'boxBody'            ]: "  + renderEntityToken(finalEntityTokens   [ 'boxBody'            ]),
+
+                        "initialEntityTokens [ 'holeToolComponent'  ]: "  + renderEntityToken(initialEntityTokens [ 'holeToolComponent'  ]),
+                        "finalEntityTokens   [ 'holeToolComponent'  ]: "  + renderEntityToken(finalEntityTokens   [ 'holeToolComponent'  ]),
+                        "initialEntityTokens [ 'holeToolOccurrence' ]: "  + renderEntityToken(initialEntityTokens [ 'holeToolOccurrence' ]),
+                        "finalEntityTokens   [ 'holeToolOccurrence' ]: "  + renderEntityToken(finalEntityTokens   [ 'holeToolOccurrence' ]),
+                        "initialEntityTokens [ 'holeToolBody'       ]: "  + renderEntityToken(initialEntityTokens [ 'holeToolBody'       ]),
+                        # "finalEntityTokens   [ 'holeToolBody'       ]: "  + renderEntityToken(finalEntityTokens   [ 'holeToolBody'       ]),
         
-        highlight( entitiesToHighlight,  _fallbackComponentToReceiveTheCustomGraphics=mainOccurence.component)
-        
-    # adsk.fusion.Design.cast(app().activeProduct).designType = adsk.fusion.DesignTypes.DirectDesignType
-    # fscad requires that designType be DirectDesignType, not ParametricDesignType.  If you attempt to
-    # run fscad's create_occurence() function when designType is ParametricDesignType, the result will be 
-    # the error: "RuntimeError: 3 : A valid targetBaseFeature is required"
-    # my_design()
+                    ))
+                )
+
+            f = open(pathlib.Path(__file__).parent.joinpath('entityTokensAcrossRuns.txt'), 'a')            
+            f.write(renderEntityToken(initialEntityTokens['boxBodyFaces'][0]) + "\n")
+            f.close()
+
+            # print('finalFaceEntityTokens: ' + "\n\t" + "\n\t".join(finalFaceEntityTokens))
+
+            # print('initialEdgeEntityTokens: ' + "\n\t" + "\n\t".join(initialEdgeEntityTokens))
+            
+            # print('finalEdgeEntityTokens: ' + "\n\t" + "\n\t".join(finalEdgeEntityTokens))
+
+            # entityTokenPieces = (
+            #     for entityToken in (initialFaceEntityTokens + )
+            # )
+
+        # design().findEntityByToken()
+
+
+        '''
+             highlight(
+                 edgesToHighlight,
+                 _fallbackComponentToReceiveTheCustomGraphics=mainOccurrence.component.parentDesign.rootComponent
+                 )
+
+         trying to highlight the edges after we have run
+         fscad.Component::create_occurrence runs counter to the fscad philosophy
+         that the true assembly structure exists only within the fscad-native
+         'Component' object, and that the fusion-native object is merely
+         ephemeral.
+
+         The correct way to do highlighitin in keeping with the fscad philosophy
+         would be to have fscad be aware of the hihglighting, and have the
+         creation of the customgraphicsentities occur as part of the fscad
+         create_occurrence routine. Alternatively, we could imagine augmenting
+         the fscad component object with the ability to remember the various
+         fusion components and occurrences that it had created, so that,, even
+         after calling fscad.component::create_occurrence(), we could make
+         subsequent changes to the already-crerated fusion-native objects by
+         calling other methods on the original fscad.component.  As it is,
+         fscad.component::create_occurrence() causes zero modification of the
+         fscad.componetn object.  The fscad.component has no knowledge of, or
+         connection with, the fusion-native objects that it created during a
+         porevious running of its create_occurrence() method.  
+         Thus, for our goal of doing the highlighting at this point starting
+         with the fscad-native edge object, we are in the dark about where
+         within the fusion component hierarchy to put the graphics entities that
+         constitute the highlight. actually, we are not entirely in the dark --
+         we do have the Occurrence object that create_occurrence() produced. '''
+
+        # highlight( entitiesToHighlight,  _fallbackComponentToReceiveTheCustomGraphics=mainOccurrence.component)
+          
+    ''' fscad requires that designType be DirectDesignType, not
+     ParametricDesignType.  If you attempt to run fscad's create_occurrence()
+     function when designType is ParametricDesignType, the result will be the
+     error: "RuntimeError: 3 : A valid targetBaseFeature is required" .  
+     
+         adsk.fusion.Design.cast(app().activeProduct).designType = adsk.fusion.DesignTypes.DirectDesignType
+     '''
 
     fscad.run_design(design_func=my_design, message_box_on_error=False)
 
-
-    
-
     print("finished creating new bolts")
-    # ScriptedComponent.updateAllScriptedComponentsInAFusionDesign(design)
+    #     ScriptedComponent.updateAllScriptedComponentsInAFusionDesign(design)
     # prevent this module from being terminated when the script returns
-    # adsk.autoTerminate(False)
+    #     adsk.autoTerminate(False)
 
 FusionBRepEntity = (
     Union[
@@ -293,25 +555,43 @@ HighlightableThing = (
             fscad.BRepEntity
         ])
 
-# The highlight will consist of custom graphics entities.  Custom graphics objects must exist as a member of a custom graphics group, and a custom graphics group is contained either in another custom graphics group or
-# in a component's CustomGraphicsGroups collection (i.e. a custom graphics entity is contained within a custom graphics group which is contained (possibly nested within other groups) within a component.
-# We (or, more typically, the highlight function calling itself), can explicitly specify the particular custom graphics group in which to place the newly-created graphics entities,
-# or can explicitly specify the component in which to place the newly-created graphics entities.  If you specify 
-# _customGraphicsGroupToReceiveTheCustomGraphics, then the _componentToReceiveTheCustomGraphics argument is ignored (Even if you specify it).
-# Ideally, the correct component could always be resolved by inspecting the highlightable thing.  However, in the case where the highlightable thing is a temporary brep body or a Curve3D or some other bit of
-# "pure" geometry, the highlightable thing does not belong to any component, so we must specify the component as a separate argument.
-# We will place the highlight in the component specified by _fallbackComponentToReceiveTheCustomGraphics only if we cannot figure out the component manually.
-# in other words, we will look at the following pieces of information, in this order, to decide in which graphics group to place the customGraphics entities:
-# 1) _customGraphicsGroupToReceiveTheCustomGraphics argument, if specified,
-# 2) try to determine the correct component by inspecting the highlightable thing,
-# 3) Use the _fallbackComponentToReceiveTheCustomGraphics
-# In cases 2 and 3, we will arrive at a component in which to place the custom grpahics, and will then use an automatic process
-# to figure out which graphics group to place the custom graphics (creating the graphics group if it does not already exist).
 def highlight(
     x: Union[HighlightableThing, Sequence[HighlightableThing]],
     _customGraphicsGroupToReceiveTheCustomGraphics : Optional[adsk.fusion.CustomGraphicsGroup] = None,
     _fallbackComponentToReceiveTheCustomGraphics : Optional[adsk.fusion.Component] = None
     ):
+
+    """ The highlight will consist of custom graphics entities.  Custom graphics
+    objects must exist as a member of a custom graphics group, and
+    a custom graphics group is contained either in another custom graphics group or
+    in a component's CustomGraphicsGroups collection (i.e. a custom graphics entity
+    is contained within a custom graphics group which is contained (possibly nested
+    within other groups) within a component. We (or, more typically, the highlight
+    function calling itself), can explicitly specify the particular custom graphics
+    group in which to place the newly-created graphics entities, or can explicitly
+    specify the component in which to place the newly-created graphics entities. If
+    you specify _customGraphicsGroupToReceiveTheCustomGraphics, then the
+    _componentToReceiveTheCustomGraphics argument is ignored (Even if you specify
+    it).
+
+    Ideally, the correct component could always be resolved by inspecting the
+    highlightable thing.  However, in the case where the highlightable thing is a
+    temporary brep body or a Curve3D or some other bit of "pure" geometry, the
+    highlightable thing does not belong to any component, so we must specify the
+    component as a separate argument. We will place the highlight in the component
+    specified by _fallbackComponentToReceiveTheCustomGraphics only if we cannot
+    figure out the component manually. in other words, we will look at the
+    following pieces of information, in this order, to decide in which graphics
+    group to place the customGraphics entities:
+    1) _customGraphicsGroupToReceiveTheCustomGraphics argument, if specified,
+    2) try to determine the correct component by inspecting the highlightable
+        thing,
+    3) Use the _fallbackComponentToReceiveTheCustomGraphics In cases 2 and 3, we
+        will arrive at a component in which to place the custom grpahics, and will
+        then use an automatic process to figure out which graphics group to place
+        the custom graphics (creating the graphics group if it does not already
+        exist).
+     """
     # if xIsASequenceOfHighlightableThing:
     if isinstance(x, Sequence):
         for y in x: highlight(y, _customGraphicsGroupToReceiveTheCustomGraphics=_customGraphicsGroupToReceiveTheCustomGraphics, _fallbackComponentToReceiveTheCustomGraphics=_fallbackComponentToReceiveTheCustomGraphics)
@@ -325,13 +605,13 @@ def highlight(
     preferredCustomGraphicsColorEffect : adsk.fusion.CustomGraphicsColorEffect = adsk.fusion.CustomGraphicsSolidColorEffect.create(preferredColor)
 
     if   isinstance(highlightableThing, adsk.fusion.Occurrence  ):
-        occurence : adsk.fusion.Occurrence = highlightableThing
+        occurrence : adsk.fusion.Occurrence = highlightableThing
         #not yet supported
         print( "highlighting a adsk.fusion.Occurrence is not yet supported." )
         return  
     elif isinstance(highlightableThing, adsk.fusion.BRepBody    ):
         bRepBody : adsk.fusion.BRepBody = highlightableThing
-        if _customGraphicsGroupToReceiveTheCustomGraphics:
+        if _customGraphicsGroupToReceiveTheCustomGraphics is not None:
             customGraphicsGroupToReceiveTheCustomGraphics = _customGraphicsGroupToReceiveTheCustomGraphics
         else:
             #figure out which component we want to add custom graphics to
@@ -341,7 +621,7 @@ def highlight(
                 or _fallbackComponentToReceiveTheCustomGraphics
             )
             
-            if not componentToReceiveTheCustomGraphics:
+            if componentToReceiveTheCustomGraphics is None:
                 #this is an error. we were unable to figure out a component in which to place the custom graphics, so we cannot proceed.
                 print("while attempting to highlight a adsk.fusion.BRepBody, we are unable to determine which component in which to place the custom graphics, and therefore cannot proceed with the highlighting of this thing.")
                 return
@@ -373,7 +653,7 @@ def highlight(
         # is there any benefit to doing adsk.fusion.BRepEdge.cast()?
         # entity = adsk.fusion.BRepEdge.cast(entity)
         # pylance seems to be smart enough not to need the above line for type inference.  I am not sure if there would be any other advantage to doing a adsk.fusion.BRepEdge.cast()
-        if _customGraphicsGroupToReceiveTheCustomGraphics:
+        if _customGraphicsGroupToReceiveTheCustomGraphics is not None:
             customGraphicsGroupToReceiveTheCustomGraphics = _customGraphicsGroupToReceiveTheCustomGraphics
         else:
             #figure out which component we want to add custom graphics to
@@ -383,7 +663,7 @@ def highlight(
                 or _fallbackComponentToReceiveTheCustomGraphics
             )
             
-            if not componentToReceiveTheCustomGraphics:
+            if componentToReceiveTheCustomGraphics is None:
                 #this is an error. we were unable to figure out a component in which to place the custom graphics, so we cannot proceed.
                 print("while attempting to highlight a adsk.fusion.BRepEdge, we are unable to determine which component in which to place the custom graphics, and therefore cannot proceed with the highlighting of this thing.")
                 return
@@ -411,7 +691,7 @@ def highlight(
     elif isinstance(highlightableThing, adsk.fusion.BRepFace    ):
         bRepFace : adsk.fusion.BRepFace = highlightableThing
         # come up with customGraphicsGroupToReceiveTheCustomGraphics
-        if _customGraphicsGroupToReceiveTheCustomGraphics:
+        if _customGraphicsGroupToReceiveTheCustomGraphics is not None:
             customGraphicsGroupToReceiveTheCustomGraphics = _customGraphicsGroupToReceiveTheCustomGraphics
         else:
             #figure out which component we want to add custom graphics to
@@ -421,7 +701,7 @@ def highlight(
                 or _fallbackComponentToReceiveTheCustomGraphics
             )
             
-            if not componentToReceiveTheCustomGraphics:
+            if componentToReceiveTheCustomGraphics is None:
                 #this is an error. we were unable to figure out a component in which to place the custom graphics, so we cannot proceed.
                 print("while attempting to highlight an adsk.fusion.BRepFace, we are unable to determine which component in which to place the custom graphics, and therefore cannot proceed with the highlighting of this thing.")
                 return
@@ -431,7 +711,7 @@ def highlight(
         # highlight(bRepFace.geometry, _customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics, _fallbackComponentToReceiveTheCustomGraphics=_fallbackComponentToReceiveTheCustomGraphics)
         bRepBody = makeFusionBRepBodyFromFusionBRepEntity(bRepFace)
 
-        if not bRepBody:
+        if bRepBody is None:
             print(
                 "While attempting to highlight a adsk.fusion.BRepFace, we were unable to create a BRepBody to serve as a custom graphics entity.  " 
             )
@@ -442,9 +722,9 @@ def highlight(
 
     elif isinstance(highlightableThing, adsk.core.Curve3D       ):
         curve3D : adsk.core.Curve3D = highlightableThing
-        if _customGraphicsGroupToReceiveTheCustomGraphics:
+        if _customGraphicsGroupToReceiveTheCustomGraphics is not None:
             customGraphicsGroupToReceiveTheCustomGraphics = _customGraphicsGroupToReceiveTheCustomGraphics
-        elif _fallbackComponentToReceiveTheCustomGraphics:
+        elif _fallbackComponentToReceiveTheCustomGraphics is not None:
             componentToReceiveTheCustomGraphics : adsk.fusion.Component = _fallbackComponentToReceiveTheCustomGraphics
             customGraphicsGroupToReceiveTheCustomGraphics = componentToReceiveTheCustomGraphics.customGraphicsGroups.add()
         else:
@@ -475,9 +755,9 @@ def highlight(
             return
 
         # bRepBody = temporaryBRepManager.
-        if _customGraphicsGroupToReceiveTheCustomGraphics:
+        if _customGraphicsGroupToReceiveTheCustomGraphics is not None:
             customGraphicsGroupToReceiveTheCustomGraphics = _customGraphicsGroupToReceiveTheCustomGraphics
-        elif _fallbackComponentToReceiveTheCustomGraphics:
+        elif _fallbackComponentToReceiveTheCustomGraphics is not None:
             componentToReceiveTheCustomGraphics : adsk.fusion.Component = _fallbackComponentToReceiveTheCustomGraphics
             customGraphicsGroupToReceiveTheCustomGraphics = componentToReceiveTheCustomGraphics.customGraphicsGroups.add()
         else:
@@ -511,7 +791,7 @@ def highlight(
 #     preferredCustomGraphicsColorEffect : adsk.fusion.CustomGraphicsColorEffect = adsk.fusion.CustomGraphicsSolidColorEffect.create(preferredColor)
 
 #     # if doSketchBasedHighlight:
-#     #     edgeHighlightingSketch : Optional[adsk.fusion.Sketch] = mainOccurence.component.sketches.add(mainOccurence.component.xYConstructionPlane)
+#     #     edgeHighlightingSketch : Optional[adsk.fusion.Sketch] = mainOccurrence.component.sketches.add(mainOccurrence.component.xYConstructionPlane)
 #     #     for curve in curvesToHighlight:
 #     #         # edgeHighlightingSketch.sketchCurves.sketchFixedSplines.addByNurbsCurve(curve) # throws type error
 #     #         # edgeHighlightingSketch.sketchCurves.sketchFixedSplines.addByNurbsCurve(adsk.core.NurbsCurve3D.cast(curve)) # throws RuntimeError: 3 : Invalid argument nurbsCurve
@@ -552,7 +832,7 @@ def highlight(
 
 #     # if doBodyBasedHighlight:
 #     #     if wireBodyToHighlight:
-#     #         newlyCreatedPersistentBrepBody : adsk.fusion.BRepBody = mainOccurence.component.bRepBodies.add(wireBodyToHighlight)
+#     #         newlyCreatedPersistentBrepBody : adsk.fusion.BRepBody = mainOccurrence.component.bRepBodies.add(wireBodyToHighlight)
 #     #         newlyCreatedPersistentBrepBody.name = 'wireBodyToHighlight'
 #     #         print('bool(newlyCreatedPersistentBrepBody): ' + str(bool(newlyCreatedPersistentBrepBody)))
 #     #         # in the case where the curves are disjoint, I would expect that wireBodyToHighlight and 
@@ -597,7 +877,7 @@ def highlight(
 #     # It is also a bit odd that Fusion (I think) does
 #     # not fully support wire bodies and point bodies in the UI.
 
-#     # TODO: Extend the highlighting logic to handle more types of objects beyond just edges and curves: points, faces, solids, any brep body, occurences, fscad components ...
+#     # TODO: Extend the highlighting logic to handle more types of objects beyond just edges and curves: points, faces, solids, any brep body, occurrences, fscad components ...
 
 
 
