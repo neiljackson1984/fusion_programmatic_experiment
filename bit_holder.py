@@ -381,7 +381,8 @@ class BitHolderSegment :
                 vector(self.xMin, self.yMax, self.zMin),
                 vector(self.xMin, self.yMin, self.zMin),
 
-                #vector(self.xMin, self.yMin, zeroLength), #do we need to repeat the initial point?
+                #vector(self.xMin, self.yMin, zeroLength), #do we need to repeat the initial point? no, and evidently, we mustn't repeat the initial point.  This might differ 
+                # from the behavior of my OnShape function "createRightPolygonalPrism", which I think I would have made tolerant of a repeated final point.
             ]
         # print('self.minimumAllowedExtentY: ' + str(self.minimumAllowedExtentY))
         # print('self.bitHolder.mountHole.minimumAllowedClampingThickness: ' + str(self.bitHolder.mountHole.minimumAllowedClampingThickness))
@@ -409,6 +410,9 @@ class BitHolderSegment :
         #     )
         # )
         polygonVertices.reverse()
+        # the order of the vertices determines the direction of the face, which in turn determines the direction of the Extrude.
+        # I would prefer to describe the extrude by giving a start point and an endpoint, but there is not at present 
+        # a pre-existing function to do this.
 
         print(polygonVertices)
         highlight(
@@ -417,17 +421,6 @@ class BitHolderSegment :
                 polygonVertices
             )
         )
-        polygon = fscad.Polygon(
-            *itertools.starmap(
-                adsk.core.Point3D.create,
-                polygonVertices
-            )
-        )
-        highlight(polygon)
-        
-        # mainComponent = fscad.Extrude(polygon, height=self.extentX)
-        mainComponent = fscad.Extrude(polygon, height=self.extentX)
-        
         
         # createRightPolygonalPrism(
         #     context, 
@@ -442,6 +435,17 @@ class BitHolderSegment :
         
         # var mainBody = qBodyType(qCreatedBy(idOfInitialBodyCreationOperation, EntityType.BODY), BodyType.SOLID);
         # var returnValue = mainBody;
+
+        polygon = fscad.Polygon(
+            *itertools.starmap(
+                adsk.core.Point3D.create,
+                polygonVertices
+            )
+        )
+        highlight(polygon)
+        mainComponent = fscad.Extrude(polygon, height=self.extentX)
+        
+
         # //we now have the mainBody, which we will proceed to modify below.
         # // As a side-effect of our modifications, we may end up with leftover bodies that were used for construction
         # // We want to be sure to delete any of these leftover bodies before we return from this build() function.
@@ -482,7 +486,21 @@ class BitHolderSegment :
         # );
         # //debug(context, qCreatedBy(idOfBoreTool, EntityType.BODY));
         
+
+        boreTool = fscad.Cylinder(height=1*meter,radius=self.boreDiameter/2)
         
+        # to mimic the behavior of OnShape's fCylinder function, which lets you specify the cylinder's start
+        # and end points, I must rotate so as to bring zHat into alignment with self.boreDirection,
+        # and translate so as to move the origin to boreBottomCenter.
+        
+        t : adsk.core.Matrix3D = adsk.core.Matrix3D.create()
+        t.setToRotateTo(
+            adsk.core.Vector3D.create(*zHat),
+            adsk.core.Vector3D.create(*self.boreDirection)
+        )
+        t.translation = adsk.core.Vector3D.create(*self.boreBottomCenter)
+        boreTool.transform(t)
+        highlight(boreTool)
         # var idOfSplitFace = uniqueId(context,id);
         # opSplitFace(context,idOfSplitFace,
         #     {
