@@ -23,8 +23,9 @@ import operator
 # "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install unyt
 
 radian = 1
-degree = 180/math.pi * radian
-millimeter = 1
+degree = math.pi/180 * radian
+centimeter = 1 #fusion's internal native length unit is the centimeter
+millimeter = 0.1 * centimeter
 zeroLength = 0 
 meter = 1000 * millimeter
 inch = 25.4 * millimeter
@@ -108,5 +109,8 @@ def floor(x : SupportsFloat, modulus : SupportsFloat = 1 ) -> SupportsFloat :
 def mean(*args: ArrayLike) -> ArrayLike:
     # return functools.reduce(operator.add, args)/len(args)
     return sum(args)/len(args)
+
+def vector(*args) -> ndarray:
+    return np.array(args)
 
 
