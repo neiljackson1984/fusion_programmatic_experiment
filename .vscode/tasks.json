@@ -4,9 +4,11 @@
     "version": "2.0.0",
     "tasks": [
         
-        // the following "fx_task" tasks are intended to be triggered by the corresponding f key.
-        // In order for this to work, you must define keybindings like the following, which you shouild place in vs code's keybindings.json file.:
-        //   { "key": "f4"  ,  "command": "workbench.action.tasks.runTask"     ,    "args": "f4_task"    }
+        // the following "fx_task" tasks are intended to be triggered by the
+        // corresponding f key. In order for this to work, you must define
+        // keybindings like the following, which you should place in vs code's
+        // keybindings.json file.: 
+        //     { "key": "f4"  ,  "command":  "workbench.action.tasks.runTask"     ,    "args": "f4_task"    }
         { "label": "f4_task",            "dependsOn": ["run_design1_with_debugging"]                           },
         { "label": "f7_task",            "dependsOn": ["run_rpyc_playground"]                                  },
         { "label": "f8_task",            "dependsOn": ["reload_fusion_script_runner_addin_with_keystrokes"]    },
@@ -14,19 +16,16 @@
 
 
 
-        {
-            "label": "execute_with_python",
+        {   "label": "execute_with_python",
             "type":"shell",
             "command": "${config:python.pythonPath} \"${file}\""
         },
-        {
-            "label": "run_rpyc_playground",
+        {   "label": "run_rpyc_playground",
             "type":"shell",
             "command": "${config:python.pythonPath} \"${workspaceFolder}${pathSeparator}rpyc_playground.py\""
         },
 
-        {
-            "label": "reload_fusion_script_runner_addin_with_keystrokes",
+        {   "label": "reload_fusion_script_runner_addin_with_keystrokes",
             "type":"shell",
             "command": "autohotkey \"${workspaceFolder}${pathSeparator}reload_fusion_addin.ahk\" fusion_script_runner_addin\"",
             "presentation": {
@@ -34,8 +33,7 @@
                 "showReuseMessage": false
                 }
         },
-        {
-            "label": "monitor_fusion_script_runnner_addin_log",
+        {   "label": "monitor_fusion_script_runnner_addin_log",
             "type":"shell",
             "command": "tail -F '${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}fusion_script_runner_addin_log.log'",
             "presentation": {
@@ -46,16 +44,14 @@
             "isBackground":true,
 
         },
-        {
-            "label": "reload_fusion_script_runner_addin_then_monitor_log",
+        {   "label": "reload_fusion_script_runner_addin_then_monitor_log",
             "dependsOrder": "sequence",
             "dependsOn": [
                 "reload_fusion_script_runner_addin_with_keystrokes",
                 "monitor_fusion_script_runnner_addin_log"
             ]
         },
-        {
-            "label":"kill_fusion",
+        {   "label":"kill_fusion",
             "type":"shell",
             "command": "(tasklist | grep Fusion360.exe) &&  (taskkill /f /t /im Fusion360.exe & sleep 3)  & exit 0",
             "presentation": {
@@ -65,10 +61,10 @@
                 "close": true
             }
         },
-        {
-            "label":"run_fusion",
+        {   "label":"run_fusion",
             "type":"shell",
             "command": "Fusion360 --nologo",
+            // "isBackground": true,
             "presentation": {
                 "reveal": "silent",
                 "panel":  "dedicated",
@@ -76,8 +72,11 @@
                 "close": false
             }
         },
-        {
-            "label":"run_fusion_with_debugpy_log_dir_defined",
+        // {   "label":"ensure_that_fusion_is_running",
+
+        // }
+        
+        {   "label":"run_fusion_with_debugpy_log_dir_defined",
             "type":"shell",
             "command": "Fusion360 --nologo",
             "presentation": {
@@ -92,13 +91,11 @@
                 }
             }
         },
-        {
-            "label":"restart_fusion",
+        {   "label":"restart_fusion",
             "dependsOn":["kill_fusion", "run_fusion"],
             "dependsOrder": "sequence"
         },
-        {
-            "label":"restart_fusion_with_debugpy_log_dir_defined",
+        {   "label":"restart_fusion_with_debugpy_log_dir_defined",
             "dependsOn":["kill_fusion", "run_fusion_with_debugpy_log_dir_defined"],
             "dependsOrder": "sequence"
         },
@@ -108,8 +105,7 @@
         //     "command": "taskkill /f /t /im Fusion360.exe & (set \"DEBUGPY_LOG_DIR=C:/work/fusion_programmatic_experiment/debugpy_log\" && start \"\" Fusion360 --nologo)",
         //     "presentation": {"reveal": "silent"}            
         // },
-        {
-            "label":"monitor_the_log",
+        {   "label":"monitor_the_log",
             "type":"shell",
             "command": "tail -F \"${env:TEMP}${pathSeparator}fusion_script_runner_addin_log.log\"",
             "presentation": {
@@ -122,8 +118,7 @@
             },
             "isBackground": true
         },
-        {
-            "label":"run_script_in_fusion_without_debugging",
+        {   "label":"run_script_in_fusion_without_debugging",
             "type":"shell",
             "command": "${config:python.pythonPath} \"${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}run_script_in_fusion.py\"",
             "args":[
@@ -134,8 +129,7 @@
                 "--debug_port", "9000"
             ]
         },
-        {
-            "label":"run_script_in_fusion_with_debugging",
+        {   "label":"run_script_in_fusion_with_debugging",
             "type":"shell",
             "command": "${config:python.pythonPath} \"${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}run_script_in_fusion.py\"",
             "args":[
@@ -146,8 +140,7 @@
                 "--debug_port", "9000"
             ]
         },
-        {
-            "label":"run_test_script_in_fusion_without_debugging",
+        {   "label":"run_test_script_in_fusion_without_debugging",
             "type":"shell",
             "command": "${config:python.pythonPath} \"${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}run_script_in_fusion.py\"",
             "args":[
@@ -158,8 +151,7 @@
                 "--debug_port", "9000"
             ]
         },
-        {
-            "label":"run_test_script_in_fusion_with_debugging",
+        {   "label":"run_test_script_in_fusion_with_debugging",
             "type":"shell",
             "command": "${config:python.pythonPath} \"${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}run_script_in_fusion.py\"",
             "args":[
@@ -170,22 +162,26 @@
                 "--debug_port", "9000"
             ]
         },
-        {
-            "label":"run_design1_with_debugging",
+        {   "label":"run_design1_with_debugging",
             "type":"shell",
             "command": "${config:python.pythonPath} \"${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}run_script_in_fusion.py\"",
+            // "dependsOn": ["run_fusion"] ,
+            // "dependsOrder": "parallel",
             "args":[
-                "--script", "${workspaceFolder}${pathSeparator}design1.py",
-                "--debug", "1",
-                "--debugpy_path", "${config:neil.debugpyPath}",
-                "--addin_port", "19812",
-                "--debug_port", "9000",
-                "--prefix_of_submodule_not_to_be_reloaded", "braids.fscad"
+                "--script"                                  , "${workspaceFolder}${pathSeparator}design1.py"   ,                                                 
+                "--debug"                                   , "1"                                              ,      
+                "--debugpy_path"                            , "${config:neil.debugpyPath}"                     ,                               
+                "--addin_port"                              , "19812"                                          ,          
+                "--debug_port"                              , "9000"                                           ,         
+                "--prefix_of_submodule_not_to_be_reloaded"  , "braids.fscad"                                   ,                 
             ],
             "presentation": {"reveal" : "silent" }
         },
-        {
-            "label":"hello_world",
+        {   "label":"python_interactive",
+            "type":"shell",
+            "command": "${config:python.pythonPath}"
+        },
+        {   "label":"hello_world",
             "type":"shell",
             // "command": "echo ${config:python.pythonPath}",
             // "command": "echo ${config:python.analysis.symbolsHierarchyDepthLimit}",
@@ -197,12 +193,12 @@
         }
     ],
     "inputs": [
-      {
-        "id": "terminate",
-        "type": "command",
-        "command": "workbench.action.tasks.terminate",
-        "args": "terminateAll"
-      }
+    //   {
+    //     "id": "terminate",
+    //     "type": "command",
+    //     "command": "workbench.action.tasks.terminate",
+    //     "args": "terminateAll"
+    //   }
     ]
 
 }

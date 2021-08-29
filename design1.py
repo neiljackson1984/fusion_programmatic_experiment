@@ -4,6 +4,7 @@ import inspect
 import pprint
 from typing import Optional, Sequence, Union
 from . import scripted_component
+from . import bit_holder
 from .scripted_component import ScriptedComponent
 from .bolt import Bolt
 from .braids.fscad.src.fscad import fscad as fscad
@@ -53,8 +54,6 @@ def renderEntityToken(entityToken: str) -> str:
     
     # )
     return entityToken
-
-
 
 def run(context:dict):
     
@@ -177,15 +176,16 @@ def run(context:dict):
         initialEdges = list(boxBody.edges)
         
 
-        toolBodies=adsk.core.ObjectCollection.create()
-        toolBodies.add(holeToolBody)
+        # toolBodies=adsk.core.ObjectCollection.create()
+        # toolBodies.add(holeToolBody)
         global rootComponent
         global design
         
 
-        combineFeatureInput = rootComponent().features.combineFeatures.createInput(targetBody=boxBody, toolBodies=toolBodies)
+        combineFeatureInput = rootComponent().features.combineFeatures.createInput(targetBody=boxBody, toolBodies=fscad._collection_of((holeToolBody,)))
         combineFeatureInput.operation = adsk.fusion.FeatureOperations.CutFeatureOperation
         combineFeature = rootComponent().features.combineFeatures.add(combineFeatureInput)
+        # assert combineFeature is not None
         # boxBody = design().findEntityByToken(initialEntityTokens['boxBody'])[0]
         # the above does not seem to be necessary; the boxBody survives the opreration with identity (in the memory address sense) preserved.
 
@@ -202,32 +202,35 @@ def run(context:dict):
                 'holeToolOccurrence'  :               holeToolOccurrence.entityToken                                 ,
             }
         # print('design().findEntityByToken(combineFeature.entityToken): ')
-        # print(
-        #     "\n".join(
-        #         map(
-        #             renderEntityToken, 
-        #             design().findEntityByToken(combineFeature.entityToken)
+        # print("\n".join(map(renderEntityToken,
+        # design().findEntityByToken(combineFeature.entityToken)
         #             )
         #         )
         #     )
-        # of course: in a design that has design().designType ==  adsk.fusion.DesignTypes.DirectDesignType ,
-        # the result of doing CombineFeatures::add() is null, even though "Adding" the feature did have an effect on the document.
+        # of course: in a design that has design().designType ==
+        # adsk.fusion.DesignTypes.DirectDesignType , the result of doing
+        # CombineFeatures::add() is null, even though "Adding" the feature did
+        # have an effect on the document.
 
         edgesDescendedFromInitialEdges = [
             entity 
             for initialEntityToken in initialEntityTokens['boxBodyEdges']
             for entity in design().findEntityByToken(initialEntityToken)
         ]
-        # we have to be a bit careful when speaking about the identity of BRep entities across
-        # operations.  From an intuitive point of view, we want to talk about "an edge" which existed
-        # before the operation, and continues to exist after the operation.
-        # However, we cannot trust that the equality operator acting on BRepEdge objects will represent
-        # the intuitive sense of identity.  If I were to call this list "initialEdges", it would be unclear whether I 
-        # were talking about the collection of edge objects that I might have obtained by storing the members of 
-        # boxBody.edges before performing the operation, or whether I am talking about the adge objects belonging to 
-        # the current incarnation of boxBody, which are "the same", in the intuitive sense" as the edge objects
-        # that existed before the operation.  In fact, my meaning is the latter.  Therefore, I call this
-        # variable 'edgesDescendedFromInitialEdges'.
+        # we have to be a bit careful when speaking about the identity of BRep
+         # entities across operations.  From an intuitive point of view, we want
+         # to talk about "an edge" which existed before the operation, and
+         # continues to exist after the operation. However, we cannot trust that
+         # the equality operator acting on BRepEdge objects will represent the
+         # intuitive sense of identity.  If I were to call this list
+         # "initialEdges", it would be unclear whether I were talking about the
+         # collection of edge objects that I might have obtained by storing the
+         # members of boxBody.edges before performing the operation, or whether I
+         # am talking about the adge objects belonging to the current incarnation
+         # of boxBody, which are "the same", in the intuitive sense" as the edge
+         # objects that existed before the operation.  In fact, my meaning is the
+         # latter.  Therefore, I call this variable
+         # 'edgesDescendedFromInitialEdges'.
 
         facesDescendedFromInitialFaces = [
             entity 
@@ -242,6 +245,7 @@ def run(context:dict):
         ]
 
         finalEdges = list(boxBody.edges)
+
 
         # equivalently (and more computationally efficient, but perhaps harder to read):
         # initiallyExistingEdges = list(
@@ -268,24 +272,48 @@ def run(context:dict):
         # # even though there are, intuitively, edges that have survived the operation.
 
         # newEdges = set(boxBody.edges) - set(edgesDescendedFromInitialEdges)  #TypeError: unhashable type: 'BRepEdge'
-        newEdges = [
-            edge 
-            for edge in boxBody.edges
-            if (
-                edge not in edgesDescendedFromInitialEdges
-            )
-        ]
+        # newEdges = [
+        #     edge 
+        #     for edge in boxBody.edges
+        #     if (
+        #         edge not in edgesDescendedFromInitialEdges
+        #     )
+        # ]
+
+        # edgesOfInterest = [
+        #     edge
+        #     for edge in newEdges
+        #     if edge in edgesUsedByFacesDescendedFromIntialFaces
+        # ]
 
         edgesOfInterest = [
             edge
-            for edge in newEdges
-            if edge in edgesUsedByFacesDescendedFromIntialFaces
+            for edge in boxBody.edges
+            if (
+                edge in edgesUsedByFacesDescendedFromIntialFaces
+                and edge not in edgesDescendedFromInitialEdges
+            )
         ]
 
         # highlight(edgesOfInterest,_fallbackComponentToReceiveTheCustomGraphics= rootComponent())
         highlight(edgesOfInterest)
         print('len(edgesOfInterest): ' + str(len(edgesOfInterest)))
 
+
+        chamferFeatureInput = boxOccurrence.component.features.chamferFeatures.createInput(edges= fscad._collection_of(edgesOfInterest), isTangentChain=False)
+        assert chamferFeatureInput is not None
+        
+        chamferFeatureInput.setToEqualDistance(adsk.core.ValueInput.createByReal(0.08))
+        chamferFeature = boxOccurrence.component.features.chamferFeatures.add(chamferFeatureInput)
+
+        assert chamferFeature is not None
+        # It's interesting that the combineFeatures.add() method, above, returns None (presumably it would return a 
+        # combine feature if we had design().designType = adsk.fusion.DesignTypes.ParametricDesignType rather than DirectDesignType),
+        # but that chamferFeatures.add() returns a real chamferFeature.
+
+        print("design().designType: " + str(design().designType))
+
+        
         # edgesOfInterest = [
         #     edge in boxBody.edges
         #     if (
