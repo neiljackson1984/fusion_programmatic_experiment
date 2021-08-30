@@ -458,7 +458,7 @@ def run(context:dict):
     def design2():
         bitHolderSegment = bit_holder.BitHolderSegment()
         fscadComponent = bitHolderSegment.build()
-        fscadComponent.create_occurrence()
+        # fscadComponent.create_occurrence()
 
     fscad.run_design(design_func=design2, message_box_on_error=False)
 

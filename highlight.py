@@ -340,7 +340,9 @@ def highlight(
         pathOfPointImageFile=tempfile.mktemp('.png')          
         img.save(pathOfPointImageFile, format='png')
         
-        
+        #using an image file as the point icon is quite a hack.  It might be
+        # better to do a sphere as brep bodies, and to use some of the scaling features built into
+        # the custom graphics system so as to scale the sphere relative to the screen rather than relative to the model.
         customGraphicsPointSet : Optional[adsk.fusion.CustomGraphicsPointSet] = customGraphicsGroupToReceiveTheCustomGraphics.addPointSet(
             coordinates=coordinates,
             indexList=[],

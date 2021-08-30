@@ -18,9 +18,16 @@ from typing import SupportsFloat
 from numpy import ndarray
 from numpy import number
 from math import sin, cos
+import adsk
 import unyt
 import operator
 # "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install unyt
+
+def app()           -> adsk.core.Application   : return adsk.core.Application.get()
+def ui()            -> adsk.core.UserInterface : return app().userInterface
+def design()        -> adsk.fusion.Design      : return adsk.fusion.Design.cast(app().activeProduct)
+def rootComponent() -> adsk.fusion.Component   : return design().rootComponent
+
 
 radian = 1
 degree = math.pi/180 * radian
