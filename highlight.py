@@ -21,7 +21,7 @@ def makeFusionBRepBodyFromFusionBRepEntity(fusionBRepEntity : FusionBRepEntity) 
     temporaryBRepManager : adsk.fusion.TemporaryBRepManager = adsk.fusion.TemporaryBRepManager.get()
     # we end up not having to reinvent the wheel as much as I first thought because this functionality is already built into fusion
     # # in the form of the temporaryBRepManager.copy() function,
-    # at least for the case of BRepFace, BRepLoop, and BRepEdge, according to the codumentation
+    # at least for the case of BRepFace, BRepLoop, and BRepEdge, according to the documentation
     # (although I would think that maybe BRepVertex might work exactly the same way?):
     # temporaryBRepManager.copy() takes any of the following types of object as argument:
     # adsk.fusion.BRepBody, adsk.fusion.BRepFace, adsk.fusion.BRepLoop, adsk.fusion.BRepEdge'

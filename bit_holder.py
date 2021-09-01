@@ -5,6 +5,7 @@ import math
 from .braids.fscad.src.fscad import fscad as fscad
 from .highlight import *
 import itertools
+import re
 
 import scipy
 # the above import of scipy requires the user to have taken action to ensure that scipy is available somewhere on the system path,
@@ -415,12 +416,12 @@ class BitHolderSegment :
         # a pre-existing function to do this.
 
         print(polygonVertices)
-        highlight(
-            itertools.starmap(
-                adsk.core.Point3D.create,
-                polygonVertices
-            )
-        )
+        # highlight(
+        #     itertools.starmap(
+        #         adsk.core.Point3D.create,
+        #         polygonVertices
+        #     )
+        # )
         
         # createRightPolygonalPrism(
         #     context, 
@@ -442,7 +443,7 @@ class BitHolderSegment :
                 polygonVertices
             )
         )
-        highlight(polygon)
+        # highlight(polygon)
         mainComponent = fscad.Extrude(polygon, height=self.extentX)
         
 
@@ -592,7 +593,7 @@ class BitHolderSegment :
             if edge not in edgesDescendedFromInitialEdges
         ]
         boreToolOccurrence.deleteMe()
-        highlight(edgesOfInterest)
+        # highlight(edgesOfInterest)
         print('len(edgesOfInterest): ' + str(len(edgesOfInterest)))
 
 
@@ -619,29 +620,34 @@ class BitHolderSegment :
         filletFeature = boxOccurrence.component.features.filletFeatures.add(filletFeatureInput)
         
 
-        # var myGalley = new_galley();
-        # myGalley.fontName = self.labelFontName;
-        # myGalley.rowSpacing = 1.3; 
-        # myGalley.rowHeight = self.labelFontHeight;
-        # myGalley.text = self.labelText;
-        # myGalley.horizontalAlignment = HorizontalAlignment.CENTER;
-        # myGalley.verticalAlignment = VerticalAlignment.TOP;
-        # myGalley.clipping = true;
-        # myGalley.width = self.labelExtentX;
-        # myGalley.height = self.labelExtentZ;
+        boxOccurrence.deleteMe()
+        TextRow().create_occurrence()
 
-        # myGalley.anchor = GalleyAnchor_e.CENTER;
-        # myGalley.worldPlane = 
-        #     plane(
-        #         /* origin: */ vector(
-        #             mean([self.labelXMin, self.labelXMax]),
-        #             self.labelYMin, 
-        #             mean([self.labelZMin, self.labelZMax])
-        #         ),
-        #         /* normal: */ -yHat,
-        #         /* x direction: */ xHat  
-        #     );
-        # var sheetBodiesInWorld = myGalley.buildSheetBodiesInWorld(context, uniqueId(context,id));
+
+        # myGalley = Galley()
+        # myGalley.fontName = self.labelFontName
+        # myGalley.rowSpacing = 1.3
+        # myGalley.rowHeight = self.labelFontHeight
+        # myGalley.text = self.labelText
+        # myGalley.horizontalAlignment = HorizontalAlignment.CENTER
+        # myGalley.verticalAlignment = VerticalAlignment.TOP
+        # myGalley.clipping = True
+        # myGalley.width = self.labelExtentX
+        # myGalley.height = self.labelExtentZ
+        # myGalley.anchor = GalleyAnchor_e.CENTER
+
+        # # myGalley.worldPlane = 
+        # #     plane(
+        # #         /* origin: */ vector(
+        # #             mean([self.labelXMin, self.labelXMax]),
+        # #             self.labelYMin, 
+        # #             mean([self.labelZMin, self.labelZMax])
+        # #         ),
+        # #         /* normal: */ -yHat,
+        # #         /* x direction: */ xHat  
+        # #     );
+
+        # sheetBodiesInWorld = myGalley.buildSheetBodiesInWorld(context, uniqueId(context,id))
         
         # var idOfLabelTool = uniqueId(context, id);
         # try
@@ -700,7 +706,7 @@ class BitHolderSegment :
         #             function(sweepingEdgeCandidate){
         #                 var edgeTangentDirection = evEdgeTangentLine(context, {edge: sweepingEdgeCandidate, parameter: 0}).direction;
                         
-        #                 // we return true iff. there is at least one element of get_directionsOfEdgesThatWeWillAddALabelRetentionLipTo() 
+        #                 // we return true iff. there is at least one element of directionsOfEdgesThatWeWillAddALabelRetentionLipTo
         #                 // to which sweepingEdgeCandidate is parallel.
         #                 for(var direction in self.directionsOfEdgesThatWeWillAddALabelRetentionLipTo){
         #                     //evidently, the parallelVectors() function returns true in the case where the vectors parallel AND in
@@ -1257,664 +1263,325 @@ class GalleyAnchor_e(Enum):
     BOTTOM_LEFT = enum.auto();  BOTTOM_CENTER = enum.auto();  BOTTOM_RIGHT = enum.auto();
 
 
-class Galley:
-    def __init__(self):
-
-        self.width = 8.5 * inch
-        self.height = 11 * inch
-        self.clipping = True
-        # this parameter controls whether to delete parts of the sheet bodies that extend beyond the galley boundary (determined by the width and height parameters above).  In galleySpace (the frame that is fixed to the galley) (the lower left corner of the galley is the origin).
-        
-        
-        self.fontName = "Tinos-Regular.ttf"
-        self.rowHeight = 10/72 * inch
-        self.rowSpacing = 1
-        #this is a unitless ratio that sets the ratio of the vertical interval between successive textRows and the rowHeight.
-        
-        self.horizontalAlignment = HorizontalAlignment.LEFT
-        self.verticalAlignment = VerticalAlignment.TOP
-        
-        self.leftMargin    = zeroLength
-        self.rightMargin   = zeroLength
-        self.topMargin     = zeroLength
-        self.bottomMargin  = zeroLength
-        
-        self.worldPlane = XY_PLANE; 
-        
-        # //the anchor specifies which point in galley space will be mapped to the origin of worldPlane.
-        # // self.anchor may be any of the following:
-        # //  a galleyAnchor_e enum value
-        # //  a 3d length vector (according to is3dLengthVector()), in which case this will be taken as the point in galley space to be mapped to the origin of worldPlane
-        # //  a unitless vector having at least 2 elements (Accordng to size() >= 2 and isUnitlessVector()), in which case the elements of self.anchor will taken to be a scale factor to be applied to width and height, respectively (in the spirit of the scaled position that Mathematica uses for many of its graphics functions)
-        self.anchor = GalleyAnchor_e.BOTTOM_LEFT; 
-        
-        # //the text boxes will be aligned with the margin (which is a rectangular region that is inset from the edges of the galley according to the margin values above.
-
-        self.text = ""
-        # // self.fontName = "Tinos-Italic.ttf"
-        # // self.fontHeight = 12/72 * inch
-
-        
-    def buildSheetBodiesInGalleySpace(context is Context, id is Id):
-        var sanitizedText = "";
-        //parse tex-style directives from the text.
-        var regExForTexDirective = "(.*?)(?:\\\\(\\w+)(?:\\{(.*?)\\}|))(.*)";
-        var texDirectives = [];
-        var remainder = self.text;
-        var result = match(remainder, regExForTexDirective) ;
-        //println("result: " ~ toString(result));		// 
-        while(result.hasMatch)
-        {
-            sanitizedText ~= result.captures[1];
-            texDirectives =  append(texDirectives, 
-                {
-                    "controlWord" : result.captures[2],
-                    "argument" : result.captures[3]
-                }
-            );
-            remainder = result.captures[4];
-            result = match(remainder, regExForTexDirective) ;
-            //println("result: " ~ toString(result));		// 
-        }
-        sanitizedText ~= remainder;
-        //println("regExForTexDirective: " ~ toString(regExForTexDirective));		// 
-        //println("texDirectives: " ~ toString(texDirectives));		// 
-        //println("sanitizedText: " ~ toString(sanitizedText));		// 
-        var floodWithInk = false;
-        if(
-            isIn(
-                "floodWithInk",
-                mapArray(texDirectives,
-                    function(x){return x["controlWord"];}
-                )
-            )
-        )
-        {
-            //println("floodWithInk directive detected");  
-            floodWithInk= true;
-        }
-        
-        
-        
-        var sheetBodiesInGalleySpace = qNothing(); 
-        //we will use sheetBodiesInGalleySpace as a container, which we willl fill up with sheet bodies.
-        //By the time we are done working, sheetBodiesInGalleySpace will contain all the the sheetBodies that we want.
-        
-        if(floodWithInk)
-        {
-            sheetBodiesInGalleySpace = 
-                qUnion([
-                    sheetBodiesInGalleySpace,
-                    // rectangle from [0,0] to [self.width, self.height]  //thisTextRow[].buildSheetBodiesInGalleySpace(context, uniqueId(context, id))
-                    new_filledRectangle({"corner1": vector(0,0) * meter, "corner2": vector(self.width, self.height)})[].buildSheetBodiesInGalleySpace(context, uniqueId(context, id))
-                ]);
-            //println("reportOnEntities(context,sheetBodiesInGalleySpace,0): " ~ toString(reportOnEntities(context,sheetBodiesInGalleySpace,0)));
-        } else {
-            // lay down the text boxes
-            { 
-                var linesOfText = explode("\n", sanitizedText);
-                var initX;
-                var initY;
-                var initZ = zeroLength;
-                
-                                    
-                //the following tthree lines allow the fontName, rowHeight, and rowSpacing to be either arrays or single values.
-                // if an array, we will cycle through the values in the array as we create one row after another.
-                var fontNameArray = (self.fontName is array ? self.fontName : [self.fontName]);
-                var rowHeightArray = (self.rowHeight is array ? self.rowHeight : [self.rowHeight]);
-                var rowSpacingArray = (self.rowSpacing is array ? self.rowSpacing : [self.rowSpacing]); // the entries in the row spacing array affect how much space will exist between a row and the row above it. (thus, row spacing for the first row has no effect - only for rows after the first row.)
-                
-                //verticalRowInterval is the vertical distance that we will move the insertion point between successive rows.
-                //var verticalRowInterval = self.rowHeight * self.rowSpacing; 
-                
-                
-                //heightOfAllText is the distance from the baseline of the bottom row to the ascent of the top row, when all rows are laid out.
-                //var heightOfAllText = verticalRowInterval * size(linesOfText);
-                var heightOfAllText = rowHeightArray[0];
-                for(var i = 1; i<size(linesOfText); i+=1)
-                {
-                    //self.rowHeight + (size(linesOfText)-1)*verticalRowInterval;
-                    heightOfAllText += rowSpacingArray[i % size(rowSpacingArray)] * rowHeightArray[i % size(rowHeightArray)];
-                }
-                
-                if(  self.horizontalAlignment == HorizontalAlignment.LEFT )
-                {
-                    initX = self.leftMargin;
-                } else if (self.horizontalAlignment == HorizontalAlignment.CENTER)
-                {
-                    initX = mean([ self.leftMargin, self.width - self.rightMargin ]);
-                }
-                else // if (self.horizontalAlignment == HorizontalAlignment.RIGHT)
-                {
-                    initX = self.width - self.rightMargin;
-                }
-                
-                
-                
-                if(  self.verticalAlignment == VerticalAlignment.TOP )
-                {
-                    initY = self.height - self.topMargin - rowHeightArray[0];
-                } else if (self.verticalAlignment == VerticalAlignment.CENTER)
-                {
-                    initY = 
-                        mean([self.height - self.topMargin, self.bottomMargin]) //this is the y-coordinate of the vertical center
-                        + heightOfAllText/2 
-                        - self.rowHeight;
-                }
-                else // if(  self.verticalAlignment == VerticalAlignment.BOTTOM )
-                {
-                    initY = self.bottomMargin + heightOfAllText - rowHeightArray[0];
-                }
-                
-                var insertionPoint = vector(initX, initY , initZ);
-
-                
-                for(var i = 0; i<size(linesOfText); i+=1)
-                {
-                    var lineOfText = linesOfText[i];
-                    var thisTextRow =  new_textRow()  ;
-                    
-                    thisTextRow[].set_owningGalley(this);
-                    thisTextRow[].set_text(lineOfText);
-                    thisTextRow[].set_fontName(fontNameArray[i % size(fontNameArray)]);
-                    thisTextRow[].set_height(rowHeightArray[i % size(rowHeightArray)]);
-                    
-                    
-                    if(  self.horizontalAlignment == HorizontalAlignment.LEFT )
-                    {
-                            thisTextRow[].set_basePoint(insertionPoint);
-                    } else if (self.horizontalAlignment == HorizontalAlignment.CENTER)
-                    {
-                            thisTextRow[].set_basePoint(insertionPoint - thisTextRow.width/2 * vector(1, 0, 0));
-                    }
-                    else // if(  self.horizontalAlignment == HorizontalAlignment.RIGHT )
-                    {
-                        thisTextRow[].set_basePoint(insertionPoint - thisTextRow.width * vector(1, 0, 0));
-                    }
-                    
-                    if(i<size(linesOfText)-1) //if we are not on the last row
-                    {
-                        insertionPoint += -yHat * rowSpacingArray[i+1 % size(rowSpacingArray)] * rowHeightArray[i+1 % size(rowHeightArray)]; //drop the insertion point down to be ready to start the next row.
-                    }
-                    
-                    
-                    
-                    sheetBodiesInGalleySpace = 
-                        qUnion([
-                            sheetBodiesInGalleySpace,
-                            thisTextRow[].buildSheetBodiesInGalleySpace(context, uniqueId(context, id))
-                        ]);
-                }
-            }
-        }
-        //apply clipping, if requested.
-        if(self.clipping)
-        {
-            
-            var idOfGalleyMask = uniqueId(context, id);
-            var idOfClipping = uniqueId(context, id);                
-            var idOfTextExtrude = uniqueId(context, id);
-            //construct the galleyMask.  This is a region outside of which we will not allow the galley to have any effect.  
-            // (We will do a boolean intersection between galleyMask and the sheet bodies created above.
-            
-            fCuboid(
-                context,
-                idOfGalleyMask,
-                {
-                    corner1:vector(0,0,-1) * millimeter,
-                    corner2:vector(self.width , self.height , 1 * millimeter)
-                }
-            );
-            var galleyMask = qCreatedBy(idOfGalleyMask, EntityType.BODY);
-            //println("reportOnEntities(context,galleyMask,0): " ~ toString(reportOnEntities(context,galleyMask,0)));
-            //debug(context, qOwnedByBody(sheetBodiesInGalleySpace, EntityType.FACE));
-            try{
-                opExtrude(
-                    context,
-                    idOfTextExtrude,
-                    {
-                        //entities:  sheetBodiesInGalleySpace,
-                        entities:  qOwnedByBody(sheetBodiesInGalleySpace, EntityType.FACE),
-                        direction: vector(0,0,1),
-                        endBound: BoundingType.BLIND,
-                        endDepth: 0.5 * millimeter,
-                        startBound: BoundingType.BLIND,
-                        startDepth: zeroLength
-                    }
-                );
-            } catch (error)
-            {
-                println("getFeatureError(context, idOfTextExtrude): " ~ getFeatureError(context, idOfTextExtrude));		// getFeatureError(context, idOfTextExtrude);
-            }
-            
-            
-            
-            var textSolidBodies = qBodyType(qCreatedBy(idOfTextExtrude, EntityType.BODY), BodyType.SOLID);
-            //debug(context, textSolidBodies);                    
-            //debug(context, sheetBodiesInGalleySpace);
-            //debug(context, galleyMask);
-            //println("before clipping: reportOnEntities(context, textSolidBodies): " ~ reportOnEntities(context, textSolidBodies,0,0));		
-            //println("before clipping: reportOnEntities(context, galleyMask): " ~ reportOnEntities(context, galleyMask,0,0));
-            
-            if(false){ //This doesn't work because the boolean intersection completely ignores the "targets" argument.
-                // It acts only on the tools.
-                opBoolean(context, idOfClipping,
-                    {
-                        tools: galleyMask,
-                        targets: textSolidBodies,
-                        ////targets: sheetBodiesInGalleySpace,
-                        operationType: BooleanOperationType.INTERSECTION,
-                        targetsAndToolsNeedGrouping:true,
-                        keepTools:true
-                    }
-                ); 
-            }
-            
-            
-            opBoolean(
-                context,
-                idOfClipping,
-                {
-                    tools: galleyMask,
-                    targets: textSolidBodies,
-                    //targets: sheetBodiesInGalleySpace,
-                    operationType: BooleanOperationType.SUBTRACT_COMPLEMENT,
-                    targetsAndToolsNeedGrouping:false,
-                    keepTools:false
-                }
-            );
-            // // Counter-intuitively, the boolean SUBTRACT_COMPLEMENT operation (which relies on the boolean SUBTRACT operation 
-            // // under the hood,
-            // // and therefore this is probably also true for the SUBTRACT operation) essentially destroys all input bodies 
-            // // and creates brand new bodies.  Therefore, we need to redefine the textSoidBodies query
-            // // to be the set of solid bodies created by the clipping operation:
-            // // textSolidBodies = qBodyType(qCreatedBy(idOfClipping, EntityType.BODY), BodyType.SOLID);
-            // UPDATE: after updating from Featurescript version 626 to version 1271,
-            // it seems that the boolean SUBTRAC_COMPLEMENT operation (and, presumably also the SUBTRACT operation)
-            // now behaves intuitively and does not destroy all input bodies.  Therefore, it is no longer necessary
-            // to redefine the textSolidBodies query to be the set of solid boides created by the clipping operation.
-            // In fact, if we did now perform that re-definition, the newly defined textSolidBodies query would 
-            // resolve to nothing, because the new version of the SUBTRACt_COMPLEMENT operation does not 'create' any solid
-            // bodies - it merely modifies them.  (although perhaps it does create edges and faces where existing solid bodies are chopped
-            // up.
-    
-            
-
-            
-            
-            
-            
-            //println("after clipping: reportOnEntities(context, textSolidBodies): " ~ reportOnEntities(context, textSolidBodies,0,0));		
-            //println("after clipping: reportOnEntities(context, galleyMask): " ~ reportOnEntities(context, galleyMask,0,0));
-            //debug(context, qOwnedByBody(textSolidBodies, EntityType.EDGE));  
-            var allFacesOfTextSolidBodies = qOwnedByBody(textSolidBodies,EntityType.FACE);
-            var facesToKeep = qCoincidesWithPlane(allFacesOfTextSolidBodies, XY_PLANE);
-            var facesToDelete = qSubtraction(allFacesOfTextSolidBodies, facesToKeep);
-            var newEntitiesFromDeleteFace = startTracking(context, qUnion([textSolidBodies, allFacesOfTextSolidBodies]));
-            
-            //delete faces from allFacesOfTextSolidBodies that do not lie on the XY plane
-            var idOfDeleteFace = uniqueId(context, id);
-            try silent{
-                opDeleteFace(
-                    context,
-                    idOfDeleteFace,
-                    {
-                        deleteFaces: facesToDelete ,
-                        includeFillet:false,
-                        capVoid:false,
-                        leaveOpen:true
-                    }
-                );
-                // this opDeleteFace will throw an excpetion when facesToDelete is empty (which happens when all the textSolidBodies lie entirely outside the galley mask.  That is the reason for the try{}.
-                
-            } catch(error)
-            {
-                
-            }
-            //by deleting faces, the solid bodies will have become sheet bodies.
-            // the opDeleteFace operation doesn't "create" any bodies (in the sense of OnShape id assignment), however it does seem to destroy all input bodies (at least in this case, where we are removing faces from a solid body to end up with a sheet body).  The only way I have found to retrieve the resultant sheet bodies is with a tracking query.  
-            var clippedSheetBodiesInGalleySpace =
-                qBodyType(
-                    qOwnerBody(
-                        qEntityFilter(newEntitiesFromDeleteFace,EntityType.FACE)
-                    ), 
-                    BodyType.SHEET
-                );
-            
-            //Not knowing exactly how the tracking query works, I am running the query through evaluateQuery() here for good measure, to make sure that I can use this query later on to still refer to preciesly the entities which exist at this point in the build history.            
-            clippedSheetBodiesInGalleySpace = qUnion(evaluateQuery(context, clippedSheetBodiesInGalleySpace));
-
-            if(false){
-                println("reportOnEntities(context, qCreatedBy(idOfDeleteFace),1,0): "      ~ "\n" ~ reportOnEntities(context, qCreatedBy(idOfDeleteFace),   1, 0));	
-                println("reportOnEntities(context, textSolidBodies,1,0): "                 ~ "\n" ~ reportOnEntities(context, textSolidBodies,              1, 0));	
-                println("reportOnEntities(context, facesToKeep,1,0): "                     ~ "\n" ~ reportOnEntities(context, facesToKeep,                  1, 0));	
-                println("reportOnEntities(context, newEntitiesFromDeleteFace,0,0): "       ~ "\n" ~ reportOnEntities(context, newEntitiesFromDeleteFace,    1, 0));	
-                println("reportOnEntities(context, clippedSheetBodiesInGalleySpace, 1, 0): "      ~ "\n" ~ reportOnEntities(context, clippedSheetBodiesInGalleySpace,     1, 0)); 
-                //debug(context,clippedSheetBodiesInGalleySpace);
-                //debug(context,sheetBodiesInGalleySpace);
-            }
-            
-            //delete the original sheetBodiesInGalleySpace, and set sheetBodiesInGalleySpace = clippedSheetBodiesInGalleySpace
-            opDeleteBodies(context, uniqueId(context, id),{entities: sheetBodiesInGalleySpace});
-            sheetBodiesInGalleySpace = clippedSheetBodiesInGalleySpace;
-    
-            
-            
-        }
-        //println("reportOnEntities(context,sheetBodiesInGalleySpace,0): " ~ toString(reportOnEntities(context,sheetBodiesInGalleySpace,0)));
-            return sheetBodiesInGalleySpace;
-        
-    
-    def buildSheetBodiesInWorld(context is Context, id is Id):
-        var sheetBodiesInWorld = qNothing(); 
-        var scaledAnchorPoint;
-        
-        //anchorPointInGalleySpace is the point in galley space that will be mapped to the origin of worldPlane.
-        var anchorPointInGalleySpace;
-        // compute anchorPointInGalleySpace. 
-        if (is3dLengthVector(self.anchor))
-        {
-            anchorPointInGalleySpace =  self.anchor;
-        } else
-        {            
-            //compute scaledAnchorPoint, one way or another.
-            if (isUnitlessVector(self.anchor) && size(self.anchor) >= 2)
-            {
-                scaledAnchorPoint = resize(self.anchor, 3, 0); //doing this resize lets us take an anchor that only gives x and y coordinates
-            } else if(self.anchor is galleyAnchor_e)
-            {
-                scaledAnchorPoint  = 
-                    {
-                        GalleyAnchor_e.TOP_LEFT:         vector(  0,    1,    0  ),     
-                        GalleyAnchor_e.TOP_CENTER:       vector(  1/2,  1,    0  ),     
-                        GalleyAnchor_e.TOP_RIGHT:        vector(  1,    1,    0  ),
-                        GalleyAnchor_e.CENTER_LEFT:      vector(  0,    1/2,  0  ),  
-                        GalleyAnchor_e.CENTER:           vector(  1/2,  1/2,  0  ),         
-                        GalleyAnchor_e.CENTER_RIGHT:     vector(  1,    1/2,  0  ),
-                        GalleyAnchor_e.BOTTOM_LEFT:      vector(  0,    0,    0  ),  
-                        GalleyAnchor_e.BOTTOM_CENTER:    vector(  1/2,  0,    0  ),  
-                        GalleyAnchor_e.BOTTOM_RIGHT:     vector(  1,    0,    0  )
-                    }[self.anchor];
-                } else {
-                throw ("anchor was neither a 3dLengthVector, nor a unitless vector containing at least two elements, nor a galleyAnchor_e enum value.");    
-                }
-                //at this point, scaledAnchorPoint is computed.
-                anchorPointInGalleySpace = elementWiseProduct(scaledAnchorPoint, vector(self.width, self.height, zeroLength));
-        }
-
-        //println("anchorPointInGalleySpace: " ~ toString(anchorPointInGalleySpace));		// anchorPointInGalleySpace
-        
-        
-        var sheetBodiesInGalleySpace = self.buildSheetBodiesInGalleySpace(context, uniqueId(context, id));
-        //println("reportOnEntities(context,sheetBodiesInGalleySpace,0): " ~ toString(reportOnEntities(context,sheetBodiesInGalleySpace,0)));
-        //debug(context, sheetBodiesInGalleySpace);
-        opTransform(
-            context, 
-            uniqueId(context, id), 
-            {
-                "bodies": sheetBodiesInGalleySpace,
-                "transform": transform(XY_PLANE, self.worldPlane) * transform(-anchorPointInGalleySpace)
-            }
-        );
-        sheetBodiesInWorld = sheetBodiesInGalleySpace;
-        //debug(context, sheetBodiesInWorld);
-        //println("reportOnEntities(context,sheetBodiesInWorld,0,0): " ~ toString(reportOnEntities(context,sheetBodiesInWorld,0,0)));		// reportOnEntities(context,sheetBodiesInWorld,0,0);
-        return sheetBodiesInWorld;
-
-class TextRow:
-    def __init__(self):
-        # var this is box = new box({});
-        # var private is box =  new box({}); //this stores private members
-        
-
-        self.height = 1 * inch #//isLength ///when we go to create sheet bodies on the galley, we will look at this value and scale the size of the bodies accordingly.  We will scale the size of the bodies so that the nominal height of the text (as would be measured from the automatically-gnerated cotruction line segmens that an OnShape sketchText sketch entity generates.) will become self.fontHeight.
-        self.basePoint = vector(0,0,0) * meter #; //is3dLengthVector  //this is a vector, in galleySpace (galleySpace is 3 dimensional, although only the x and y dimensions are significant for the final results. (When we are building bodies for a layout, we first create all the bodies "in galleySpace" and then transform them all by the galleyToWorld transform.  
-        
-        # // The following comment was written before I decided to use the name "galley".  Prior to 'galley', I was unsing the word "textLayout" to refer to galley.
-        # //  (The 'paper' here is not to be confused with the 'paper' on which a 2d drawing of this 3d model might be drawn).  (I really need to come up with a better word than 'paper' for the current project, because "paper" is already used in the context of making 2d drawings.  Perhaps poster is a better word.  Broadside, banner, billboard, marquee, signboard, foil. lamina, saran wrap, plastic wrap, cling wrap, film, membrane, stratum, veneer, mat, varnish, skin, graphicSkin, veil, screen, facade, parchment, velum, fabric, leaf, inkMembrane, inkSpace, inkSheet, inkScape, placard, plaque, plate, proofPlate, blackboard, whiteboard, readerboard, engraving, galley (in the context of a printing press) - a galley is the tray into which a person would lay type (e.g. lead (Pb) type - think 'printing press') into and tighten the type into place.  This is exactly the notion I am after, and "galley" does not have any alternate uses in the context of 3d geomtric modeling.  The galley isn't really an solid object within the model - it is a tool that can be brought to bear on the model to make engraves in the solid of the model (or embosses - yes, that stretches the analogy a bit, but the concept is close enough), and then, when you are finished with the galley, you put it back in the drawer from whence it came.  In other words, the galley itself is not part of the final finsihed model, but the marks that the galley makes are part of the finished model.
-        
-        
-        
-        self._text = "" #; //this value can (and probably will be) changed later by the calling code (via self.set()).
-        self._fontName = "Tinos-Italic.ttf" #; //this value can (and probably will be) changed later by the calling code (via self.set()).
-        self._owningGalley = None #  //this will be set to a galley object when the time comes to add this textRow to a particular owning textLayout. 
-        
-        self._scaleFreeShapeParameters = ["scaleFreeHeight", "scaleFreeWidth", "scaleFreeDepth"] #; //'depth' here is in the TeX sense of the word (depth is the amount by which the characeters protrude below the baseline)
-        # // the members of scaleFreeShape are nuumbers with length units, but any one of these values is not significnt in itself -- what matters is the ratio between 
-        # // and among pairs of 'scaleFree' dimensions.  These ratios describe the shape of the textRow irrespective of scale.
-        
-
-        self._shapeChangers = ["text", "fontName"];
-        # // these are the names of properties of private[], which will, when changed, affect the scaleFreeShapeParameters.  We will allow the user to set these properties (via a setter function), 
-        # // but the setter function will turn on the shapeIsDirty flag so that we will know that we need to recompute the shape if we want good shape data.
-        
-        
-        self._shapeIsDirty = True
-        # //this is a flag that we will set to true whenever any of the parameters designated in shapeChangers is set.
-        
-        
-        self._getablePrivates = ["text", "fontName", "owningGalley", "scaleFreeHeight", "scaleFreeWidth", "scaleFreeDepth"]; #//"width" is computed on demand from the scaleFreeShape and the fontHeight, which is the one parameter that 
-        # //whenever the calling code uses self.set() to set a private member, if the name of the private member is in self._shapeChangers, we recompute the scaleFreeShapeParameters
-        
-    
-    def _computeShape(self):
-        self._buildScaleFreeSheetBodies(newContextWithDefaults(), makeId("dummyDummyDummy"))
-        # //  As a side effect, self._buildScaleFreeSheetBodies() computes and sets the scale free shape parameters, so we merely have to let it run in a temporary dummy context.  We don't care about saving the results of the build in the temporary context, we are just getting the data we need and then letting the temporary context be destroyed by garbage collection. 
-
-    
-    
-    # //this function constructs (And returns a query for) one or more sheet bodies, all lying on the xy plane.
-    # // as a side effect, this function computes scaleFreeShapeParameters
-    
-    # //we are assuming that the sheet bodies will be positioned so that the basePoint of the row of text is at the origin, the 
-    # // normal of the plane that the text is on points in the positive z direction, and the reading direction of 
-    # //  the text points in the positive x direction.
-
-    #returns Query that resolves to a set of sheet bodies (or possibly a single sheet body with multiple disjoint faces, if such a thing is allowed), all lying on the xy plane.
-    def _buildScaleFreeSheetBodies(self, context is Context, id is Id): 
-        var idOfWorkingSketch = id + "workingSketch";
-        var workingSketch is Sketch = newSketchOnPlane(context, idOfWorkingSketch, {    "sketchPlane":XY_PLANE     });
-        var sketchEntityIdOfSketchText = "neilsText";
-        var textIdMap;
-        try{  
-        textIdMap = 
-                skText(workingSketch, sketchEntityIdOfSketchText,
-                    {
-                        "text": self.get_text(),
-                        "fontName": self.get_fontName(),
-                    }
-                );
-            //println("textIdMap: " ~ textIdMap);
-        } catch(error) {
-            println("skText threw an excpetion.");   
-        }
-        try{skSolve(workingSketch);}
-        //debug(context, qConstructionFilter(qCreatedBy(idOfWorkingSketch, EntityType.EDGE), ConstructionObject.YES));
-        var mySketchTextData;
-        try{mySketchTextData = getSketchTextData(context, idOfWorkingSketch, sketchEntityIdOfSketchText);}
-        try{self._scaleFreeHeight = mySketchTextData.nominalHeight;}
-        try{self._scaleFreeWidth = mySketchTextData.nominalWidth;}
-        
-        //println("mySketchTextData: " ~ mapToString(mySketchTextData));
-        
-        var idOfBodyCopy = id + "bodyCopy";
-        
-        //opPattern creates copies of the specified bodies.
-        // we want to create a copy of the sheetBodies in the sketch, so that we have a copy, which is independent of the original sketch, so that we can then delete the sketch and be left with just the faces.
-        
-        //qSketchRegion returns all faces of all sheetBodies in the sketch if the second argument (filterInnerLoops) is false, or else the all the 'outer' faces of all sheetBodies in the sketch if filterInnerLoops is true.
-        var inkSheets is Query = qBodyType( qEntityFilter( qOwnerBody(qSketchRegion(idOfWorkingSketch,false)), EntityType.BODY), BodyType.SHEET) ;  //I realize that some of these filters are probably redundant - I just want to be darn sure that I am picking out exactly what I want (namely all sheetBodies in the sketch) and nothing else.
-        
-        //delete all the even-rank faces (this concept of ranking of faces of a planar sheetBody is my own terminology -- not from the OnShape documentation.)
-        deleteEvenRankFaces(context, id + "deleteEvenRankFaces", inkSheets);
-        
-        //To DO: use onshape ev... evaluation functions to find the actual bounding box of the glyphs.
-        
-        
-        try silent{ 
-            opPattern(context, idOfBodyCopy,
-                {
-                    entities: inkSheets, 
-                    transforms: [ identityTransform()],
-                //transforms: [ transform(vector(0,-3,0) * meter)], //for debugging.
-                    instanceNames: [uniqueIdString(context)]
-                }
-            );
-        } 
-
-        var scaleFreeSheetBodies = qBodyType(qEntityFilter(qCreatedBy(idOfBodyCopy), EntityType.BODY), BodyType.SHEET);   
-        
-        
-        //print(reportOnEntities(context, inkSheets,0,0));
-        //debug(context, inkSheets);
-        //debug(context, qCreatedBy(idOfBodyCopy));
-        
-        //debug(context, qCreatedBy(idOfWorkingSketch));
-        
-        //get rid of all the entities in the sketch, which we do not need now that we have extracted the sheetBodies that we care about.
-        try silent{opDeleteBodies(
-            context,
-            uniqueId(context, id),
-            {entities:qCreatedBy(idOfWorkingSketch)}
-        );  } 
-        
-        
-        self._shapeIsDirty = false;
-        //debug(context, qCreatedBy(idOfWorkingSketch));
-        return scaleFreeSheetBodies;
-
-    
-    
-    # // builds the sheetBodies in galley space, returns the resulting sheetBodies
-    def buildSheetBodiesInGalleySpace(self, context is Context, id is Id) = 
-        var scaleFreeSheetBodies = self._buildScaleFreeSheetBodies(context, id + "buildScaleFreeSheetBodies");
-        # //scale and translate and scaleFreeSheetBodies according to self.get("height") and self.get("basePoint")
-        
-        var idOfTransformOperation = "scaleFreeTextRowToGalley";
-
-        try{
-            opTransform(context, id + idOfTransformOperation,
-                {
-                    "bodies": scaleFreeSheetBodies,
-                    "transform": transform(self.get_basePoint()) * scaleUniformly(self.get_height()/self.get_scaleFreeHeight())    
-                }
-            );
-        }
-        
-        
-        return scaleFreeSheetBodies;  // I am assuming the the query for the bodies still refers the (now transformed bodies).
-
-
-    // create a getters and setters
-    addDefaultGettersAndSetters(this);
-    
-    for(var propertyName in self._getablePrivates)
-    {
-        if(isIn(propertyName, self._scaleFreeShapeParameters))
-        {
-            this[]["get_" ~ propertyName] = 
-            function(){
-                //recompute the shape if the shape data is out of date ( self._computeShape() will clear the shapeIsDirty flag.)
-                if(self._shapeIsDirty){self._computeShape();}
-                return private[][propertyName];
-            };   
-        } else
-        {
-            this[]["get_" ~ propertyName] = function(){return private[][propertyName];};   
-        }
-    }
-    
-    this[]["get_" ~ "width"] = function(){
-        return self.get_height() * self.get_scaleFreeWidth()/self.get_scaleFreeHeight();
-        };
-    
-    
-    for(var propertyName in self._shapeChangers)
-    {
-        this[]["set_" ~ propertyName] = 
-            function(newValue)
-            {
-                private[][propertyName] = newValue;
-                self._shapeIsDirty = true;
-                return newValue;
-            };
-    }
-    this[]["set_" ~ "owningGalley"] = function(newValue){private[]["owningGalley"] = newValue; return newValue;};
+def castTo3dArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Point2D]) -> NDArray: #need to figure out how to use the shape-specificatin facility that I think is part of the NDArray type alias.
+    if isinstance(x, ndarray):
+        return x
+        #TODO: handle various sizes of NDArray rather than blindly assuming that we have been given a 3-array
+    elif isinstance(x, adsk.core.Point3D):
+        return np.array(x.asArray()) #this won't work, will it?
 
 class FilledRectangle:
-    def __init__(self):
-        var this is box = new box({});
-        var private is box =  new box({}); //this stores private members
-        
-        self.corner1 = vector(0,0) * meter;
-        self.corner2 = vector(1,1) * meter;
+    """ at the moment, FilledRectangle is jsut a factory for creating an fscad.PlanarShape object"""
+
+    def __init__(self, corner1 = None, corner2 = None):
+       
+        self.corner1 = castTo3dArray((corner1 if corner1 is not None else vector(0,0,0) * meter))
+        self.corner2 = castTo3dArray((corner2 if corner2 is not None else vector(1,1,0) * meter))
         
     # //this function constructs (And returns a query for) one sheet body, all lying on the xy plane.
     # //returns Query that resolves to a set of sheet bodies (or possibly a single sheet body with multiple disjoint faces, if such a thing is allowed), all lying on the xy plane.
-    def buildSheetBodiesInGalleySpace(self,context is Context, id is Id):
-        var idOfWorkingSketch = id + "workingSketch";
-        var workingSketch is Sketch = newSketchOnPlane(context, idOfWorkingSketch, {    "sketchPlane":XY_PLANE     });
-        var sketchRectangleId = "neilsRectangle";
-        try{  
-        var result = 
-                skRectangle(workingSketch, sketchRectangleId,
-                    {
-                        "firstCorner": self.get_corner1(),
-                        "secondCorner": self.get_corner2(),
-                        "construction": false,
-                    }
-                );
-        } catch(error) {
-            println("skRectangle threw an excpetion.");   
-        }
-        try{skSolve(workingSketch);}
-        //debug(context, qConstructionFilter(qCreatedBy(idOfWorkingSketch, EntityType.EDGE), ConstructionObject.YES));
+    # returns an array of brep body with one element, that is a sheet body having but one face, namely a rectangular region lying in the xy plane
+    def buildSheetBodiesInGalleySpace(self) -> fscad.PlanarShape:
+        vertices = [
+            vector(self.corner1[0] , self.corner1[1] , zeroLength),
+            vector(self.corner2[0] , self.corner1[1] , zeroLength),
+            vector(self.corner2[0] , self.corner2[1] , zeroLength),
+            vector(self.corner1[0] , self.corner2[1] , zeroLength)
+        ]
 
-        var idOfBodyCopy = id + "bodyCopy";
+        # reverse the vertices if needed to ensure that the normal 
+        # of the face will point in the z positive direction:
+        if (self.corner1[0] < self.corner2[0]) != (self.corner1[1] < self.corner2[1]):
+            vertices.reverse()
+           
         
-        //opPattern creates copies of the specified bodies.
-        // we want to create a copy of the sheetBodies in the sketch, so that we have a copy, which is independent of the original sketch, so that we can then delete the sketch and be left with just the faces.
-        
-        //qSketchRegion returns all faces of all sheetBodies in the sketch if the second argument (filterInnerLoops) is false, or else the all the 'outer' faces of all sheetBodies in the sketch if filterInnerLoops is true.
-        var inkSheets is Query = qBodyType( qEntityFilter( qOwnerBody(qSketchRegion(idOfWorkingSketch,false)), EntityType.BODY), BodyType.SHEET) ;  //I realize that some of these filters are probably redundant - I just want to be darn sure that I am picking out exactly what I want (namely all sheetBodies in the sketch) and nothing else.
-        
-        //println("reportOnEntities(context,inkSheets,0): " ~ toString(reportOnEntities(context,inkSheets,0)));
-        //debug(context, sheetBodiesInGalleySpace);
-        
-        
-        //delete all the even-rank faces (this concept of ranking of faces of a planar sheetBody is my own terminology -- not from the OnShape documentation.)
-        deleteEvenRankFaces(context, id + "deleteEvenRankFaces", inkSheets); //probably not strictly necessary in the case of a simple rectangle.
-        
-        try silent{ 
-            opPattern(context, idOfBodyCopy,
-                {
-                    entities: inkSheets, 
-                    transforms: [ identityTransform()],
-                //transforms: [ transform(vector(0,-3,0) * meter)], //for debugging.
-                    instanceNames: [uniqueIdString(context)]
-                }
-            );
-        } 
+        polygon = fscad.Polygon(
+            *itertools.starmap(
+                adsk.core.Point3D.create,
+                vertices
+            )
+        )
 
-        var scaleFreeSheetBodies = qBodyType(qEntityFilter(qCreatedBy(idOfBodyCopy), EntityType.BODY), BodyType.SHEET);   
-        
-        
-        //print(reportOnEntities(context, inkSheets,0,0));
-        //debug(context, inkSheets);
-        //debug(context, qCreatedBy(idOfBodyCopy));
-        
-        //debug(context, qCreatedBy(idOfWorkingSketch));
-        
-        //get rid of all the entities in the sketch, which we do not need now that we have extracted the sheetBodies that we care about.
-        try silent{opDeleteBodies(
-            context,
-            uniqueId(context, id),
-            {entities:qCreatedBy(idOfWorkingSketch)}
-        );  } 
-        //println("reportOnEntities(context,scaleFreeSheetBodies,0): " ~ toString(reportOnEntities(context,scaleFreeSheetBodies,0)));
-        return scaleFreeSheetBodies;
+        return polygon
 
-    // create a getters and setters
-    addDefaultGettersAndSetters(this);
+        # //debug(context, qConstructionFilter(qCreatedBy(idOfWorkingSketch, EntityType.EDGE), ConstructionObject.YES));
+
+        # var idOfBodyCopy = id + "bodyCopy";
+        
+        # # //opPattern creates copies of the specified bodies.
+        # # // we want to create a copy of the sheetBodies in the sketch, so that we have a copy, which is independent of the original sketch, so that we can then delete the sketch and be left with just the faces.
+        
+        # # //qSketchRegion returns all faces of all sheetBodies in the sketch if the second argument (filterInnerLoops) is false, or else the all the 'outer' faces of all sheetBodies in the sketch if filterInnerLoops is true.
+        # var inkSheets is Query = qBodyType( qEntityFilter( qOwnerBody(qSketchRegion(idOfWorkingSketch,false)), EntityType.BODY), BodyType.SHEET) ;  //I realize that some of these filters are probably redundant - I just want to be darn sure that I am picking out exactly what I want (namely all sheetBodies in the sketch) and nothing else.
+        
+        # # //println("reportOnEntities(context,inkSheets,0): " ~ toString(reportOnEntities(context,inkSheets,0)));
+        # # //debug(context, sheetBodiesInGalleySpace);
+        
+        
+        # //delete all the even-rank faces (this concept of ranking of faces of a planar sheetBody is my own terminology -- not from the OnShape documentation.)
+        # deleteEvenRankFaces(context, id + "deleteEvenRankFaces", inkSheets); //probably not strictly necessary in the case of a simple rectangle.
+        
+        # try silent{ 
+        #     opPattern(context, idOfBodyCopy,
+        #         {
+        #             entities: inkSheets, 
+        #             transforms: [ identityTransform()],
+        #         //transforms: [ transform(vector(0,-3,0) * meter)], //for debugging.
+        #             instanceNames: [uniqueIdString(context)]
+        #         }
+        #     );
+        # } 
+
+        # var scaleFreeSheetBodies = qBodyType(qEntityFilter(qCreatedBy(idOfBodyCopy), EntityType.BODY), BodyType.SHEET);   
+        
+        
+        # # //print(reportOnEntities(context, inkSheets,0,0));
+        # # //debug(context, inkSheets);
+        # # //debug(context, qCreatedBy(idOfBodyCopy));
+        
+        # # //debug(context, qCreatedBy(idOfWorkingSketch));
+        
+        # # //get rid of all the entities in the sketch, which we do not need now that we have extracted the sheetBodies that we care about.
+        # try silent{opDeleteBodies(
+        #     context,
+        #     uniqueId(context, id),
+        #     {entities:qCreatedBy(idOfWorkingSketch)}
+        # );  } 
+        # # //println("reportOnEntities(context,scaleFreeSheetBodies,0): " ~ toString(reportOnEntities(context,scaleFreeSheetBodies,0)));
+        # return scaleFreeSheetBodies;
+
+
+class Galley(fscad.BRepComponent):
+    def __init__(self, *args, **kwargs):
+        super().init(*args, **kwargs)
+
+class TextRow(fscad.BRepComponent):
+
+    def __init__(self, 
+        owningGalley : Optional[Galley] = None,
+        text : str = "",
+        fontName : str = "Arial", #"Tinos-Italic.ttf",
+        height : float = 1 * inch,
+        # basePoint = vector(0,0,0) * meter,
+        name: str = None
+    ):
+        self._owningGalley : Optional[Galley] = owningGalley 
+        self._text = text
+        self._fontName = fontName
+        self._height = height 
+        # self._basePoint = basePoint 
+
+        sheetBodies = [body.brep for body in FilledRectangle().buildSheetBodiesInGalleySpace().bodies]
+
+        tempOccurrence = fscad._create_component(
+            parent_component = fscad.root(), 
+            name="temp"
+        )
+        sketch = tempOccurrence.component.sketches.add(tempOccurrence.component.xYConstructionPlane, tempOccurrence)
+        # sketch.sketchCurves.sketchCircles.addByTwoPoints(adsk.core.Point3D.create(0,0,0), adsk.core.Point3D.create(1,0,0))
+        # sketch.sketchCurves.sketchCircles.addByTwoPoints(adsk.core.Point3D.create(0,3,0), adsk.core.Point3D.create(1.1,0.1,0))
+
+        rectangleDefiningPoints = [
+            adsk.core.Point3D.create(0,0,0),
+            adsk.core.Point3D.create(20,40,0)
+        ]
+
+        rectangleDefiningPoints.reverse()
+
+        # FilledRectangle(*rectangleDefiningPoints).buildSheetBodiesInGalleySpace().create_occurrence()
+
+        cornerPoint = rectangleDefiningPoints[0]
+        diagonalPoint = rectangleDefiningPoints[1]
+        # for radius in np.arange(1.0,0.1,-0.4):
+        for radius in (0.4,0.38):
+            sketch.sketchCurves.sketchCircles.addByCenterRadius(centerPoint=cornerPoint , radius=radius)
+        sketch.sketchCurves.sketchCircles.addByCenterRadius(centerPoint=diagonalPoint , radius=0.4)
+        sketch.sketchCurves.sketchCircles.addByCenterRadius(centerPoint=adsk.core.Point3D.create(0,0,0) , radius=0.06)
+        
+        sketchTextInput = sketch.sketchTexts.createInput2(
+            formattedText="Abc\n\nDeI|]fgy",
+            height=self._height
+        )
+        sketchTextInput.setAsMultiLine(
+            cornerPoint=cornerPoint,
+            diagonalPoint=diagonalPoint,
+            horizontalAlignment=adsk.core.HorizontalAlignments.RightHorizontalAlignment,
+            verticalAlignment=adsk.core.VerticalAlignments.TopVerticalAlignment,
+            characterSpacing=0
+        )
+        # "multiline" here doesn't imply or require that the text actually has
+        # multiple lines, rather, "multiline" is one of the three layout
+        # strategies (the others being AlongPath and FitOnPath). Of the three
+        # layout strategie, only "multiline" allows text to have multiple lines (I think).
+        # In our case, we are doing our own line layout (probably as a vestige
+        # of the fact that we had to do our own line layout in OnShape, whose
+        # text system was not as sophisticated as Fusion's, and lacked built-in
+        # multiline capability.).
+
+        # as far as I can tell, the cornerPoint and diagonalPoint parameters can
+        # be interchanged with no noticeable effect. As far as I can tell, the
+        # only influence that these two parameters have on the position,
+        # orientation, or size of the resulting text is that the position of the
+        # lower-left-most of the two of those points is taken to be the position
+        # of the resultant text, and if the two points are coincident, or are
+        # horizontal or vertical to one another, fusion throws an error
+        # ("RuntimeError: 2 : InternalValidationError : bSucceeded && text").  
+        # fusion does draw sketch lines to form a rectangle, with the two points
+        # as opposite corners, and the rectangle is constrained (not by
+        # oifficial fusion constraints, but by some internal mechanism) so that
+        # the corner of the rectangle that started out being the lower-left most
+        # of the two points passed as arguments sets the position of the text,
+        # and the lines are constrained to be a rectangle, and the orientation
+        # of the text within the sketch is set to be along the side of the
+        # rectangle that was originally the "bottom" side of the rectangle. (I
+        # say originally, because the side that was originally the bottom might
+        # cease to be the bottom as the rectangle is rotated, but still the text
+        # will continue to stick to that original side. I suspect that Fusion
+        # creates this rectangle as a convenience for the user who wishes to
+        # control the placement of the text by means of constraints. still -- it
+        # is quite confusing to have to think about those two points, when
+        # really only one point matters. 
+        #
+        # for our purposes, we can set one of the two argument points (let's
+        # choose diagonalPoint) to be anywhere above and to the right of the
+        # other point, and then all that matters is the position of that other
+        # point.
+        #
+        # Further discovery: I made all the above comments while having only
+        # specified horizontalAlignment = LEft and verticalAlignment=Bottom.
+        # But, upon trying different alignments, I realize that the rectangle
+        # defined by the two points defines the horizontal and vertical
+        # left/bottom, middle, and right/top positions. So, I have to retract
+        # most of my above complaints/obeservations.  However, my observation
+        # about the two arguments being completely interchangeable is still
+        # correct, as far as I can tell.
+        #
+        # setting characterSpacing to large negative values can produce weird
+        # results.
+
+
+        sketchTextInput.fontName = self._fontName
+        sketchTextInput.isHorizontalFlip = False
+        sketchTextInput.isVerticalFlip = False
+        sketchTextInput.textStyle = (
+              0*adsk.fusion.TextStyles.TextStyleBold 
+            + 0*adsk.fusion.TextStyles.TextStyleItalic 
+            + 0*adsk.fusion.TextStyles.TextStyleUnderline
+        )
+        sketch.sketchTexts.add(sketchTextInput)
+
+        #convert each Profile object in sketch.profiles to a brep sheet body with a single face.
+        sheetBodies = getAllSheetBodiesFromSketch(sketch)
+
+        # tempOccurrence.deleteMe()
+
+
+        super().__init__(
+            *sheetBodies,
+            component = None, 
+            name = name
+        )
+
+def getAllSheetBodiesFromSketch(sketch : adsk.fusion.Sketch) -> Sequence[adsk.fusion.BRepBody]:
+    """ returns a sequence of BRepBody, containing one member for each member of sketch.profiles. 
+    each body is a sheet body having exactly one face."""
+    #TODO: allow control over how we deal with overlapping profiles (which generally happens in the case of nested loops).
+    bodies = []
+
+    ## FIRST ATTEMPT - construct the bodies "from scratch" by extracting the primitive entities from sketch.profiles.
+    ## foiled due to missing functionality in fusion api.  Also foiled for SketchText objects that SketchText doesn't show up in sketch.profiles.
+        # # profile : adsk.fusion.Profile
+        # # for profile in sketch.profiles: 
+        # #     bRepBodyDefinition : adsk.fusion.BRepBodyDefinition = adsk.fusion.BRepBodyDefinition.create()
+        # #     brepLumpDefinition  = bRepBodyDefinition.lumpDefinitions.add()
+        # #     brepShellDefinition = brepLumpDefinition.shellDefinitions.add()
+        # #     brepFaceDefinition  = brepShellDefinition.faceDefinitions.add(
+        # #         surfaceGeometry=profile.plane, 
+        # #         isParamReversed=False
+        # #         )
+
+        # #     loop: adsk.fusion.ProfileLoop
+        # #     for loop in profile.profileLoops:
+        # #         bRepLoopDefinition = brepFaceDefinition.loopDefinitions.add()
+
+                
+                
+        # #         edgeDefinitions = []
+        # #         profileCurve : adsk.fusion.ProfileCurve
+        # #         for profileCurve in loop.profileCurves:
+                    
+        # #             # in order to make edgeDefinitions, we need to have vertexDefinitions.
+        # #             # There is no good way to construct all the vertexDefinitions (in general) because
+        # #             # we some of our vertexDefinitions might need to correspond to the intersection of sketch curves, rather
+        # #             # than their endpoints.
+        # #             # therefore, we will have to generate a temporary body by means of TemporaryBrepManager::createWireFromCurves() and 
+        # #             #  TemporaryBrepManager::createFaceFromPlanarWires()
+
+
+                    
+        # #             edgeDefinition = bRepBodyDefinition.createEdgeDefinitionByCurve(
+        # #                 startVertex= sourceVertexTempIdsToDestinationVertexDefinitions[sourceEdge.startVertex.tempId],
+        # #                 endVertex= sourceVertexTempIdsToDestinationVertexDefinitions[sourceEdge.endVertex.tempId],
+        # #                 modelSpaceCurve=profileCurve.geometry
+        # #             )
+                    
+        # #             edgeDefinitions.append(
+        # #                 profileCurve.
+        # #             )
+
+
+        # #         for coEdgeLikeThing in collectionOfSuchThings:
+        # #             bRepCoEdgeDefinition = bRepLoopDefinition.bRepCoEdgeDefinitions.add(
+        # #                 edgeDefinition= , #construct an edgeDefinition object corresponding to coEdgeLikeThing
+        # #                 isOpposedToEdge= # Set the isOpposedToEdge property according to some property of coEdgeLikeThing
+        # #             )
+
+        # #     bodies.append(bRepBodyDefinition.createBody())  
     
+    # It seems to be prohibitively difficult to construct the bodies "from
+    ## scratch" by extracting the primitive geometry from the profiles (because
+    ## adsk.fusion.Profile doesn't quite expose enough of the underlying geometry
+    ## to reliably handle all cases (for instance: vertices that are formed by
+    ## the intersection of two sketch curves, not on the endpoints of the curve.)
+    ## Therefore, we will do some fusion feature (probably, Extrude.  could
+    ## possibly also use a Patch feature) that takes sketch profiles as input,
+    ## and extract the needed geometry from the resultant bodies.
 
+    ## SECOND ATTEMPT -- do a single Extrude feature and pass the collection of profiles as input.
+    # foiled due to the fact that the fusion extrude feature 
+    # automatically merges adjacent profiles, 
+    # but we want to preserve the profiles as is.
+        # # extrudeFeature = sketch.parentComponent.features.extrudeFeatures.addSimple(
+        # #     profile= fscad._collection_of(sketch.profiles),
+        # #     distance = adsk.core.ValueInput.createByReal(1),
+        # #     operation = adsk.fusion.FeatureOperations.NewBodyFeatureOperation
+        # # )
+        # # bodies += [
+        # #     fscad.brep().copy(face)
+        # #     for face in extrudeFeature.startFaces
+        # # ]
+
+
+    ## THIRD ATTEMPT -- do one Extrude feature for each profile and each SketchText.
+    profile : Union[adsk.fusion.Profile, adsk.fusion.SketchText]
+    # Besides SketchText objects and Profile objects, are there any other profile-like objects
+    # that can be contained in a sketch that we should think about handling?
+    for profile in itertools.chain(sketch.profiles, sketch.sketchTexts): 
+        extrudeFeature = sketch.parentComponent.features.extrudeFeatures.addSimple(
+            profile= profile,
+            distance = adsk.core.ValueInput.createByReal(1),
+            operation = adsk.fusion.FeatureOperations.NewBodyFeatureOperation
+        )
+        bodies += [
+            fscad.brep().copy(face)
+            for face in extrudeFeature.startFaces
+        ]
+        # In the case where profile is a single SketchProfile, I expect that
+        # extrudeFeature.startFaces will always have just one face.  However,
+        # this will not generally be true for the case where profile is a
+        # SketchText. 
+        
+        extrudeFeature.deleteMe()
+
+
+    return bodies
