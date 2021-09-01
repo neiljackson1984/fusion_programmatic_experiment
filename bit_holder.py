@@ -1361,15 +1361,43 @@ class TextRow(fscad.BRepComponent):
         owningGalley : Optional[Galley] = None,
         text : str = "",
         fontName : str = "Arial", #"Tinos-Italic.ttf",
-        height : float = 1 * inch,
-        # basePoint = vector(0,0,0) * meter,
+        characterHeight : float = 1 * inch,
+        basePoint = vector(0,0,0) * meter,
         name: str = None
     ):
         self._owningGalley : Optional[Galley] = owningGalley 
         self._text = text
         self._fontName = fontName
-        self._height = height 
-        # self._basePoint = basePoint 
+        self._characterHeight = characterHeight 
+        self._basePoint = basePoint 
+        # basePoint is a position, in galleySpace (galleySpace is 3 dimensional,
+        # although only the x and y dimensions are significant for the final
+        # results) where the basepoint of this text row shall be located.
+        # basePoint is, nominally, the lower-left corner of a row of text, but
+        # it is defined in typographical/tex box sense rather than a strict
+        # geometric/boundary sense, so that character shapes may stick down
+        # below the basepoint or even extend to the left of it. 
+        #
+        # To be fully general, we might also want to allow a textRow to have an
+        # arbitrary orientation, in addtion to having an arbitrary position.
+        # However I have not yet implemented this behavior because the need for
+        # it has not yet arisen.  At the moment, a textRow is always "upright"
+        # within the galley.
+        #
+        # The OnShape API did not provide a very clean way of speicifying the
+        # desired text height. Therefore, I had to rely on the fact that OnShape
+        # API always produced text with a height of 1 unit, and then scale the
+        # resulting entities in a separate operation (and I actually delayed the
+        # scaling operation and rolled it into the final single transform that
+        # transformed the "scale-free" entities directly into world space".
+        # That's what all of the "scale-free" stuff was about in the
+        # FeatureScript version of this code. Fortunately, the Fusion 360 API
+        # does allow the desired text height to be specified as a first-class
+        # parameter in the operation that generates the sketchText, so we don't
+        # have to do the scaling as a separate operation.  (Conceivably, Fusion
+        # might be applying the size-dependent shape changes that can be
+        # specified in some of the fancier OpenType fonts, although I doubt that
+        # it is.)
 
         sheetBodies = [body.brep for body in FilledRectangle().buildSheetBodiesInGalleySpace().bodies]
 
@@ -1378,45 +1406,54 @@ class TextRow(fscad.BRepComponent):
             name="temp"
         )
         sketch = tempOccurrence.component.sketches.add(tempOccurrence.component.xYConstructionPlane, tempOccurrence)
+
+        sketchTextInput = sketch.sketchTexts.createInput2(
+            formattedText="cc",
+            height=self._characterHeight
+        )
+
         # sketch.sketchCurves.sketchCircles.addByTwoPoints(adsk.core.Point3D.create(0,0,0), adsk.core.Point3D.create(1,0,0))
         # sketch.sketchCurves.sketchCircles.addByTwoPoints(adsk.core.Point3D.create(0,3,0), adsk.core.Point3D.create(1.1,0.1,0))
 
-        rectangleDefiningPoints = [
+        # layoutDefiningPoints = [
+        #     adsk.core.Point3D.create(0,0,0),
+        #     adsk.core.Point3D.create(15,5,0)
+        # ]
+
+        layoutDefiningPoints = [
             adsk.core.Point3D.create(0,0,0),
-            adsk.core.Point3D.create(20,40,0)
+            adsk.core.Point3D.create(1,0,0)
         ]
+        # layoutDefiningPoints.reverse()
 
-        rectangleDefiningPoints.reverse()
+        # # # FilledRectangle(*layoutDefiningPoints).buildSheetBodiesInGalleySpace().create_occurrence()
 
-        # FilledRectangle(*rectangleDefiningPoints).buildSheetBodiesInGalleySpace().create_occurrence()
-
-        cornerPoint = rectangleDefiningPoints[0]
-        diagonalPoint = rectangleDefiningPoints[1]
-        # for radius in np.arange(1.0,0.1,-0.4):
+        # cornerPoint = layoutDefiningPoints[0]
+        # diagonalPoint = layoutDefiningPoints[1]
+        # # for radius in np.arange(1.0,0.1,-0.4):
+        
         for radius in (0.4,0.38):
-            sketch.sketchCurves.sketchCircles.addByCenterRadius(centerPoint=cornerPoint , radius=radius)
-        sketch.sketchCurves.sketchCircles.addByCenterRadius(centerPoint=diagonalPoint , radius=0.4)
+            sketch.sketchCurves.sketchCircles.addByCenterRadius(centerPoint=layoutDefiningPoints[0] , radius=radius)
+        sketch.sketchCurves.sketchCircles.addByCenterRadius(centerPoint=layoutDefiningPoints[1] , radius=0.4)
         sketch.sketchCurves.sketchCircles.addByCenterRadius(centerPoint=adsk.core.Point3D.create(0,0,0) , radius=0.06)
         
-        sketchTextInput = sketch.sketchTexts.createInput2(
-            formattedText="Abc\n\nDeI|]fgy",
-            height=self._height
-        )
-        sketchTextInput.setAsMultiLine(
-            cornerPoint=cornerPoint,
-            diagonalPoint=diagonalPoint,
-            horizontalAlignment=adsk.core.HorizontalAlignments.RightHorizontalAlignment,
-            verticalAlignment=adsk.core.VerticalAlignments.TopVerticalAlignment,
-            characterSpacing=0
-        )
+
+        # sketchTextInput.setAsMultiLine(
+        #     cornerPoint=layoutDefiningPoints[0],
+        #     diagonalPoint=layoutDefiningPoints[1],
+        #     horizontalAlignment=adsk.core.HorizontalAlignments.RightHorizontalAlignment,
+        #     verticalAlignment=adsk.core.VerticalAlignments.TopVerticalAlignment,
+        #     characterSpacing=0
+        # )
+        #
         # "multiline" here doesn't imply or require that the text actually has
         # multiple lines, rather, "multiline" is one of the three layout
         # strategies (the others being AlongPath and FitOnPath). Of the three
-        # layout strategie, only "multiline" allows text to have multiple lines (I think).
-        # In our case, we are doing our own line layout (probably as a vestige
-        # of the fact that we had to do our own line layout in OnShape, whose
-        # text system was not as sophisticated as Fusion's, and lacked built-in
-        # multiline capability.).
+        # layout strategie, only "multiline" allows text to have multiple lines
+        # (I think). In our case, we are doing our own line layout (probably as
+        # a vestige of the fact that we had to do our own line layout in
+        # OnShape, whose text system was not as sophisticated as Fusion's, and
+        # lacked built-in multiline capability.).
 
         # as far as I can tell, the cornerPoint and diagonalPoint parameters can
         # be interchanged with no noticeable effect. As far as I can tell, the
@@ -1456,9 +1493,45 @@ class TextRow(fscad.BRepComponent):
         # about the two arguments being completely interchangeable is still
         # correct, as far as I can tell.
         #
+        # Fusion wraps text within the rectangle defined by cornerPoint and
+        # diagonalPoint.  We do not want any wrapping.  The options for
+        # preventing wrapping are to make the rectangle (nearly) infinitely
+        # wide, or to use the AlongPath layout strategy.
+        #
+        # We want no wrapp
+        #
+        # Just as the cornerPoint and DiagonalPoint parameters of the
+        # "multiline" layout strategy were interchangeable, it seems that when
+        # doing the alongPath layout strategy with the path being a sketchLine
+        # specified by its endpoints, the order of thje endpoints is completely
+        # interchangeable.
+        #
         # setting characterSpacing to large negative values can produce weird
         # results.
 
+        # The OnShape API provided no way to specify the horizontal alignment of
+        # text, but it did allow you to read-out the natural width of a text
+        # row, so we could then achieve the desired horizontal alignment by
+        # moving the text according to the natural width and the desired
+        # horizontal alignment. The Fusion API, by contrast, does provide a way
+        # to specify the horizontal alignment when creating the text, and also
+        # provides a way to read-out the natural width of the text (I think) via
+        # the SketchText.BoundingBox property.  I am not sure whether to
+        # continue to use the alignment strategy from the OnShape days, which
+        # relies on reading out the natural width of the text, or whether to
+        # rely on Fusion's own horizontalAlignment facilities.  I guess I am
+        # inclined to continue using the OnShape-era technique.
+
+
+
+        path = sketch.sketchCurves.sketchLines.addByTwoPoints(*layoutDefiningPoints)
+
+        sketchTextInput.setAsAlongPath(
+            path=path,
+            isAbovePath=True,
+            horizontalAlignment=adsk.core.HorizontalAlignments.LeftHorizontalAlignment,
+            characterSpacing=0
+        )
 
         sketchTextInput.fontName = self._fontName
         sketchTextInput.isHorizontalFlip = False
@@ -1483,7 +1556,8 @@ class TextRow(fscad.BRepComponent):
         )
 
 def getAllSheetBodiesFromSketch(sketch : adsk.fusion.Sketch) -> Sequence[adsk.fusion.BRepBody]:
-    """ returns a sequence of BRepBody, containing one member for each member of sketch.profiles. 
+    """ returns a sequence of BRepBody, containing one member for each member of sketch.profiles and 
+    sheet bodies corresponding to the sketch texts. 
     each body is a sheet body having exactly one face."""
     #TODO: allow control over how we deal with overlapping profiles (which generally happens in the case of nested loops).
     bodies = []

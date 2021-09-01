@@ -27,19 +27,31 @@ class Galley:
         self.bottomMargin  = zeroLength
         
         self.worldPlane = adsk.core.Matrix3D.create() # XY_PLANE
-        # worldPlane might reasonably be called "transform".
-        # internally, we think about doing the galley layout on the xy plane.
+        # worldPlane might reasonably be called "transform". internally, we
+        # think about doing the galley layout on the xy plane.
         
-        # //the anchor specifies which point in galley space will be mapped to the origin of worldPlane.
-        # // self.anchor may be any of the following:
-        # //  a galleyAnchor_e enum value
-        # //  a 3d length vector (according to is3dLengthVector()), in which case this will be taken as the point in galley space to be mapped to the origin of worldPlane
-        # //  a unitless vector having at least 2 elements (Accordng to size() >= 2 and isUnitlessVector()), in which case the elements 
-        # of self.anchor will taken to be a scale factor to be applied to width and height, respectively 
-        # (in the spirit of the scaled position that Mathematica uses for many of its graphics functions)
+
+        # the anchor specifies which point in galley space will be mapped to the
+        # origin of worldPlane.
+        #
+        #  self.anchor may be any of the following:
+        #
+        #  a galleyAnchor_e enum value 
+        #
+        #  a 3d length vector (according to is3dLengthVector()), in which case
+        #  this will be taken as the point in galley space to be mapped to the
+        #  origin of worldPlane
+        #
+        #  a unitless vector having at least 2 elements (Accordng to size() >= 2
+        # and isUnitlessVector()), in which case the elements of self.anchor
+        # will taken to be a scale factor to be applied to width and height,
+        # respectively (in the spirit of the scaled position that Mathematica
+        # uses for many of its graphics functions)
         self.anchor = GalleyAnchor_e.BOTTOM_LEFT
         
-        # //the text boxes will be aligned with the margin (which is a rectangular region that is inset from the edges of the galley according to the margin values above.
+        # the text boxes will be aligned with the margin (which is a
+        # rectangular region that is inset from the edges of the galley
+        # according to the margin values above.
 
         self.text = ""
         # // self.fontName = "Tinos-Italic.ttf"
@@ -139,7 +151,7 @@ class Galley:
                     owningGalley = self, 
                     text = lineOfText,
                     fontName = fontNameArray[i % len(fontNameArray)],
-                    height = rowHeightArray[i % len(rowHeightArray)]
+                    characterHeight = rowHeightArray[i % len(rowHeightArray)]
                 )  
                 
                 if(  self.horizontalAlignment == HorizontalAlignment.LEFT ):
