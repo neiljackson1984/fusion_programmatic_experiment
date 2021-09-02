@@ -1408,130 +1408,134 @@ class TextRow(fscad.BRepComponent):
         sketch = tempOccurrence.component.sketches.add(tempOccurrence.component.xYConstructionPlane, tempOccurrence)
 
         sketchTextInput = sketch.sketchTexts.createInput2(
-            formattedText="cc",
+            formattedText="[Dc",
             height=self._characterHeight
         )
 
-        # sketch.sketchCurves.sketchCircles.addByTwoPoints(adsk.core.Point3D.create(0,0,0), adsk.core.Point3D.create(1,0,0))
-        # sketch.sketchCurves.sketchCircles.addByTwoPoints(adsk.core.Point3D.create(0,3,0), adsk.core.Point3D.create(1.1,0.1,0))
+        class LayoutMode (Enum):
+            multiline = enum.auto()
+            alongPath = enum.auto()
 
-        # layoutDefiningPoints = [
-        #     adsk.core.Point3D.create(0,0,0),
-        #     adsk.core.Point3D.create(15,5,0)
-        # ]
+        layoutMode = LayoutMode.multiline
+        layoutMode = LayoutMode.alongPath
+        layoutDefiningPoints = [adsk.core.Point3D.create(0,0,0), adsk.core.Point3D.create(5,0,0)]
+        submitLayoutDefiningPointsInReverseOrder=False
+        horizontalAlignment = adsk.core.HorizontalAlignments.LeftHorizontalAlignment
+        characterSpacing = 0
 
-        layoutDefiningPoints = [
-            adsk.core.Point3D.create(0,0,0),
-            adsk.core.Point3D.create(1,0,0)
-        ]
-        # layoutDefiningPoints.reverse()
-
-        # # # FilledRectangle(*layoutDefiningPoints).buildSheetBodiesInGalleySpace().create_occurrence()
-
-        # cornerPoint = layoutDefiningPoints[0]
-        # diagonalPoint = layoutDefiningPoints[1]
-        # # for radius in np.arange(1.0,0.1,-0.4):
-        
-        for radius in (0.4,0.38):
-            sketch.sketchCurves.sketchCircles.addByCenterRadius(centerPoint=layoutDefiningPoints[0] , radius=radius)
-        sketch.sketchCurves.sketchCircles.addByCenterRadius(centerPoint=layoutDefiningPoints[1] , radius=0.4)
-        sketch.sketchCurves.sketchCircles.addByCenterRadius(centerPoint=adsk.core.Point3D.create(0,0,0) , radius=0.06)
-        
-
-        # sketchTextInput.setAsMultiLine(
-        #     cornerPoint=layoutDefiningPoints[0],
-        #     diagonalPoint=layoutDefiningPoints[1],
-        #     horizontalAlignment=adsk.core.HorizontalAlignments.RightHorizontalAlignment,
-        #     verticalAlignment=adsk.core.VerticalAlignments.TopVerticalAlignment,
-        #     characterSpacing=0
-        # )
-        #
-        # "multiline" here doesn't imply or require that the text actually has
-        # multiple lines, rather, "multiline" is one of the three layout
-        # strategies (the others being AlongPath and FitOnPath). Of the three
-        # layout strategie, only "multiline" allows text to have multiple lines
-        # (I think). In our case, we are doing our own line layout (probably as
-        # a vestige of the fact that we had to do our own line layout in
-        # OnShape, whose text system was not as sophisticated as Fusion's, and
-        # lacked built-in multiline capability.).
-
-        # as far as I can tell, the cornerPoint and diagonalPoint parameters can
-        # be interchanged with no noticeable effect. As far as I can tell, the
-        # only influence that these two parameters have on the position,
-        # orientation, or size of the resulting text is that the position of the
-        # lower-left-most of the two of those points is taken to be the position
-        # of the resultant text, and if the two points are coincident, or are
-        # horizontal or vertical to one another, fusion throws an error
-        # ("RuntimeError: 2 : InternalValidationError : bSucceeded && text").  
-        # fusion does draw sketch lines to form a rectangle, with the two points
-        # as opposite corners, and the rectangle is constrained (not by
-        # oifficial fusion constraints, but by some internal mechanism) so that
-        # the corner of the rectangle that started out being the lower-left most
-        # of the two points passed as arguments sets the position of the text,
-        # and the lines are constrained to be a rectangle, and the orientation
-        # of the text within the sketch is set to be along the side of the
-        # rectangle that was originally the "bottom" side of the rectangle. (I
-        # say originally, because the side that was originally the bottom might
-        # cease to be the bottom as the rectangle is rotated, but still the text
-        # will continue to stick to that original side. I suspect that Fusion
-        # creates this rectangle as a convenience for the user who wishes to
-        # control the placement of the text by means of constraints. still -- it
-        # is quite confusing to have to think about those two points, when
-        # really only one point matters. 
-        #
-        # for our purposes, we can set one of the two argument points (let's
-        # choose diagonalPoint) to be anywhere above and to the right of the
-        # other point, and then all that matters is the position of that other
-        # point.
-        #
-        # Further discovery: I made all the above comments while having only
-        # specified horizontalAlignment = LEft and verticalAlignment=Bottom.
-        # But, upon trying different alignments, I realize that the rectangle
-        # defined by the two points defines the horizontal and vertical
-        # left/bottom, middle, and right/top positions. So, I have to retract
-        # most of my above complaints/obeservations.  However, my observation
-        # about the two arguments being completely interchangeable is still
-        # correct, as far as I can tell.
-        #
-        # Fusion wraps text within the rectangle defined by cornerPoint and
-        # diagonalPoint.  We do not want any wrapping.  The options for
-        # preventing wrapping are to make the rectangle (nearly) infinitely
-        # wide, or to use the AlongPath layout strategy.
-        #
-        # We want no wrapp
-        #
-        # Just as the cornerPoint and DiagonalPoint parameters of the
-        # "multiline" layout strategy were interchangeable, it seems that when
-        # doing the alongPath layout strategy with the path being a sketchLine
-        # specified by its endpoints, the order of thje endpoints is completely
-        # interchangeable.
-        #
-        # setting characterSpacing to large negative values can produce weird
-        # results.
-
-        # The OnShape API provided no way to specify the horizontal alignment of
-        # text, but it did allow you to read-out the natural width of a text
-        # row, so we could then achieve the desired horizontal alignment by
-        # moving the text according to the natural width and the desired
-        # horizontal alignment. The Fusion API, by contrast, does provide a way
-        # to specify the horizontal alignment when creating the text, and also
-        # provides a way to read-out the natural width of the text (I think) via
-        # the SketchText.BoundingBox property.  I am not sure whether to
-        # continue to use the alignment strategy from the OnShape days, which
-        # relies on reading out the natural width of the text, or whether to
-        # rely on Fusion's own horizontalAlignment facilities.  I guess I am
-        # inclined to continue using the OnShape-era technique.
+        if layoutMode == LayoutMode.multiline:
+            layoutDefiningPoints[1].y = 5
+            sketchTextInput.setAsMultiLine(
+                cornerPoint=layoutDefiningPoints[1 if submitLayoutDefiningPointsInReverseOrder else 0],
+                diagonalPoint=layoutDefiningPoints[0 if submitLayoutDefiningPointsInReverseOrder else 1],
+                horizontalAlignment=horizontalAlignment,
+                verticalAlignment=adsk.core.VerticalAlignments.BottomVerticalAlignment,
+                characterSpacing=characterSpacing
+            )
+        elif layoutMode == LayoutMode.alongPath:
+            path = sketch.sketchCurves.sketchLines.addByTwoPoints(
+                *(layoutDefiningPoints.reversed() if submitLayoutDefiningPointsInReverseOrder else layoutDefiningPoints)
+            )
+            sketchTextInput.setAsAlongPath(
+                path=path,
+                isAbovePath=True,
+                horizontalAlignment=horizontalAlignment,
+                characterSpacing=characterSpacing
+            )
 
 
+        ## OBSERVATIONS ON TEXT LAYOUT STRATEGIES---
+         # "multiline" here doesn't imply or require that the text actually has
+         # multiple lines, rather, "multiline" is one of the three layout
+         # strategies (the others being AlongPath and FitOnPath). Of the three
+         # layout strategie, only "multiline" allows text to have multiple lines
+         # (I think). In our case, we are doing our own line layout (probably as
+         # a vestige of the fact that we had to do our own line layout in
+         # OnShape, whose text system was not as sophisticated as Fusion's, and
+         # lacked built-in multiline capability.).
+         #
+         # as far as I can tell, the cornerPoint and diagonalPoint parameters
+         # can be interchanged with no noticeable effect. As far as I can tell,
+         # the only influence that these two parameters have on the position,
+         # orientation, or size of the resulting text is that the position of
+         # the lower-left-most of the two of those points is taken to be the
+         # position of the resultant text, and if the two points are coincident,
+         # or are horizontal or vertical to one another, fusion throws an error
+         # ("RuntimeError: 2 : InternalValidationError : bSucceeded && text").  
+         # fusion does draw sketch lines to form a rectangle, with the two
+         # points as opposite corners, and the rectangle is constrained (not by
+         # oifficial fusion constraints, but by some internal mechanism) so that
+         # the corner of the rectangle that started out being the lower-left
+         # most of the two points passed as arguments sets the position of the
+         # text, and the lines are constrained to be a rectangle, and the
+         # orientation of the text within the sketch is set to be along the side
+         # of the rectangle that was originally the "bottom" side of the
+         # rectangle. (I say originally, because the side that was originally
+         # the bottom might cease to be the bottom as the rectangle is rotated,
+         # but still the text will continue to stick to that original side. I
+         # suspect that Fusion creates this rectangle as a convenience for the
+         # user who wishes to control the placement of the text by means of
+         # constraints. still -- it is quite confusing to have to think about
+         # those two points, when really only one point matters. 
+         #
+         # for our purposes, we can set one of the two argument points (let's
+         # choose diagonalPoint) to be anywhere above and to the right of the
+         # other point, and then all that matters is the position of that other
+         # point.
+         #
+         # Further discovery: I made all the above comments while having only
+         # specified horizontalAlignment = LEft and verticalAlignment=Bottom.
+         # But, upon trying different alignments, I realize that the rectangle
+         # defined by the two points defines the horizontal and vertical
+         # left/bottom, middle, and right/top positions. So, I have to retract
+         # most of my above complaints/obeservations.  However, my observation
+         # about the two arguments being completely interchangeable is still
+         # correct, as far as I can tell.
+         #
+         # Fusion wraps text within the rectangle defined by cornerPoint and
+         # diagonalPoint.  We do not want any wrapping.  The options for
+         # preventing wrapping are to make the rectangle (nearly) infinitely
+         # wide, or to use the AlongPath layout strategy.
+         #
+         # We want no wrapp
+         #
+         # Just as the cornerPoint and DiagonalPoint parameters of the
+         # "multiline" layout strategy were interchangeable, it seems that when
+         # doing the alongPath layout strategy with the path being a sketchLine
+         # specified by its endpoints, the order of thje endpoints is completely
+         # interchangeable.
+         #
+         # setting characterSpacing to large negative values can produce weird
+         # results.
+         #
+         # The OnShape API provided no way to specify the horizontal alignment
+         # of text, but it did allow you to read-out the natural width of a text
+         # row, so we could then achieve the desired horizontal alignment by
+         # moving the text according to the natural width and the desired
+         # horizontal alignment. The Fusion API, by contrast, does provide a way
+         # to specify the horizontal alignment when creating the text, and also
+         # provides a way to read-out the natural width of the text (I think)
+         # via the SketchText.BoundingBox property.  I am not sure whether to
+         # continue to use the alignment strategy from the OnShape days, which
+         # relies on reading out the natural width of the text, or whether to
+         # rely on Fusion's own horizontalAlignment facilities.  I guess I am
+         # inclined to continue using the OnShape-era technique.
+         #
+         # Left horizontal alignment seems to mean slightly different things in
+         # the context of multiline layout as compared with alongPath layout:
+         # with the multiline layout strategy, left alignment causes the
+         # "optical" left edge of the character (by which I mean the left edge
+         # of the bounding box of the reusltant ink) to be at the left alignment
+         # point.  On the other hand, when using the alongPath layuout strategy,
+         # left alignment seems to place the basepoint of the character's box
+         # (in the tex sense) on the alignment point.  Acutally, that may not be
+         # quite what is happening with alongPath layout, but there does end up
+         # being a bit of a gap between the alignment point ant the optical left
+         # edge of the character in the case of AlongPath layout.
+         #
+         # Curiously, the behavior of right horizontal alignment seems to be the
+         # same in multiline and alongPath layout modes.
 
-        path = sketch.sketchCurves.sketchLines.addByTwoPoints(*layoutDefiningPoints)
-
-        sketchTextInput.setAsAlongPath(
-            path=path,
-            isAbovePath=True,
-            horizontalAlignment=adsk.core.HorizontalAlignments.LeftHorizontalAlignment,
-            characterSpacing=0
-        )
 
         sketchTextInput.fontName = self._fontName
         sketchTextInput.isHorizontalFlip = False
@@ -1541,14 +1545,28 @@ class TextRow(fscad.BRepComponent):
             + 0*adsk.fusion.TextStyles.TextStyleItalic 
             + 0*adsk.fusion.TextStyles.TextStyleUnderline
         )
-        sketch.sketchTexts.add(sketchTextInput)
+        sketchText = sketch.sketchTexts.add(sketchTextInput)
 
-        #convert each Profile object in sketch.profiles to a brep sheet body with a single face.
+        self.width = sketchText.boundingBox.maxPoint.x
+        self.opticalDepth = min(0, -sketchText.boundingBox.minPoint.y)
+        self.opticalHeight = max(0, sketchText.boundingBox.maxPoint.y)
+                
+        ## markers for debugging and experimention:
+         # for radius in (0.4,0.38):
+         #     sketch.sketchCurves.sketchCircles.addByCenterRadius(centerPoint=layoutDefiningPoints[0] , radius=radius)
+         # sketch.sketchCurves.sketchCircles.addByCenterRadius(centerPoint=layoutDefiningPoints[1] , radius=0.4)
+         # sketch.sketchCurves.sketchCircles.addByCenterRadius(centerPoint=adsk.core.Point3D.create(0,0,0) , radius=0.06)
+         #
+         # highlight((sketchText.boundingBox.minPoint, sketchText.boundingBox.maxPoint))
+         # FilledRectangle(
+         #     sketchText.boundingBox.minPoint, 
+         #     sketchText.boundingBox.maxPoint
+         # ).buildSheetBodiesInGalleySpace().tz(-1).create_occurrence()
+         # fscad.Sphere(radius=0.08,name="layoutPoint0_marker").translate(*castTo3dArray(layoutDefiningPoints[0])).create_occurrence()
+         # fscad.Sphere(radius=0.04,name="layoutPoint1_marker").translate(*castTo3dArray(layoutDefiningPoints[1])).create_occurrence()
+
         sheetBodies = getAllSheetBodiesFromSketch(sketch)
-
-        # tempOccurrence.deleteMe()
-
-
+        tempOccurrence.deleteMe()
         super().__init__(
             *sheetBodies,
             component = None, 
@@ -1559,7 +1577,9 @@ def getAllSheetBodiesFromSketch(sketch : adsk.fusion.Sketch) -> Sequence[adsk.fu
     """ returns a sequence of BRepBody, containing one member for each member of sketch.profiles and 
     sheet bodies corresponding to the sketch texts. 
     each body is a sheet body having exactly one face."""
-    #TODO: allow control over how we deal with overlapping profiles (which generally happens in the case of nested loops).
+    #TODO: allow control over how we deal with overlapping profiles (which
+    #generally happens in the case of nested loops).  For instance, we might
+    #want to return only "odd-rank" faces.
     bodies = []
 
     ## FIRST ATTEMPT - construct the bodies "from scratch" by extracting the primitive entities from sketch.profiles.
