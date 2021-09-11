@@ -621,8 +621,14 @@ class BitHolderSegment :
         
 
         boxOccurrence.deleteMe()
-        TextRow().create_occurrence()
+        TextRow(
+            fontName="Times New Roman"
 
+        ).create_occurrence()
+
+
+        a = adsk.core.Point2D.create(11,22)
+        b = adsk.core.Point3D.cast(a)
 
         # myGalley = Galley()
         # myGalley.fontName = self.labelFontName
@@ -1268,7 +1274,16 @@ def castTo3dArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Point2D]) -> ND
         return x
         #TODO: handle various sizes of NDArray rather than blindly assuming that we have been given a 3-array
     elif isinstance(x, adsk.core.Point3D):
-        return np.array(x.asArray()) #this won't work, will it?
+        return np.array(x.asArray()) 
+
+def castToPoint3d(x: Union[ndarray, adsk.core.Point3D, adsk.core.Point2D]) -> adsk.core.Point3D:
+    if isinstance(x, ndarray):
+        return adsk.core.Point3D.create(*x)
+        #TODO: handle various sizes of NDArray rather than blindly assuming that we have been given a 3-array
+    elif isinstance(x, adsk.core.Point3D):
+        return x
+    elif isinstance(x, adsk.core.Point2D):
+        return adsk.core.Point3D.create(x.x, x.y, 0)
 
 class FilledRectangle:
     """ at the moment, FilledRectangle is jsut a factory for creating an fscad.PlanarShape object"""
@@ -1356,7 +1371,8 @@ class Galley(fscad.BRepComponent):
         super().init(*args, **kwargs)
 
 class TextRow(fscad.BRepComponent):
-
+    # todo: make all the properties read-only
+    # a textrow is intended to be immutable.
     def __init__(self, 
         owningGalley : Optional[Galley] = None,
         text : str = "",
@@ -1365,11 +1381,11 @@ class TextRow(fscad.BRepComponent):
         basePoint = vector(0,0,0) * meter,
         name: str = None
     ):
-        self._owningGalley : Optional[Galley] = owningGalley 
-        self._text = text
-        self._fontName = fontName
-        self._characterHeight = characterHeight 
-        self._basePoint = basePoint 
+        self.owningGalley : Optional[Galley] = owningGalley 
+        self.text = text
+        self.fontName = fontName
+        self.characterHeight = characterHeight 
+        self.basePoint = basePoint 
         # basePoint is a position, in galleySpace (galleySpace is 3 dimensional,
         # although only the x and y dimensions are significant for the final
         # results) where the basepoint of this text row shall be located.
@@ -1384,7 +1400,7 @@ class TextRow(fscad.BRepComponent):
         # it has not yet arisen.  At the moment, a textRow is always "upright"
         # within the galley.
         #
-        # The OnShape API did not provide a very clean way of speicifying the
+        # The OnShape API did not provide a very clean way of specifying the
         # desired text height. Therefore, I had to rely on the fact that OnShape
         # API always produced text with a height of 1 unit, and then scale the
         # resulting entities in a separate operation (and I actually delayed the
@@ -1408,15 +1424,15 @@ class TextRow(fscad.BRepComponent):
         sketch = tempOccurrence.component.sketches.add(tempOccurrence.component.xYConstructionPlane, tempOccurrence)
 
         sketchTextInput = sketch.sketchTexts.createInput2(
-            formattedText="[Dc",
-            height=self._characterHeight
+            formattedText="text",
+            height=self.characterHeight
         )
 
         class LayoutMode (Enum):
             multiline = enum.auto()
             alongPath = enum.auto()
 
-        layoutMode = LayoutMode.multiline
+        # layoutMode = LayoutMode.multiline
         layoutMode = LayoutMode.alongPath
         layoutDefiningPoints = [adsk.core.Point3D.create(0,0,0), adsk.core.Point3D.create(5,0,0)]
         submitLayoutDefiningPointsInReverseOrder=False
@@ -1537,7 +1553,7 @@ class TextRow(fscad.BRepComponent):
          # same in multiline and alongPath layout modes.
 
 
-        sketchTextInput.fontName = self._fontName
+        sketchTextInput.fontName = self.fontName
         sketchTextInput.isHorizontalFlip = False
         sketchTextInput.isVerticalFlip = False
         sketchTextInput.textStyle = (
@@ -1572,6 +1588,7 @@ class TextRow(fscad.BRepComponent):
             component = None, 
             name = name
         )
+
 
 def getAllSheetBodiesFromSketch(sketch : adsk.fusion.Sketch) -> Sequence[adsk.fusion.BRepBody]:
     """ returns a sequence of BRepBody, containing one member for each member of sketch.profiles and 
