@@ -1,4 +1,4 @@
-from typing import Optional, Sequence, Union
+from typing import Optional, Sequence, Tuple, Union
 from enum import Enum
 import enum
 import math
@@ -72,8 +72,8 @@ class Socket (Bit):
 
     #TODO: fill in the details
 
-class BitHolderSegment :
-    def __init__(self):
+class BitHolderSegment (fscad.BRepComponent)  :
+    def __init__(self, name: str = None ):
         self.bit : Bit = Bit()
         
         self.angleOfElevation = 45 * degree
@@ -145,6 +145,12 @@ class BitHolderSegment :
         self.bitHolder.segments = [self]
         # as a side effect of the above, 
         # self.bitHolder will be set to dummyBitHolder.
+
+        super().__init__(
+            *self._build(),
+            component = None, 
+            name = name
+        )
 
     @property
     def zMax(self):
@@ -355,8 +361,8 @@ class BitHolderSegment :
     def bottomSaddlePointOfMouthFillet(self): #//see neil-4936          
         return self.bottomPointOfMouthFilletSweepPath + self.mouthFilletRadius * zHat
 
-    def build(self) -> fscad.Component:
-
+    def _build(self) -> Sequence[adsk.fusion.BRepBody]:
+        returnValue : list[adsk.fusion.BRepBody] = []
         # var idOfInitialBodyCreationOperation = id + "mainBody";
         # // fCuboid(
         # //     context,
@@ -415,7 +421,7 @@ class BitHolderSegment :
         # I would prefer to describe the extrude by giving a start point and an endpoint, but there is not at present 
         # a pre-existing function to do this.
 
-        print(polygonVertices)
+        # print(polygonVertices)
         # highlight(
         #     itertools.starmap(
         #         adsk.core.Point3D.create,
@@ -594,7 +600,7 @@ class BitHolderSegment :
         ]
         boreToolOccurrence.deleteMe()
         # highlight(edgesOfInterest)
-        print('len(edgesOfInterest): ' + str(len(edgesOfInterest)))
+        # print('len(edgesOfInterest): ' + str(len(edgesOfInterest)))
 
 
         # var idOfFillet =  uniqueId(context,id);
@@ -620,11 +626,21 @@ class BitHolderSegment :
         filletFeature = boxOccurrence.component.features.filletFeatures.add(filletFeatureInput)
         
 
-        boxOccurrence.deleteMe()
-        TextRow(
-            fontName="Times New Roman"
+        returnValue += [
+            fscad.brep().copy(x)
+            for x in boxOccurrence.bRepBodies
+        ]
+        # it is probably somewhat inefficient to copy the bodies here, because they will just be fed into the constructor for BRepComponent, which will copy them again.
+        # Ideally, I would leave the temporary boxOccurence in place until I had called the BRepComponent constructor, and then delete the temporary occurence.
 
-        ).create_occurrence()
+        boxOccurrence.deleteMe()
+        # returnValue += [
+        #     x.brep 
+        #     for x in TextRow(
+        #         fontName="Times New Roman",
+        #         text="Abc"
+        #     ).bodies
+        # ]
 
 
         a = adsk.core.Point2D.create(11,22)
@@ -1071,7 +1087,7 @@ class BitHolderSegment :
         # return returnValue;
 
 
-        return mainComponent
+        return returnValue
             
 
 class MountHolesPositionZStrategy(Enum):
@@ -1269,12 +1285,32 @@ class GalleyAnchor_e(Enum):
     BOTTOM_LEFT = enum.auto();  BOTTOM_CENTER = enum.auto();  BOTTOM_RIGHT = enum.auto();
 
 
-def castTo3dArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Point2D]) -> NDArray: #need to figure out how to use the shape-specificatin facility that I think is part of the NDArray type alias.
-    if isinstance(x, ndarray):
+def castToNDArray(x) -> NDArray:
+    if isinstance(x, np.ndarray):
         return x
-        #TODO: handle various sizes of NDArray rather than blindly assuming that we have been given a 3-array
     elif isinstance(x, adsk.core.Point3D):
-        return np.array(x.asArray()) 
+        return np.array(x.asArray())
+    elif isinstance(x, adsk.core.Vector3D):
+        return np.array(x.asArray())
+    elif isinstance(x, adsk.core.Point2D):
+        return np.array(x.asArray())
+    elif isinstance(x, adsk.core.Vector2D):
+        return np.array(x.asArray())
+    else:
+        return np.array(x)
+
+
+def castTo3dArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Point2D]) -> NDArray: 
+    #need to figure out how to use the shape-specificatin facility that I think is part of the NDArray type alias.
+    a=castToNDArray(x)
+    return np.append(
+        a, 
+        (0,)*(3-len(a))
+    )[0:3]
+    # this cannot possibly be the most efficient way to do this, 
+    # but it has the advantage of being a fairly short line of code.
+    #TODO: handle various sizes of NDArray rather than blindly assuming that we have been given a 3-array
+
 
 def castToPoint3d(x: Union[ndarray, adsk.core.Point3D, adsk.core.Point2D]) -> adsk.core.Point3D:
     if isinstance(x, ndarray):
@@ -1285,90 +1321,297 @@ def castToPoint3d(x: Union[ndarray, adsk.core.Point3D, adsk.core.Point2D]) -> ad
     elif isinstance(x, adsk.core.Point2D):
         return adsk.core.Point3D.create(x.x, x.y, 0)
 
-class FilledRectangle:
-    """ at the moment, FilledRectangle is jsut a factory for creating an fscad.PlanarShape object"""
+# class rectByCorners (fscad.Rect):
+#     # It probably makes sense to have this be a factory function that creates 
+#     # rect objects rather than a sub-type of rect.
+#     def __init__(self, *args, corner1 = vector(0,0) * meter, corner2 = vector(1,1) * meter, **kwargs):
+#         self.corner1 = castTo3dArray(corner1)
+#         self.corner2 = castTo3dArray(corner2)
+#         # set the 'x' and 'y' entries to kwargs (overriding any 'x' and 'y' that may have been passed)
 
-    def __init__(self, corner1 = None, corner2 = None):
-       
-        self.corner1 = castTo3dArray((corner1 if corner1 is not None else vector(0,0,0) * meter))
-        self.corner2 = castTo3dArray((corner2 if corner2 is not None else vector(1,1,0) * meter))
-        
-    # //this function constructs (And returns a query for) one sheet body, all lying on the xy plane.
-    # //returns Query that resolves to a set of sheet bodies (or possibly a single sheet body with multiple disjoint faces, if such a thing is allowed), all lying on the xy plane.
-    # returns an array of brep body with one element, that is a sheet body having but one face, namely a rectangular region lying in the xy plane
-    def buildSheetBodiesInGalleySpace(self) -> fscad.PlanarShape:
-        vertices = [
-            vector(self.corner1[0] , self.corner1[1] , zeroLength),
-            vector(self.corner2[0] , self.corner1[1] , zeroLength),
-            vector(self.corner2[0] , self.corner2[1] , zeroLength),
-            vector(self.corner1[0] , self.corner2[1] , zeroLength)
-        ]
+#         extent = abs(self.corner2 - self.corner1)
+#         minimumCorner = tuple(map(min, self.corner1, self.corner2))
+#         super().__init__(
+#             *args,
+#             **kwargs,
+#             x=extent[0],
+#             y=extent[1]
+#         )
+#         self.translate(*minimumCorner)
 
-        # reverse the vertices if needed to ensure that the normal 
-        # of the face will point in the z positive direction:
-        if (self.corner1[0] < self.corner2[0]) != (self.corner1[1] < self.corner2[1]):
-            vertices.reverse()
-           
-        
-        polygon = fscad.Polygon(
-            *itertools.starmap(
-                adsk.core.Point3D.create,
-                vertices
-            )
-        )
+# an alternate constructor for fscad.Rect
+def rectByCorners(corner1 = vector(0,0) * meter, corner2 = vector(1,1) * meter, *args, **kwargs) -> fscad.Rect:
+    corner1 = castTo3dArray(corner1)
+    corner2 = castTo3dArray(corner2)
+    # set the 'x' and 'y' entries to kwargs (overriding any 'x' and 'y' that may have been passed)
 
-        return polygon
+    extent = abs(corner2 - corner1)
+    minimumCorner = tuple(map(min, corner1, corner2))
 
-        # //debug(context, qConstructionFilter(qCreatedBy(idOfWorkingSketch, EntityType.EDGE), ConstructionObject.YES));
-
-        # var idOfBodyCopy = id + "bodyCopy";
-        
-        # # //opPattern creates copies of the specified bodies.
-        # # // we want to create a copy of the sheetBodies in the sketch, so that we have a copy, which is independent of the original sketch, so that we can then delete the sketch and be left with just the faces.
-        
-        # # //qSketchRegion returns all faces of all sheetBodies in the sketch if the second argument (filterInnerLoops) is false, or else the all the 'outer' faces of all sheetBodies in the sketch if filterInnerLoops is true.
-        # var inkSheets is Query = qBodyType( qEntityFilter( qOwnerBody(qSketchRegion(idOfWorkingSketch,false)), EntityType.BODY), BodyType.SHEET) ;  //I realize that some of these filters are probably redundant - I just want to be darn sure that I am picking out exactly what I want (namely all sheetBodies in the sketch) and nothing else.
-        
-        # # //println("reportOnEntities(context,inkSheets,0): " ~ toString(reportOnEntities(context,inkSheets,0)));
-        # # //debug(context, sheetBodiesInGalleySpace);
-        
-        
-        # //delete all the even-rank faces (this concept of ranking of faces of a planar sheetBody is my own terminology -- not from the OnShape documentation.)
-        # deleteEvenRankFaces(context, id + "deleteEvenRankFaces", inkSheets); //probably not strictly necessary in the case of a simple rectangle.
-        
-        # try silent{ 
-        #     opPattern(context, idOfBodyCopy,
-        #         {
-        #             entities: inkSheets, 
-        #             transforms: [ identityTransform()],
-        #         //transforms: [ transform(vector(0,-3,0) * meter)], //for debugging.
-        #             instanceNames: [uniqueIdString(context)]
-        #         }
-        #     );
-        # } 
-
-        # var scaleFreeSheetBodies = qBodyType(qEntityFilter(qCreatedBy(idOfBodyCopy), EntityType.BODY), BodyType.SHEET);   
-        
-        
-        # # //print(reportOnEntities(context, inkSheets,0,0));
-        # # //debug(context, inkSheets);
-        # # //debug(context, qCreatedBy(idOfBodyCopy));
-        
-        # # //debug(context, qCreatedBy(idOfWorkingSketch));
-        
-        # # //get rid of all the entities in the sketch, which we do not need now that we have extracted the sheetBodies that we care about.
-        # try silent{opDeleteBodies(
-        #     context,
-        #     uniqueId(context, id),
-        #     {entities:qCreatedBy(idOfWorkingSketch)}
-        # );  } 
-        # # //println("reportOnEntities(context,scaleFreeSheetBodies,0): " ~ toString(reportOnEntities(context,scaleFreeSheetBodies,0)));
-        # return scaleFreeSheetBodies;
+    return fscad.Rect(
+        x=extent[0],
+        y=extent[1],
+        *args,
+        **kwargs,
+    ).translate(*minimumCorner)
 
 
 class Galley(fscad.BRepComponent):
-    def __init__(self, *args, **kwargs):
-        super().init(*args, **kwargs)
+    # I don't think I fully appreciate fscad's use of child components,
+    # and fscad's convention that child components are optionally-displayable precursors of the component.  It might
+    # make sense to have some of the defining geometry (like the rectangles that defines the outer borders, 
+    # the margin borders, etc, and maybe the individual textRows as child components).
+
+    # The Galley component reinvents a very tiny bit of TeX-like text layout functionality.
+    # A more fully-featured version of Galley wouldn't bother with Fuasion sketch text and would instead
+    #  actually invoke TeX under the hood (can pip install TeX?),
+    #  but this is just a proof-of-concept / good-enough for the present application.
+
+    def __init__(self, 
+        width : float = 8.5 * inch,
+        height: float = 11 * inch,
+        clipping: bool = True,
+        fontName: Union[str, Sequence[str]] = "Arial",
+        rowHeight: Union[float, Sequence[float]] = 10/72 * inch,
+        rowSpacing: Union[float, Sequence[float]] = 1,
+        #this is a unitless ratio that sets the ratio of the vertical interval between successive textRows and the rowHeight
+        horizontalAlignment : HorizontalAlignment = HorizontalAlignment.LEFT,
+        verticalAlignment : VerticalAlignment = VerticalAlignment.TOP,
+        
+        leftMargin : float    = zeroLength,
+        rightMargin : float   = zeroLength,
+        topMargin : float     = zeroLength,
+        bottomMargin : float  = zeroLength,
+        text : str = "",
+        name: str = None
+    ):
+
+        self._width  : float = width
+        self._height : float = height
+        self._clipping : bool = clipping
+        self._fontName  = fontName
+        self._rowHeight = rowHeight
+        self._rowSpacing = rowSpacing
+
+        self._fontNames : Tuple[str] = (fontName if not isinstance(fontName, str) else (fontName,))
+        self._rowHeights : Tuple[float] = (rowHeight if isinstance(rowHeight, Sequence) else (rowHeight,))
+        self._rowSpacings : Tuple[float] = (rowSpacing  if isinstance(rowSpacing, Sequence) else (rowSpacing,)) 
+
+        self._horizontalAlignment : HorizontalAlignment = horizontalAlignment
+        self._verticalAlignment : VerticalAlignment = verticalAlignment
+        
+        self._leftMargin : float    = leftMargin
+        self._rightMargin : float   = rightMargin
+        self._topMargin : float     = topMargin
+        self._bottomMargin : float  = bottomMargin
+        self._text : str = text
+
+
+        super().__init__(
+            *self._build(),
+            component = None, 
+            name = name
+        )
+
+    @property
+    def width(self) -> float:
+        return self._width  
+    
+    @property
+    def height(self) -> float:
+        return self._height
+    
+    @property
+    def clipping(self) -> bool:
+        return self._clipping
+    
+    @property
+    def fontName(self) -> str:
+        return self._fontName
+    
+    @property
+    def rowHeight(self) -> float:
+        return self._rowHeight
+
+    @property
+    def rowSpacing(self) -> float:
+        return self._rowSpacing
+
+    @property
+    def horizontalAlignment(self) -> HorizontalAlignment:
+        return self._horizontalAlignment
+
+    @property
+    def verticalAlignment(self) -> VerticalAlignment:
+        return self._verticalAlignment
+
+    @property
+    def leftMargin(self) -> float:
+        return self._leftMargin
+
+    @property
+    def rightMargin(self) -> float:
+        return self._rightMargin
+
+    @property
+    def topMargin(self) -> float:
+        return self._topMargin
+    
+    @property
+    def bottomMargin(self) -> float:
+        return self._bottomMargin
+    
+    @property
+    def text(self) -> str:
+        return self._text
+
+    @property
+    def fontNames(self) -> Tuple[str]:
+        return self._fontNames
+
+    @property
+    def rowHeights(self) -> Tuple[float]:
+        return self._rowHeights
+
+    @property
+    def rowSpacings(self) -> Tuple[float]:
+        return self._rowSpacings
+
+    def _build(self) -> Sequence[adsk.fusion.BRepBody]:
+        returnValue : list[adsk.fusion.BRepBody] = []
+
+        regExPatternForTexDirective = re.compile(r"\\(?P<controlWord>\w+)(\{(?P<argument>.*?)\}|)\b")
+        texDirectives = [
+            {
+                'controlWord': match.group('controlWord'),
+                'argument':  match.group('argument')
+            }
+            for match in regExPatternForTexDirective.finditer(self.text)
+        ]
+        sanitizedText = regExPatternForTexDirective.sub('',self.text)
+
+        floodWithInk = any(
+            map(
+                lambda x: x['controlWord'] == 'floodWithInk',
+                texDirectives
+            )
+        )
+
+        #defining extentBox and marginBox are mainly meant for debugging,
+        # and I need to figure out how to do this in a more fscad-like way.
+        # need to figure out how fscad thinks about transforms (does fscad require/assume/enforce
+        # that all fusion components are located at the origin of the world?)
+        self.extentBox = fscad.Rect(self.width, self.height, 'extentBox')
+        self.marginBox = rectByCorners(
+            (self.leftMargin, self.bottomMargin),
+            (self.width - self.rightMargin, self.height - self.topMargin),
+            name='marginBox'
+        )
+
+
+        # highlight(fscad.Rect(self.width, self.height).edges)
+        # highlight(
+        #     rectByCorners(
+        #         (self.leftMargin, self.bottomMargin),
+        #         (self.width - self.rightMargin, self.height - self.topMargin)
+        #     ).edges
+        # )
+        if floodWithInk:
+            returnValue += [
+                body.brep 
+                for body in 
+                # rectByCorners(
+                #     corner1=vector(zeroLength, zeroLength, zeroLength),
+                #     corner2=vector(self.width, self.height, zeroLength)
+                # ).bodies
+                self.extentBox.bodies
+            ]
+        else:
+            linesOfText = sanitizedText.split("\n")
+            # print('linesOfText: ' + str(linesOfText))
+            initZ = zeroLength
+            #// the entries in the self.rowSpacings affect how much space will
+            # exist between a row and the row above it. (thus, row spacing for
+            # the first row has no effect - only for rows after the first row.)
+            
+            # # //verticalRowInterval is the vertical distance that we will move the insertion point between successive rows.
+            # # //var verticalRowInterval = self.rowHeight * self.rowSpacing; 
+            
+            
+            # //heightOfAllText is the distance from the baseline of the bottom row to the ascent of the top row, when all rows are laid out.
+            # //var heightOfAllText = verticalRowInterval * size(linesOfText);
+            heightOfAllText = sum(
+                (
+                    self.rowSpacings[i % len(self.rowSpacings)]
+                    if i > 0 else 1.0
+                ) 
+                * self.rowHeights[i % len(self.rowHeights)]
+                for i in range(0, len(linesOfText))
+            )
+
+
+            if  self.horizontalAlignment == HorizontalAlignment.LEFT:
+                initX = self.leftMargin
+            elif self.horizontalAlignment == HorizontalAlignment.CENTER:
+                initX = mean( self.leftMargin, self.width - self.rightMargin )
+            elif self.horizontalAlignment == HorizontalAlignment.RIGHT:
+                initX = self.width - self.rightMargin
+        
+
+            if self.verticalAlignment == VerticalAlignment.TOP:
+                initY = self.height - self.topMargin - self.rowHeights[0]
+            elif self.verticalAlignment == VerticalAlignment.CENTER:
+                initY = (
+                    mean(self.height - self.topMargin, self.bottomMargin) # //this is the y-coordinate of the vertical center
+                    + heightOfAllText/2 
+                    - self.rowHeights[0]
+                )
+            elif self.verticalAlignment == VerticalAlignment.BOTTOM:
+                initY = self.bottomMargin + heightOfAllText - self.rowHeights[0]
+            
+            insertionPoint = vector(initX, initY , initZ)
+
+            for i in range(len(linesOfText)): # (var i = 0; i<size(linesOfText); i+=1):  
+                lineOfText = linesOfText[i]
+                thisTextRow = TextRow(
+                    text = lineOfText,
+                    fontName = self.fontNames[i % len(self.fontNames)],
+                    characterHeight = self.rowHeights[i % len(self.rowHeights)]
+                )  
+                
+                if self.horizontalAlignment == HorizontalAlignment.LEFT:
+                    thisTextRow.translate(*insertionPoint)
+                elif self.horizontalAlignment == HorizontalAlignment.CENTER:
+                    thisTextRow.translate(*(insertionPoint - thisTextRow.width/2 * xHat))
+                elif self.horizontalAlignment == HorizontalAlignment.RIGHT:
+                    thisTextRow.translate(*(insertionPoint - thisTextRow._width * xHat))
+                
+                returnValue += [ x.brep for x in thisTextRow.bodies ] 
+
+                insertionPoint += -yHat * self.rowSpacings[(i+1) % len(self.rowSpacings)] * self.rowHeights[(i+1) % len(self.rowHeights)] #//drop the insertion point down to be ready to start the next row.  
+                
+                # sheetBodiesInGalleySpace.append(thisTextRow.buildSheetBodiesInGalleySpace())
+        
+            if self.clipping :
+                returnValue = [
+                    body.brep
+                    for body in
+                    # fscad.Intersection(self.extentBox, fscad.BRepComponent(*returnValue)).bodies
+                    #curiously, with the arguments to Intersection starting with extentBox, Intersection.bodies contains only a single empty body always,
+                    # but reversing the order of the arguments produces the desired results -- this does not make sense; Intersection ought to be a totally commutative opearation.
+                    # this might be a bug in fscad or in Fusion (in which case fscad ought to work around the fusion bug).
+                    fscad.Intersection( fscad.BRepComponent(*returnValue), self.extentBox).bodies
+                    
+
+                    if body.brep.lumps.count > 0 # the intersection operation can return empty bodies. (the intersection of two disjoint bodies, for instance, is a body (or maybe a set of bodies) each of which is empty.
+                ]
+                # it might be worthwhile to detect whether the clipping operation 
+                # actually resulted in anything being chopped off, and
+                # record this fact in the Galley object for potential subsequent reference.
+                # or to emit a warning if actual clipping occurs.
+            
+        return returnValue
+
 
 class TextRow(fscad.BRepComponent):
     # todo: make all the properties read-only
@@ -1378,14 +1621,19 @@ class TextRow(fscad.BRepComponent):
         text : str = "",
         fontName : str = "Arial", #"Tinos-Italic.ttf",
         characterHeight : float = 1 * inch,
-        basePoint = vector(0,0,0) * meter,
+        # basePoint = vector(0,0,0) * meter,
         name: str = None
     ):
-        self.owningGalley : Optional[Galley] = owningGalley 
-        self.text = text
-        self.fontName = fontName
-        self.characterHeight = characterHeight 
-        self.basePoint = basePoint 
+        self._text = text
+        self._fontName = fontName
+        self._characterHeight = characterHeight 
+
+        # propperties to be computed as a side effect of the construction of the bodies:
+        # self.width 
+        # self.opticalDepth 
+        # self.opticalHeight
+
+        # self.basePoint = basePoint 
         # basePoint is a position, in galleySpace (galleySpace is 3 dimensional,
         # although only the x and y dimensions are significant for the final
         # results) where the basepoint of this text row shall be located.
@@ -1399,6 +1647,12 @@ class TextRow(fscad.BRepComponent):
         # However I have not yet implemented this behavior because the need for
         # it has not yet arisen.  At the moment, a textRow is always "upright"
         # within the galley.
+
+        # update: we are departing from the behavior of the OnShape version of
+        # this project by having TextRow not be a located row of text, but rather being an 
+        # immutable row of text whose basepoint is implicitly at the origin.
+        # Therefore, there will be no explicit basepoint property. (Or if there is, it better be read-only).
+
         #
         # The OnShape API did not provide a very clean way of specifying the
         # desired text height. Therefore, I had to rely on the fact that OnShape
@@ -1415,8 +1669,6 @@ class TextRow(fscad.BRepComponent):
         # specified in some of the fancier OpenType fonts, although I doubt that
         # it is.)
 
-        sheetBodies = [body.brep for body in FilledRectangle().buildSheetBodiesInGalleySpace().bodies]
-
         tempOccurrence = fscad._create_component(
             parent_component = fscad.root(), 
             name="temp"
@@ -1424,8 +1676,8 @@ class TextRow(fscad.BRepComponent):
         sketch = tempOccurrence.component.sketches.add(tempOccurrence.component.xYConstructionPlane, tempOccurrence)
 
         sketchTextInput = sketch.sketchTexts.createInput2(
-            formattedText="text",
-            height=self.characterHeight
+            formattedText=self._text,
+            height=self._characterHeight
         )
 
         class LayoutMode (Enum):
@@ -1553,7 +1805,7 @@ class TextRow(fscad.BRepComponent):
          # same in multiline and alongPath layout modes.
 
 
-        sketchTextInput.fontName = self.fontName
+        sketchTextInput.fontName = self._fontName
         sketchTextInput.isHorizontalFlip = False
         sketchTextInput.isVerticalFlip = False
         sketchTextInput.textStyle = (
@@ -1563,9 +1815,9 @@ class TextRow(fscad.BRepComponent):
         )
         sketchText = sketch.sketchTexts.add(sketchTextInput)
 
-        self.width = sketchText.boundingBox.maxPoint.x
-        self.opticalDepth = min(0, -sketchText.boundingBox.minPoint.y)
-        self.opticalHeight = max(0, sketchText.boundingBox.maxPoint.y)
+        self._width = sketchText.boundingBox.maxPoint.x
+        self._opticalDepth = min(0, -sketchText.boundingBox.minPoint.y)
+        self._opticalHeight = max(0, sketchText.boundingBox.maxPoint.y)
                 
         ## markers for debugging and experimention:
          # for radius in (0.4,0.38):
@@ -1581,13 +1833,41 @@ class TextRow(fscad.BRepComponent):
          # fscad.Sphere(radius=0.08,name="layoutPoint0_marker").translate(*castTo3dArray(layoutDefiningPoints[0])).create_occurrence()
          # fscad.Sphere(radius=0.04,name="layoutPoint1_marker").translate(*castTo3dArray(layoutDefiningPoints[1])).create_occurrence()
 
-        sheetBodies = getAllSheetBodiesFromSketch(sketch)
-        tempOccurrence.deleteMe()
+
         super().__init__(
-            *sheetBodies,
+            *getAllSheetBodiesFromSketch(sketch),
             component = None, 
             name = name
         )
+        tempOccurrence.deleteMe()
+
+    @property
+    def text(self) -> str:
+        return self._text
+
+    @property
+    def fontName(self) -> str:
+        return self._fontName
+
+    @property
+    def characterHeight(self) -> float:
+        return self._characterHeight
+
+    @property
+    def width(self) -> float:
+        return self._width
+
+    @property
+    def opticalDepth(self) -> float:
+        return self._opticalDepth
+
+    @property
+    def opticalHeight(self) -> float:
+        return self._opticalHeight
+
+
+
+
 
 
 def getAllSheetBodiesFromSketch(sketch : adsk.fusion.Sketch) -> Sequence[adsk.fusion.BRepBody]:

@@ -9,6 +9,7 @@ from .scripted_component import ScriptedComponent
 from .bolt import Bolt
 from .braids.fscad.src.fscad import fscad as fscad
 from .highlight import *
+import uuid
 
 import pathlib
 import itertools
@@ -456,8 +457,107 @@ def run(context:dict):
      '''
 
     def design2():
-        bitHolderSegment = bit_holder.BitHolderSegment()
-        fscadComponent = bitHolderSegment.build()
+
+        # x = bit_holder.castToNDArray(adsk.core.Point3D.create(2,3,4))
+        # y = bit_holder.castTo3dArray(adsk.core.Point3D.create(2,3,4))
+        # z = bit_holder.castTo3dArray(adsk.core.Point2D.create(2,3))
+        # z=bit_holder.castTo3dArray((1*bit_holder.millimeter, 3*bit_holder.millimeter))
+        # print('x: ' + str(x))
+        # print('y: ' + str(y))
+        # print('z: ' + str(z))
+        # return
+
+        # bit_holder.BitHolderSegment().create_occurrence()
+
+        # bit_holder.TextRow(
+        #         fontName="Times New Roman",
+        #         text="Abc"
+        #     ).create_occurrence()
+
+        mm = bit_holder.millimeter
+        g = bit_holder.Galley(
+                fontName=("Times New Roman","Arial"),
+                text="A",
+                width = 40*mm,
+                height = 60*mm,
+                rowSpacing = 1.5,
+                rowHeight = (5*mm,2*mm) ,
+                horizontalAlignment = bit_holder.HorizontalAlignment.LEFT,
+                verticalAlignment = bit_holder.VerticalAlignment.CENTER,
+                clipping=True,
+                leftMargin=5*mm,
+                rightMargin=5*mm,
+                topMargin=5*mm,
+                bottomMargin=5*mm
+            ).translate(0,0)
+        o=g.create_occurrence()
+        o.isLightBulbOn = False
+        highlight(g)
+        # highlight(g.extentBox.translate(tz=-2))
+        # g.extentBox.translate(tz=-2).create_occurrence()
+        # g.marginBox.translate(tz=-1).create_occurrence()
+
+        appearances = o.component.parentDesign.appearances
+        appearance : adsk.core.Appearance = appearances.addByCopy(appearanceToCopy=appearances[0], name='george-'+str(uuid.uuid4()))
+        # appearanceProperty : adsk.core.Property
+        # print(
+        #     tuple(
+        #         (appearanceProperty.id, appearanceProperty.name, appearanceProperty.objectType, 
+        #             (
+        #                 tuple(
+        #                     value.getColor()
+        #                     for value in appearanceProperty.values
+        #                 )
+        #                 if isinstance(appearanceProperty, adsk.core.ColorProperty) and appearanceProperty.values
+        #                 else ''
+        #             )
+        #         )
+        #         for appearanceProperty in 
+        #         appearance.appearanceProperties 
+        #         # if isinstance(appearanceProperty, adsk.core.ColorProperty) and appearanceProperty.values
+        #     )
+        # )
+
+        # for appearanceProperty in appearance.appearanceProperties :
+        #     if isinstance(appearanceProperty, adsk.core.ColorProperty):
+        #         for i in range(len(appearanceProperty.values)):
+        #             # appearanceProperty.values[i] =  adsk.core.Color.create(red=0, green=140, blue=0, opacity=100)
+        #             appearanceProperty.values[i].setColor(red=0, green=140, blue=0, opacity=100)
+        #         # appearanceProperty.values = [
+        #         #     adsk.core.Color.create(red=255, green=0, blue=0, opacity=100),
+        #         #     adsk.core.Color.create(red=0, green=255, blue=0, opacity=102)
+        #         # ]
+                
+        #         appearanceProperty.values = list(
+        #             adsk.core.Color.create(red=0, green=140, blue=0, opacity=100)
+        #             for color in appearanceProperty.values
+        #         )
+
+
+        #         print(
+        #             tuple(
+        #                 value.getColor()
+        #                 for value in appearanceProperty.values
+        #             )
+        #         )
+
+        # bit_holder.rectByCorners(
+        #     corner1=(5*mm,10*mm),
+        #     corner2=(17*mm,30*mm)
+        # ).create_occurrence()
+
+        # highlight(rectByCorners())
+
+        # r = bit_holder.rectByCorners(
+        #     corner1=(1*bit_holder.millimeter, 6*bit_holder.millimeter),
+        #     corner2=(5*bit_holder.millimeter, 3*bit_holder.millimeter)
+        # )
+        # # r.create_occurrence()
+        # print('type(r): ' + str(type(r)))
+
+        # highlight(r.edges)
+
+        # fscadComponent = bitHolderSegment.build()
         # fscadComponent.create_occurrence()
 
     fscad.run_design(design_func=design2, message_box_on_error=False)
