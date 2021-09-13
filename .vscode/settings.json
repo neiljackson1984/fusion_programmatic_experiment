@@ -1,5 +1,5 @@
 {
-	"neil.debugpyPath":"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.8.1159798656/pythonFiles/lib/python",
+	"neil.debugpyPath":"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.9.1218897484/pythonFiles/lib/python",
 	"neil.x":"${config:neil.debugpyPath}",
 	"python.autoComplete.extraPaths":	[
 		"C:/Users/Admin/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs",
@@ -7,9 +7,8 @@
 		// it does not seem to work to define one setting value in terms of another, unfortunately.
 		// "${config:neil.debugpyPath}",
 		// "${config:neil.debugpyPath}/debugpy/_vendored/pydevd",
-
-		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.8.1159798656/pythonFiles/lib/python",
-		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.8.1159798656/pythonFiles/lib/python/debugpy/_vendored/pydevd",
+		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.9.1218897484/pythonFiles/lib/python",
+		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.9.1218897484/pythonFiles/lib/python/debugpy/_vendored/pydevd",
 		"./fusion_script_runner_addin",
 		"./lib",
 		"./braids/fscad/src/fscad",
@@ -26,8 +25,8 @@
 		// "${config:neil.debugpyPath}",
 		// "${config:neil.debugpyPath}/debugpy/_vendored/pydevd",
 
-		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.8.1159798656/pythonFiles/lib/python",
-		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.8.1159798656/pythonFiles/lib/python/debugpy/_vendored/pydevd",
+		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.9.1218897484/pythonFiles/lib/python",
+		"C:/Users/Admin/.vscode/extensions/ms-python.python-2021.9.1218897484/pythonFiles/lib/python/debugpy/_vendored/pydevd",
 		"./fusion_script_runner_addin",
 		"./lib",
 		"./braids/fscad/src/fscad",
@@ -37,6 +36,21 @@
 	],
 	"VsCodeTaskButtons.tasks": [ 
 			{"label":"restart_fusion" , "task":"restart_fusion"}
-	 ]
+	],
+
+    "terminal.integrated.profiles.windows": {
+        "Command Prompt": {
+            "path": [
+                "${env:windir}\\Sysnative\\cmd.exe",
+                "${env:windir}\\System32\\cmd.exe"
+            ],
+            "args": [],
+            "icon": "terminal-cmd"
+        }
+    },
+
+	// https://stackoverflow.com/questions/69047142/vscode-is-suddenly-defaulting-to-powershell-for-integrated-terminal-and-tasks?noredirect=1
+	"terminal.integrated.defaultProfile.windows": "Command Prompt",
+	"terminal.integrated.automationShell.windows": "cmd.exe"
 	 
 }

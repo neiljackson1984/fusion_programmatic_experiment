@@ -124,7 +124,8 @@
             "args":[
                 "--script", "${file}",
                 "--debug", "0",
-                "--debugpy_path", "${config:neil.debugpyPath}",
+                // "--debugpy_path", "${config:neil.debugpyPath}",
+                "--use_vscode_debugpy", "true",
                 "--addin_port", "19812",
                 "--debug_port", "9000"
             ]
@@ -135,7 +136,8 @@
             "args":[
                 "--script", "${file}",
                 "--debug", "1",
-                "--debugpy_path", "${config:neil.debugpyPath}",
+                // "--debugpy_path", "${config:neil.debugpyPath}",
+                "--use_vscode_debugpy", "true",
                 "--addin_port", "19812",
                 "--debug_port", "9000"
             ]
@@ -146,7 +148,8 @@
             "args":[
                 "--script", "${workspaceFolder}${pathSeparator}test_scripts${pathSeparator}arbitrary_script_1${pathSeparator}arbitrary_script_1.py",
                 "--debug", "0",
-                "--debugpy_path", "${config:neil.debugpyPath}",
+                // "--debugpy_path", "${config:neil.debugpyPath}",
+                "--use_vscode_debugpy", "true",
                 "--addin_port", "19812",
                 "--debug_port", "9000"
             ]
@@ -157,7 +160,8 @@
             "args":[
                 "--script", "${workspaceFolder}${pathSeparator}test_scripts${pathSeparator}arbitrary_script_1${pathSeparator}arbitrary_script_1.py",
                 "--debug", "1",
-                "--debugpy_path", "${config:neil.debugpyPath}",
+                // "--debugpy_path", "${config:neil.debugpyPath}",
+                "--use_vscode_debugpy", "true",
                 "--addin_port", "19812",
                 "--debug_port", "9000"
             ]
@@ -170,7 +174,8 @@
             "args":[
                 "--script"                                  , "${workspaceFolder}${pathSeparator}design1.py"   ,                                                 
                 "--debug"                                   , "1"                                              ,      
-                "--debugpy_path"                            , "${config:neil.debugpyPath}"                     ,                               
+              //"--debugpy_path"                            , "${config:neil.debugpyPath}"                     ,                               
+                "--use_vscode_debugpy"                      , "true"                                           ,
                 "--addin_port"                              , "19812"                                          ,          
                 "--debug_port"                              , "9000"                                           ,         
                 "--prefix_of_submodule_not_to_be_reloaded"  , "braids.fscad"                                   ,                 
@@ -188,17 +193,59 @@
             // "command": "echo here it is ${config:python.analysis}",
             // "command": "echo here it is ${config:neil.debugpyPath}",
             // "command": "echo here it is ${config:neil.x}",
-            "command": "echo here it is ${config:python.autoComplete.extraPaths}",
-            // "command": "echo here it is $(echo ahoy)",
-        }
+            // "command": "echo here it is ${config:python.autoComplete.extraPaths}",
+            // "command": "echo here it is ${config:python.autoComplete.extraPaths}",
+            // "command": "echo here it is $(${config:python.pythonPath} \"${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}get_vscode_debugpy_path.py\")",
+            // "command": "echo here it is ${command:extensions.getExtension} ",
+            // "command": "echo here it is ${config:python.extensionPath} ",
+            // "command": "echo here it is ${command:workbench.action.tasks.get_debugpy_path} ",
+            // "command": "echo here it is ${execPath}",
+            // "command": "echo here it is ${input:debugpy_path}",
+            // "command": "echo here it is ${extensions.getExtension(\"python\").extensionPath}",
+            "command": "echo here it is terminal.integrated.shell.windows: ${config:terminal.integrated.shell.windows}",
+
+            "options": {"shell": {"executable": "C:\\cygwin64\\bin\\bash.exe","args": ["-c"]}},
+            "presentation": { "panel":  "dedicated"}
+        },
+        // {   "label":"get_debugpy_path",
+        //     "type":"shell",
+        //     // "command": "echo ${config:python.pythonPath}",
+        //     // "command": "echo ${config:python.analysis.symbolsHierarchyDepthLimit}",
+        //     // "command": "echo here it is ${config:python.analysis}",
+        //     // "command": "echo here it is ${config:neil.debugpyPath}",
+        //     // "command": "echo here it is ${config:neil.x}",
+        //     // "command": "echo here it is ${config:python.autoComplete.extraPaths}",
+        //     // "command": "echo here it is $(${config:python.pythonPath} \"${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}get_vscode_debugpy_path.py\")",
+        //     // "command": "echo here it is ${command:extensions.getExtension} ",
+        //     // "command": "echo here it is ${config:python.extensionPath} ",
+        //     "command": "${config:python.pythonPath} \"${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}get_vscode_debugpy_path.py\"",
+        //     // "command": "echo here it is ${execPath}",
+        //     // "command": "echo here it is ${input:debugpy_path}",
+        //     // "command": "echo here it is ${extensions.getExtension(\"python\").extensionPath}",
+        //     // "command": "echo here it is $(echo ahoy)",
+
+        //     // "options": {"shell": {"executable": "C:\\cygwin64\\bin\\bash.exe","args": ["-c"]}}
+        //     "presentation": {"reveal" : "silent" ,  "panel":  "dedicated"}
+        // }
     ],
-    "inputs": [
-    //   {
-    //     "id": "terminate",
-    //     "type": "command",
-    //     "command": "workbench.action.tasks.terminate",
-    //     "args": "terminateAll"
-    //   }
-    ]
+    // "inputs": [
+    // //   {
+    // //     "id": "terminate",
+    // //     "type": "command",
+    // //     "command": "workbench.action.tasks.terminate",
+    // //     "args": "terminateAll"
+    // //   }
+    //     {
+    //         "id": "debugpy_path",
+    //         "type": "command",
+    //         // "command": "${config:python.pythonPath} \"${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}get_vscode_debugpy_path.py\""
+    //         // "command": "workbench.extensions.getExtension(\"python\").extensionPath"
+    //         // "command": "extensions.getExtension",
+    //         "command": "workbench.action.tasks.runTask",
+            
+    //         //"command": "workbench.extensions.search",
+    //         "args": "get_debugpy_path"
+    //     }
+    // ]
 
 }
