@@ -72,10 +72,27 @@ parser.add_argument('--debug',
     const=True,
     type=argStringToBool ,
     help="""
-        boolean specifying whether we want to run the script in debug mode.  Debug mode is roughly analagous to the user using the Fusion UI to run a script in debug mode.
+        boolean specifying whether we want to run the script in debug mode.
+        Debug mode is roughly analogous to the user using the Fusion UI to run a
+        script in debug mode.
     """
 )
 
+parser.add_argument('--use_vscode_debugpy',
+    dest='use_vscode_debugpy',
+    action='store',
+    # action=argparse.BooleanOptionalAction,
+    nargs='?',
+    required=False,
+    default=False,
+    const=True,
+    type=argStringToBool ,
+    help="""
+        boolean specifying that, in the absence of an explicit debugpypath, we should attempt to
+        automatically find the path to the debugpy module maintained by vscode, and should use
+        that debugpy module.
+    """
+)
 
 parser.add_argument('--debug_port',
     dest='debug_port',
@@ -125,7 +142,8 @@ parser.add_argument('--prefix_of_submodule_not_to_be_reloaded',
 )
 
 
-# I ahve copied the locatePythonToolFolder() function from  C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\vscode\pre-run.py
+# I have copied the locatePythonToolFolder() function from
+# C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\vscode\pre-run.py
 """
 figure out the ms-python install location for PTVSD library
 """
@@ -173,9 +191,20 @@ def locatePythonToolFolder():
 
 args, unknownArgs = parser.parse_known_args()
 
-if(args.debug):
+if args.debug:
     # normalize args.debugpy_path
-    args.debugpy_path = str(pathlib.Path( args.debugpy_path or locatePythonToolFolder() ).resolve())
+    if args.debugpy_path:
+        debugpy_path = args.debugpy_path
+    elif args.use_vscode_debugpy:
+        debugpy_path = locatePythonToolFolder()
+        if not debugpy_path:
+            print("failed to find the path of vscode's debugpy package.")    
+            exit(-1)
+    else: 
+        print("You have requested debug, but have failed to provide either a valid debugpy_path or the use_vscode_debugpy directive.  Therefore, we cannot proceed.")    
+        exit(-2)
+    
+    debugpy_path = str(pathlib.Path( debugpy_path ).resolve())
 
 ##==========================================
 ##   ISSUE THE REQUEST: 
@@ -261,7 +290,7 @@ response = session.post(
 
                 'debugpy_path': 
                     # the path that we must add to sys.path in order to be able to succesfully call 'import debugpy'
-                    args.debugpy_path,    
+                    debugpy_path,    
 
                 'prefixes_of_submodules_not_to_be_reloaded': 
                     # the path that we must add to sys.path in order to be able to succesfully call 'import debugpy'
