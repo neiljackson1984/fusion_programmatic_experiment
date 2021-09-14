@@ -139,11 +139,32 @@ def getOwningComponent(customGraphicsGroup : adsk.fusion.CustomGraphicsGroup) ->
         returnValue = returnValue.parent
     return returnValue
 
+CustomGraphicsColorEffectLike = Union[
+        adsk.fusion.CustomGraphicsColorEffect,
+        # 3-element sequence of reals
+        # 4-element sequence of reals
+        # strings that are color names
+        # strings that are html color codes? 
+        # etc.
+        adsk.core.Color,
+        None
+    ]
+
+def castToCustomGraphicsColorEffect(x : CustomGraphicsColorEffectLike) -> adsk.fusion.CustomGraphicsColorEffect:
+    if isinstance(x, adsk.fusion.CustomGraphicsColorEffect):
+        return x
+    elif isinstance(x, adsk.core.Color):
+        return adsk.fusion.CustomGraphicsSolidColorEffect.create(x)
+    else:
+        reasonableDefaultColor = adsk.core.Color.create(red=255, green=0, blue=0, opacity=255)
+        return castToCustomGraphicsColorEffect(reasonableDefaultColor)
+
+
 def highlight(
-    # x: Union[HighlightableThing, Iterable[HighlightableThing]],
     *args : Union[HighlightableThing, Iterable[HighlightableThing]],
-    _customGraphicsGroupToReceiveTheCustomGraphics : Optional[adsk.fusion.CustomGraphicsGroup] = None,
-    _fallbackComponentToReceiveTheCustomGraphics : Optional[adsk.fusion.Component] = None
+    customGraphicsGroupToReceiveTheCustomGraphics : Optional[adsk.fusion.CustomGraphicsGroup] = None,
+    fallbackComponentToReceiveTheCustomGraphics : Optional[adsk.fusion.Component] = None,
+    customGraphicsColorEffect : Optional[adsk.fusion.CustomGraphicsColorEffect] = None
     ):
 
     """ The highlight will consist of custom graphics entities.  Custom graphics
@@ -178,9 +199,9 @@ def highlight(
         exist).
      """
 
-    if _fallbackComponentToReceiveTheCustomGraphics is None:
-        _fallbackComponentToReceiveTheCustomGraphics = adsk.fusion.Design.cast(adsk.core.Application.cast(adsk.core.Application.get()).activeProduct).rootComponent
+    if customGraphicsColorEffect is None: customGraphicsColorEffect = castToCustomGraphicsColorEffect(None)
 
+    preferredWeight = 3
 
     highlightableThing : HighlightableThing
     for arg in args:
@@ -188,51 +209,113 @@ def highlight(
             # this is not quite the test I want, because
             # because we could conceivably have some object (maybe) that is both a HighlightableThing and Iterable,
             # in which case I would want to first attempt to treat it as a HighlightableThing.
-            for highlightableThing in arg: highlight(highlightableThing, _customGraphicsGroupToReceiveTheCustomGraphics=_customGraphicsGroupToReceiveTheCustomGraphics, _fallbackComponentToReceiveTheCustomGraphics=_fallbackComponentToReceiveTheCustomGraphics)
+            for highlightableThing in arg: highlight(highlightableThing, customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics, fallbackComponentToReceiveTheCustomGraphics=fallbackComponentToReceiveTheCustomGraphics)
             continue
+        
+        
         highlightableThing : HighlightableThing = arg
 
-        preferredWeight = 3
-        preferredColor : adsk.core.Color = adsk.core.Color.create(red=255, green=0, blue=0, opacity=255)
-        preferredCustomGraphicsColorEffect : adsk.fusion.CustomGraphicsColorEffect = adsk.fusion.CustomGraphicsSolidColorEffect.create(preferredColor)
+        # all requests to highlight something ultimately are fulfilled by
+        # calling one of the following methods of
+        # customGraphicsGroupToReceiveTheCustomGraphics: 
+        # - addBRepBody
+        # - addPointSet 
+        # - addCurve
+        #
+        # Thus, BRepBody and Curve are the only types of input objects for which
+        # the highlighting is simply a matter of passing the input object to the
+        # appropriate add... method of
+        # customGraphicsGroupToReceiveTheCustomGraphics.  (A PointSet is, at
+        # least in our application, not a thing that we ever have and want to
+        # highlight -- it is only an instrument used during highlighting.) In
+        # all other cases, we have to construct a BRepBody or Curve or PointSet
+        # by hook or crook.
+        #
+        # Of all of our highlightable types, the only ones from which we can
+        # possibly hope to extract any hint about which component the custom
+        # graphics ought to be placed (which we need to do if the user has not
+        # given us a _customGraphicsGroupToReceiveTheCustomGraphics or
+        # _fallbackComponentToReceiveTheCustomGraphics) are BRepEdge, BRepFace,
+        # BRepBody, and adsk.fusion.Occurrence.
+        
 
-        if   isinstance(highlightableThing, adsk.fusion.Occurrence  ):
-            occurrence : adsk.fusion.Occurrence = highlightableThing
-            #not yet supported
-            print( "highlighting a adsk.fusion.Occurrence is not yet supported." )
-            return  
-        elif isinstance(highlightableThing, adsk.fusion.BRepBody    ):
-            bRepBody : adsk.fusion.BRepBody = highlightableThing
-            if _customGraphicsGroupToReceiveTheCustomGraphics is not None:
-                customGraphicsGroupToReceiveTheCustomGraphics = _customGraphicsGroupToReceiveTheCustomGraphics
-            else:
-                #figure out which component we want to add custom graphics to
-                componentToReceiveTheCustomGraphics : adsk.fusion.Component = (
-                    (bRepBody.assemblyContext and bRepBody.assemblyContext.sourceComponent)
-                    or bRepBody.parentComponent
-                    or _fallbackComponentToReceiveTheCustomGraphics
+        
+
+        # attempt to find an appropriate customGraphicsGroupToReceiveTheCustomGraphics
+        _customGraphicsGroupToReceiveTheCustomGraphics = customGraphicsGroupToReceiveTheCustomGraphics
+        # the underscore-prefixed customgRaphicsGroup... is specific to this pass through the loop,
+        # whereas the non-underscore version is overall for the whole loop.
+        if _customGraphicsGroupToReceiveTheCustomGraphics is None:
+            # in this case, the caller has neglected to explicitly specify a customGraphicsGroup,
+            # so we need to get creative.
+            #
+            # The general strategy here is to make a reasonable choice about which component we want
+            # to place the custom graphics in, and then create a new (or maybe reuse an existing?) custom graphics
+            # group within that component.
+            componentToReceiveTheCustomGraphics = None
+
+            # First, we inspect the highlightableThing itself to see if it
+            # offers any clues about which component to use.  Of all of our
+            # highlightable types, the only ones from which we can possibly hope
+            # to extract any hint about which component the custom graphics
+            # ought to be placed are BRepEdge, BRepFace, BRepBody, and
+            # adsk.fusion.Occurrence.
+            if isinstance(highlightableThing, (adsk.fusion.BRepEdge, adsk.fusion.BRepFace, adsk.fusion.BRepBody)):
+                hintBody : adsk.fusion.BRepBody = (
+                    highlightableThing 
+                    if isinstance(highlightableThing, adsk.fusion.BRepBody)
+                    else highlightableThing.body
                 )
-                
-                if componentToReceiveTheCustomGraphics is None:
-                    #this is an error. we were unable to figure out a component in which to place the custom graphics, so we cannot proceed.
-                    print("while attempting to highlight a adsk.fusion.BRepBody, we are unable to determine which component in which to place the custom graphics, and therefore cannot proceed with the highlighting of this thing.")
-                    return
-                
-                # retrieve, or create, the customGraphicsGroup within componentToReceiveCustomGraphics.customGraphicsGroups (possibly a sub... group) to which we will add the customGraphicsEntity
-                # should we add a new customGraphicsGroup for each edge to be highlighted? probably not.  However, for simplicity of the code, I will, at the moment, adopt this strategy.
-                # should we simply use the first customGraphicsGroup in componentToReceiveCustomGraphics.customGraphicsGroups (creating it if it does not exist)
-                # should we have one special customGraphicsGroup in each component that is dedicated to containing our custom graphics highlighting entities?  Something along these lines is probably the correct answer, but 
-                # I will defer implementing such a system for now (mainly because it would be a bit of work to figure out how to keep track of and retrieve/create the special custom graphics group.
-                # I do not understand how graphics groups are meant to be used.  Presumably, the intent is to set up some sort of cascading inheritance structure for graphical properties, so 
-                # that properties assigned to a group will become the defaults for all then members of the group.
-                customGraphicsGroupToReceiveTheCustomGraphics = componentToReceiveTheCustomGraphics.customGraphicsGroups.add()
+                componentToReceiveTheCustomGraphics : Optional[adsk.fusion.Component] = (
+                    (hintBody.assemblyContext and hintBody.assemblyContext.sourceComponent)
+                    or hintBody.parentComponent
+                    or None
+                )
+                # we look at hintBody.assemblyContext 
+                # in order to sensibly handle the case of nested components.            
+            if componentToReceiveTheCustomGraphics is None: 
+                componentToReceiveTheCustomGraphics = fallbackComponentToReceiveTheCustomGraphics
+            if componentToReceiveTheCustomGraphics is None: 
+                componentToReceiveTheCustomGraphics = adsk.fusion.Design.cast(adsk.core.Application.cast(adsk.core.Application.get()).activeProduct).rootComponent
+
+            if componentToReceiveTheCustomGraphics is None:
+                # in this case, we have failed to identify a suitable component and can proceed no further.
+                print("failed to identify a suitable componentToReceiveTheCustomGraphics, therefore giving up on trying to highlight this thing of type " + str(type(highlightableThing)) + ".")
+                continue
             
-            
-            #mainly for debugging, let's give bodies a different color from curves:
-            preferredColor  = adsk.core.Color.create(red=255, green=0, blue=0, opacity=100)
-            
+            # if execution gets here, we are guaranteed to have a
+            # componentToReceiveTheCustomGraphics retrieve, or create, the
+            # customGraphicsGroup within
+            # componentToReceiveCustomGraphics.customGraphicsGroups (possibly a
+            # sub... group) to which we will add the customGraphicsEntity should
+            # we add a new customGraphicsGroup for each thing to be highlighted?
+            # probably not.  However, for simplicity of the code, I will, at the
+            # moment, adopt this strategy. should we simply use the first
+            # customGraphicsGroup in
+            # componentToReceiveCustomGraphics.customGraphicsGroups (creating it
+            # if it does not exist) should we have one special
+            # customGraphicsGroup in each component that is dedicated to
+            # containing our custom graphics highlighting entities?  Something
+            # along these lines is probably the correct answer, but I will defer
+            # implementing such a system for now (mainly because it would be a
+            # bit of work to figure out how to keep track of and retrieve/create
+            # the special custom graphics group. I do not understand how
+            # graphics groups are meant to be used.  Presumably, the intent is
+            # to set up some sort of cascading inheritance structure for
+            # graphical properties, so that properties assigned to a group will
+            # become the defaults for all the members of the group, including subgroups.
+            _customGraphicsGroupToReceiveTheCustomGraphics = componentToReceiveTheCustomGraphics.customGraphicsGroups.add()
+            if _customGraphicsGroupToReceiveTheCustomGraphics is None:
+                print("failed to identify a suitable customGraphicsGroupToReceiveTheCustomGraphics, therefore giving up on trying to highlight this thing of type " + str(type(highlightableThing)) + ".")
+                continue
+
+        # if execution reaches this point, we are guaranteed to have a _customGraphicsGroupToReceiveTheCustomGraphics
+
+        
+        if   isinstance(highlightableThing, adsk.fusion.BRepBody    ):
+            bRepBody : adsk.fusion.BRepBody = highlightableThing
             if True:
-                preferredCustomGraphicsColorEffect : adsk.fusion.CustomGraphicsColorEffect = adsk.fusion.CustomGraphicsSolidColorEffect.create(preferredColor)
+                pass
             else:
                 appearances = getOwningComponent(customGraphicsGroupToReceiveTheCustomGraphics).parentDesign.appearances
                 appearance : adsk.core.Appearance = appearances.addByCopy(appearanceToCopy=appearances[0], name='fred-'+str(uuid.uuid4()))
@@ -256,48 +339,13 @@ def highlight(
                             preferredColor
                             for color in appearanceProperty.values
                         )
-                preferredCustomGraphicsColorEffect : adsk.fusion.CustomGraphicsColorEffect = adsk.fusion.CustomGraphicsAppearanceColorEffect.create(appearance)
+                customGraphicsColorEffect : adsk.fusion.CustomGraphicsColorEffect = adsk.fusion.CustomGraphicsAppearanceColorEffect.create(appearance)
             
-            customGraphicsGroupToReceiveTheCustomGraphics.color=preferredCustomGraphicsColorEffect
-            customGraphicsBRepBody : Optional[adsk.fusion.CustomGraphicsBRepBody] = customGraphicsGroupToReceiveTheCustomGraphics.addBRepBody(bRepBody) 
-            customGraphicsBRepBody.color=preferredCustomGraphicsColorEffect
-            
-        elif isinstance(highlightableThing, fscad.BRepEntity        ):
-            bRepEntity : fscad.BRepEntity = highlightableThing
-            # pylance seems to be smart enough not to need the above line for type inference, but I want it for my own sanity.
-            highlight(bRepEntity.brep, 
-                _customGraphicsGroupToReceiveTheCustomGraphics=_customGraphicsGroupToReceiveTheCustomGraphics, 
-                _fallbackComponentToReceiveTheCustomGraphics=_fallbackComponentToReceiveTheCustomGraphics
-            )
+            _customGraphicsGroupToReceiveTheCustomGraphics.color=customGraphicsColorEffect
+            customGraphicsBRepBody : Optional[adsk.fusion.CustomGraphicsBRepBody] = _customGraphicsGroupToReceiveTheCustomGraphics.addBRepBody(bRepBody) 
+            customGraphicsBRepBody.color=customGraphicsColorEffect            
         elif isinstance(highlightableThing, adsk.fusion.BRepEdge    ):
             bRepEdge : adsk.fusion.BRepEdge = highlightableThing
-            # is there any benefit to doing adsk.fusion.BRepEdge.cast()?
-            # entity = adsk.fusion.BRepEdge.cast(entity)
-            # pylance seems to be smart enough not to need the above line for type inference.  I am not sure if there would be any other advantage to doing a adsk.fusion.BRepEdge.cast()
-            if _customGraphicsGroupToReceiveTheCustomGraphics is not None:
-                customGraphicsGroupToReceiveTheCustomGraphics = _customGraphicsGroupToReceiveTheCustomGraphics
-            else:
-                #figure out which component we want to add custom graphics to
-                componentToReceiveTheCustomGraphics : adsk.fusion.Component = (
-                    (bRepEdge.body.assemblyContext and bRepEdge.body.assemblyContext.sourceComponent)
-                    or bRepEdge.body.parentComponent
-                    or _fallbackComponentToReceiveTheCustomGraphics
-                )
-                
-                if componentToReceiveTheCustomGraphics is None:
-                    #this is an error. we were unable to figure out a component in which to place the custom graphics, so we cannot proceed.
-                    print("while attempting to highlight a adsk.fusion.BRepEdge, we are unable to determine which component in which to place the custom graphics, and therefore cannot proceed with the highlighting of this thing.")
-                    return
-                
-                # retrieve, or create, the customGraphicsGroup within componentToReceiveCustomGraphics.customGraphicsGroups (possibly a sub... group) to which we will add the customGraphicsEntity
-                # should we add a new customGraphicsGroup for each edge to be highlighted? probably not.  However, for simplicity of the code, I will, at the moment, adopt this strategy.
-                # should we simply use the first customGraphicsGroup in componentToReceiveCustomGraphics.customGraphicsGroups (creating it if it does not exist)
-                # should we have one special customGraphicsGroup in each component that is dedicated to containing our custom graphics highlighting entities?  Something along these lines is probably the correct answer, but 
-                # I will defer implementing such a system for now (mainly because it would be a bit of work to figure out how to keep track of and retrieve/create the special custom graphics group.
-                # I do not understand how graphics groups are meant to be used.  Presumably, the intent is to set up some sort of cascading inheritance structure for graphical properties, so 
-                # that properties assigned to a group will become the defaults for all then members of the group.
-                customGraphicsGroupToReceiveTheCustomGraphics = componentToReceiveTheCustomGraphics.customGraphicsGroups.add()
-
             # bRepBody = makeFusionBRepBodyFromFusionBRepEntity(bRepEdge)
             # if not bRepBody:
             #     print(
@@ -306,28 +354,13 @@ def highlight(
             #     return
             # highlight(bRepBody, _customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics, _fallbackComponentToReceiveTheCustomGraphics=_fallbackComponentToReceiveTheCustomGraphics)
             # as expected, the above does not work because of Fusion's hangups about wire bodies.
-
-            highlight(bRepEdge.geometry, _customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics, _fallbackComponentToReceiveTheCustomGraphics=_fallbackComponentToReceiveTheCustomGraphics)
-
+            highlight(
+                bRepEdge.geometry, 
+                customGraphicsGroupToReceiveTheCustomGraphics=_customGraphicsGroupToReceiveTheCustomGraphics, 
+            )
         elif isinstance(highlightableThing, adsk.fusion.BRepFace    ):
             bRepFace : adsk.fusion.BRepFace = highlightableThing
             # come up with customGraphicsGroupToReceiveTheCustomGraphics
-            if _customGraphicsGroupToReceiveTheCustomGraphics is not None:
-                customGraphicsGroupToReceiveTheCustomGraphics = _customGraphicsGroupToReceiveTheCustomGraphics
-            else:
-                #figure out which component we want to add custom graphics to
-                componentToReceiveTheCustomGraphics : adsk.fusion.Component = (
-                    (bRepFace.body.assemblyContext and bRepFace.body.assemblyContext.sourceComponent)
-                    or bRepFace.body.parentComponent
-                    or _fallbackComponentToReceiveTheCustomGraphics
-                )
-                
-                if componentToReceiveTheCustomGraphics is None:
-                    #this is an error. we were unable to figure out a component in which to place the custom graphics, so we cannot proceed.
-                    print("while attempting to highlight an adsk.fusion.BRepFace, we are unable to determine which component in which to place the custom graphics, and therefore cannot proceed with the highlighting of this thing.")
-                    return
-                
-                customGraphicsGroupToReceiveTheCustomGraphics = componentToReceiveTheCustomGraphics.customGraphicsGroups.add()
 
             # highlight(bRepFace.geometry, _customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics, _fallbackComponentToReceiveTheCustomGraphics=_fallbackComponentToReceiveTheCustomGraphics)
             bRepBody = makeFusionBRepBodyFromFusionBRepEntity(bRepFace)
@@ -336,38 +369,40 @@ def highlight(
                 print(
                     "While attempting to highlight a adsk.fusion.BRepFace, we were unable to create a BRepBody to serve as a custom graphics entity.  " 
                 )
-                return
+                continue
 
-            highlight(bRepBody, _customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics, _fallbackComponentToReceiveTheCustomGraphics=_fallbackComponentToReceiveTheCustomGraphics)
-
-
+            highlight(
+                bRepBody, 
+                customGraphicsGroupToReceiveTheCustomGraphics=_customGraphicsGroupToReceiveTheCustomGraphics
+            )
+        elif isinstance(highlightableThing, adsk.fusion.Occurrence  ):
+            occurrence : adsk.fusion.Occurrence = highlightableThing
+            #not yet supported
+            print( "highlighting a adsk.fusion.Occurrence is not yet supported." )
+            continue  
+        elif isinstance(highlightableThing, fscad.BRepEntity        ):
+            bRepEntity : fscad.BRepEntity = highlightableThing
+            # pylance seems to be smart enough not to need the above line for type inference, but I want it for my own sanity.
+            highlight(
+                bRepEntity.brep, 
+                customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics, 
+            )
+        elif isinstance(highlightableThing, fscad.Component         ):
+            fscadComponent : fscad.Component = highlightableThing
+            highlight(
+                fscadComponent.bodies, 
+                customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics
+            )
         elif isinstance(highlightableThing, adsk.core.Curve3D       ):
             curve3D : adsk.core.Curve3D = highlightableThing
-            if _customGraphicsGroupToReceiveTheCustomGraphics is not None:
-                customGraphicsGroupToReceiveTheCustomGraphics = _customGraphicsGroupToReceiveTheCustomGraphics
-            elif _fallbackComponentToReceiveTheCustomGraphics is not None:
-                componentToReceiveTheCustomGraphics : adsk.fusion.Component = _fallbackComponentToReceiveTheCustomGraphics
-                customGraphicsGroupToReceiveTheCustomGraphics = componentToReceiveTheCustomGraphics.customGraphicsGroups.add()
-            else:
-                print("while attempting to highlight an adsk.core.Curve3D, we are unable to determine which component in which to place the custom graphics, and therefore cannot proceed with the highlighting of this thing.")
-                # this is an error, we cannot figure out which component to place the custom graphics entities, so we cannot proceed.
-                return
-            customGraphicsCurve : Optional[adsk.fusion.CustomGraphicsCurve] = customGraphicsGroupToReceiveTheCustomGraphics.addCurve(curve3D) 
+            customGraphicsCurve : Optional[adsk.fusion.CustomGraphicsCurve] = _customGraphicsGroupToReceiveTheCustomGraphics.addCurve(curve3D) 
             customGraphicsCurve.weight=preferredWeight
-            customGraphicsCurve.color=preferredCustomGraphicsColorEffect
-        elif isinstance(highlightableThing, adsk.core.Point3D      ):
+            customGraphicsCurve.color=customGraphicsColorEffect
+        elif isinstance(highlightableThing, adsk.core.Point3D       ):
             point3D : adsk.core.Point3D = highlightableThing
-            if _customGraphicsGroupToReceiveTheCustomGraphics is not None:
-                customGraphicsGroupToReceiveTheCustomGraphics = _customGraphicsGroupToReceiveTheCustomGraphics
-            elif _fallbackComponentToReceiveTheCustomGraphics is not None:
-                componentToReceiveTheCustomGraphics : adsk.fusion.Component = _fallbackComponentToReceiveTheCustomGraphics
-                customGraphicsGroupToReceiveTheCustomGraphics = componentToReceiveTheCustomGraphics.customGraphicsGroups.add()
-            else:
-                print("while attempting to highlight an adsk.core.Point3D, we are unable to determine which component in which to place the custom graphics, and therefore cannot proceed with the highlighting of this thing.")
-                # this is an error, we cannot figure out which component to place the custom graphics entities, so we cannot proceed.
-                return
-            
+
             coordinates : adsk.fusion.CustomGraphicsCoordinates = adsk.fusion.CustomGraphicsCoordinates.create(point3D.asArray())
+            preferredColor = adsk.core.Color.create(red=255, green=0, blue=0, opacity=255)
             coordinates.setColor(0,preferredColor)
             # coordinates.setCoordinate(0,point3D)
             # customGraphicsPointSet : Optional[adsk.fusion.CustomGraphicsPointSet] = customGraphicsGroupToReceiveTheCustomGraphics.addPointSet(
@@ -383,59 +418,16 @@ def highlight(
             #using an image file as the point icon is quite a hack.  It might be
             # better to do a sphere as brep bodies, and to use some of the scaling features built into
             # the custom graphics system so as to scale the sphere relative to the screen rather than relative to the model.
-            customGraphicsPointSet : Optional[adsk.fusion.CustomGraphicsPointSet] = customGraphicsGroupToReceiveTheCustomGraphics.addPointSet(
+            customGraphicsPointSet : Optional[adsk.fusion.CustomGraphicsPointSet] = _customGraphicsGroupToReceiveTheCustomGraphics.addPointSet(
                 coordinates=coordinates,
                 indexList=[],
                 pointType= adsk.fusion.CustomGraphicsPointTypes.UserDefinedCustomGraphicsPointType ,
                 pointImage=pathOfPointImageFile
             )
-            customGraphicsPointSet.color = preferredCustomGraphicsColorEffect
-
-        elif isinstance(highlightableThing, adsk.core.Surface       ): #NOT REALLY SUPPORTED, OR MEANINGFUL
-            # it probably does not make sense to highlight a surface, because a
-            # surface is unbounded (or not explicitly bounded) geometry. the
-            # below technique will fail consistently because, at the moment, I
-            # have not done anything to construct a useful set of loops for the
-            # face.  adsk.core.  Surface  really should be not be considered a HighlightableThing.
-            # This code dealing with Surface is left over from a time when I was under the false
-            # impression that a surface was something like a face.
-            
-            surface : adsk.core.Surface = highlightableThing
-            temporaryBRepManager : adsk.fusion.TemporaryBRepManager = adsk.fusion.TemporaryBRepManager.get()
-            bRepBodyDefinition : adsk.fusion.BRepBodyDefinition = adsk.fusion.BRepBodyDefinition.create()
-            brepLumpDefinition = bRepBodyDefinition.lumpDefinitions.add()
-            brepShellDefinition = brepLumpDefinition.shellDefinitions.add()
-            brepFaceDefinition = brepShellDefinition.faceDefinitions.add(surfaceGeometry=surface, isParamReversed=False)
-
-            bRepBody = bRepBodyDefinition.createBody()
-
-            if not bRepBody:
-                print(
-                    "While attempting to highlight a adsk.core.Surface, we were unable to create a BRepBody to serve as a custom graphics entity.  " 
-                    +  'bRepBodyDefinition.outcomeInfo: ' + "\n" + "\n".join(bRepBodyDefinition.outcomeInfo)
-                )
-                return
-
-            # bRepBody = temporaryBRepManager.
-            if _customGraphicsGroupToReceiveTheCustomGraphics is not None:
-                customGraphicsGroupToReceiveTheCustomGraphics = _customGraphicsGroupToReceiveTheCustomGraphics
-            elif _fallbackComponentToReceiveTheCustomGraphics is not None:
-                componentToReceiveTheCustomGraphics : adsk.fusion.Component = _fallbackComponentToReceiveTheCustomGraphics
-                customGraphicsGroupToReceiveTheCustomGraphics = componentToReceiveTheCustomGraphics.customGraphicsGroups.add()
-            else:
-                print("while attempting to highlight an adsk.core.Surface, we are unable to determine which component in which to place the custom graphics, and therefore cannot proceed with the highlighting of this thing.")
-                # this is an error, we cannot figure out which component to place the custom graphics entities, so we cannot proceed.
-                return
-
-            customGraphicsBRepBody : Optional[adsk.fusion.CustomGraphicsBRepBody] = customGraphicsGroupToReceiveTheCustomGraphics.addBRepBody(bRepBody) 
-            customGraphicsBRepBody.color=preferredCustomGraphicsColorEffect
-        elif isinstance(highlightableThing, fscad.Component    ):
-            fscadComponent : fscad.Component = highlightableThing
-            highlight(fscadComponent.bodies, _customGraphicsGroupToReceiveTheCustomGraphics=_customGraphicsGroupToReceiveTheCustomGraphics, _fallbackComponentToReceiveTheCustomGraphics=_fallbackComponentToReceiveTheCustomGraphics)
-
+            customGraphicsPointSet.color = customGraphicsColorEffect
         else:
             print("We do not know how to highlight a " + str(type(highlightableThing)))
-            
+            continue
             #this is a type error
 
 #region DEPRECATED_HIGHLIGHTING
@@ -454,7 +446,7 @@ def highlight(
 
 #     preferredWeight=3
 #     preferredColor = adsk.core.Color.create(red=255, green=0, blue=0, opacity=255)
-#     preferredCustomGraphicsColorEffect : adsk.fusion.CustomGraphicsColorEffect = adsk.fusion.CustomGraphicsSolidColorEffect.create(preferredColor)
+#     customGraphicsColorEffect : adsk.fusion.CustomGraphicsColorEffect = adsk.fusion.CustomGraphicsSolidColorEffect.create(preferredColor)
 
 #     # if doSketchBasedHighlight:
 #     #     edgeHighlightingSketch : Optional[adsk.fusion.Sketch] = mainOccurrence.component.sketches.add(mainOccurrence.component.xYConstructionPlane)
@@ -522,17 +514,17 @@ def highlight(
 #     if doCustomGraphicsCurveBasedHighlight:
 #         customGraphicsGroup = rootComponent.customGraphicsGroups.add()
 
-#         # customGraphicsGroup.color = preferredCustomGraphicsColorEffect
+#         # customGraphicsGroup.color = customGraphicsColorEffect
 #         # the color property of the customGraphicsGroup appears to have no effect on the displayed color of the graphics entities within the group,
 #         # regardless of whether we set the group's color property before or after adding the entities to it.
-#         # This is true at least in my case, where preferredCustomGraphicsColorEffect is a CustomGraphicsSolidColorEffect 
+#         # This is true at least in my case, where customGraphicsColorEffect is a CustomGraphicsSolidColorEffect 
 #         # and where the entities in the custom graphics group are CustomGraphicsCurve objects.
 #         # In order to achieve the desired display color, we must assign the color directly to the leaf entities.
 
 #         customGraphicsCurves : Sequence[ Optional[adsk.fusion.CustomGraphicsCurve] ] = ( customGraphicsGroup.addCurve(curve) for curve in curvesToHighlight )
 #         for customGraphicsCurve in customGraphicsCurves:
 #             customGraphicsCurve.weight=preferredWeight
-#             customGraphicsCurve.color=preferredCustomGraphicsColorEffect
+#             customGraphicsCurve.color=customGraphicsColorEffect
 #         # app().activeViewport.refresh() # this does not appear to have any effect, nor to be necessary
 
 #     # do the custom graphics groups have to go in the root component?  I am thinking that if we put a custom grpahics group in a child component, then 
