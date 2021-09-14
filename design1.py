@@ -477,7 +477,7 @@ def run(context:dict):
         mm = bit_holder.millimeter
         g = bit_holder.Galley(
                 fontName=("Times New Roman","Arial"),
-                text="A",
+                text="Ab",
                 width = 40*mm,
                 height = 60*mm,
                 rowSpacing = 1.5,
@@ -489,13 +489,18 @@ def run(context:dict):
                 rightMargin=5*mm,
                 topMargin=5*mm,
                 bottomMargin=5*mm
-            ).translate(0,0)
+            ).translate(2.9,3.9)
         o=g.create_occurrence()
         o.isLightBulbOn = False
         highlight(g)
         # highlight(g.extentBox.translate(tz=-2))
-        # g.extentBox.translate(tz=-2).create_occurrence()
-        # g.marginBox.translate(tz=-1).create_occurrence()
+        # highlight(adsk.core.Point3D.create(0.5,0.3,0))
+        
+        # p = adsk.core.Point3D.create(0, 0, 0); p.transformBy(g.world_transform()); highlight(p)
+        highlight(g.world_transform().getAsCoordinateSystem()[0])
+
+        g.extentBox.translate(tz=-2).create_occurrence()
+        g.marginBox.translate(tz=-1).create_occurrence()
 
         appearances = o.component.parentDesign.appearances
         appearance : adsk.core.Appearance = appearances.addByCopy(appearanceToCopy=appearances[0], name='george-'+str(uuid.uuid4()))
@@ -559,6 +564,35 @@ def run(context:dict):
 
         # fscadComponent = bitHolderSegment.build()
         # fscadComponent.create_occurrence()
+
+        a : adsk.core.Point2D = adsk.core.Point2D.create(11,22)
+        b : adsk.core.Point3D = adsk.core.Point3D.create(11,22,33)
+        aa : adsk.core.Point3D = adsk.core.Point3D.cast(a)
+        bb : adsk.core.Point2D = adsk.core.Point2D.cast(b)
+
+        print('a.asArray(): ' + str(a.asArray()))
+        print('b.asArray(): ' + str(b.asArray()))
+        
+        print('aa is None: ' + str(aa is None))
+        print('aa and aa.asArray(): ' + str(aa and aa.asArray()))
+        print('bb is None: ' + str(bb is None))
+        print('bb and bb.asArray(): ' + str(bb and bb.asArray()))
+
+
+        p2 : adsk.core.Point2D = adsk.core.Point2D.create(11,22)
+        p3 : adsk.core.Point3D = adsk.core.Point3D.create(11,22,33)
+        v2 : adsk.core.Vector2D = adsk.core.Vector2D.create(11,22)
+        v3 : adsk.core.Vector3D = adsk.core.Vector3D.create(11,22,33)
+
+        # x=adsk.core.Point3D = adsk.core.Point3D.cast(tuple(11,22,33))
+        # x=adsk.core.Point3D = adsk.core.Point3D.cast(v3) running either of the
+        # above two cast statement once causes the python interpreter to
+        # subsequently not recognize adsk.core.Point3D as a type. Very weird.
+        
+        # print('x and x.asArray(): ' + str(x and x.asArray()))
+        
+
+
 
     fscad.run_design(design_func=design2, message_box_on_error=False)
 

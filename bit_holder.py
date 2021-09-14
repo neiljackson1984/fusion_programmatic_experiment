@@ -643,19 +643,24 @@ class BitHolderSegment (fscad.BRepComponent)  :
         # ]
 
 
-        a = adsk.core.Point2D.create(11,22)
-        b = adsk.core.Point3D.cast(a)
 
-        # myGalley = Galley()
-        # myGalley.fontName = self.labelFontName
-        # myGalley.rowSpacing = 1.3
-        # myGalley.rowHeight = self.labelFontHeight
-        # myGalley.text = self.labelText
-        # myGalley.horizontalAlignment = HorizontalAlignment.CENTER
-        # myGalley.verticalAlignment = VerticalAlignment.TOP
-        # myGalley.clipping = True
-        # myGalley.width = self.labelExtentX
-        # myGalley.height = self.labelExtentZ
+
+        myGalley = Galley(
+            fontName=self.labelFontName,
+            text=self.labelText,
+            width = self.labelExtentX,
+            height = self.labelExtentZ,
+            rowSpacing = 1.3,
+            rowHeight =  self.labelFontHeight,
+            horizontalAlignment = HorizontalAlignment.CENTER,
+            verticalAlignment = VerticalAlignment.TOP,
+            clipping=True,
+            leftMargin=zeroLength,
+            rightMargin=zeroLength,
+            topMargin=zeroLength,
+            bottomMargin=zeroLength
+        )
+
         # myGalley.anchor = GalleyAnchor_e.CENTER
 
         # # myGalley.worldPlane = 
