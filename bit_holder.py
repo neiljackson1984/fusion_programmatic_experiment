@@ -73,32 +73,64 @@ class Socket (Bit):
     #TODO: fill in the details
 
 class BitHolderSegment (fscad.BRepComponent)  :
-    def __init__(self, name: str = None ):
-        self.bit : Bit = Bit()
-        
-        self.angleOfElevation = 45 * degree
-        self.lecternAngle = 45 * degree
-        self.lecternMarginBelowBore = 3 * millimeter
-        self.lecternMarginAboveBore = 3 * millimeter
-        self.boreDiameterAllowance = 0.8 * millimeter
-        self.mouthFilletRadius = 2*millimeter
+    def __init__(self, 
+        bit                                                : Optional[Bit]           = None,
+        bitHolder                                          : Optional['BitHolder']   = None,
+        angleOfElevation                                   : float                   = 45   * degree,
+        lecternAngle                                       : float                   = 45   * degree,
+        lecternMarginBelowBore                             : float                   = 3    * millimeter,
+        lecternMarginAboveBore                             : float                   = 3    * millimeter,
+        boreDiameterAllowance                              : float                   = 0.8  * millimeter,
+        mouthFilletRadius                                  : float                   = 2    * millimeter,
+        bitProtrusion                                      : float                   = 10.6 * millimeter,
+        labelExtentZ                                       : float                   = 12   * millimeter,
+        labelThickness                                     : float                   = 0.9  * millimeter,
+         #this is the thickness of the text (regardless of whether the text is engraved or embossed).
+                                 
+        labelZMax                                          : float                   = -1   * millimeter,
+        labelFontHeight                                    : float                   = 4.75 * millimeter,
+        labelFontName                                      : str                     = "Arial", #"NotoSans-Bold.ttf"
+        labelSculptingStrategy                             : LabelSculptingStrategy  = LabelSculptingStrategy.ENGRAVE, # labelSculptingStrategy.EMBOSS;
+        minimumAllowedExtentX                              : float                   = 12   * millimeter, 
+        # used to enforce minimum interval between bits for ease of grabbing very small bits with fingers.
+
+        minimumAllowedExtentY                              : float                   = 0    * millimeter,  
+        minimumAllowedLabelToZMinOffset                    : float                   = 0    * millimeter,  
+        minimumAllowedBoreToZMinOffset                     : float                   = 2    * millimeter, 
+        explicitLabelExtentX                               : bool                    = False,
+        doLabelRetentionLip                                : bool                    = False, 
+        directionsOfEdgesThatWeWillAddALabelRetentionLipTo : Sequence                = [xHat],
     
-        #self.bitProtrusionY = 10 * millimeter;
-        self.bitProtrusion = 10.6 * millimeter
-        self.keepInkSheets = False #not yet implemented //a flag to control whether we keep the label's ink sheet bodies after we are finished with them.  This can be useful for visualizing text.
-        self.labelExtentZ= 12 * millimeter
-        self.labelThickness= 0.9 * millimeter #this is the thickness of the text (regardless of whether the text is engraved or embossed).
-        self.labelZMax = - 1 * millimeter
-        self.labelFontHeight = 4.75 * millimeter
-        self.labelFontName = "NotoSans-Bold.ttf"
-        self.labelSculptingStrategy = LabelSculptingStrategy.ENGRAVE # labelSculptingStrategy.EMBOSS;
-        self.minimumAllowedExtentX = 12 * millimeter # used to enforce minimum interval between bits for ease of grabbing very small bits with fingers.
-        self.minimumAllowedExtentY = 0 * millimeter  
-        self.minimumAllowedLabelToZMinOffset = 0 * millimeter  
-        self.minimumAllowedBoreToZMinOffset = 2 * millimeter 
-        self.explicitLabelExtentX  = False
-        self.doLabelRetentionLip = False 
-        # This only makes sense in the case where we are using the
+        name                                               : str = None 
+    
+    
+    ):
+        self.bit                                                 : Bit         = (bit if bit is not None else Bit())
+        self.bitHolder                                           : BitHolder   = (bitHolder if bitHolder is not None else BitHolder(segments = [self]))
+        self.angleOfElevation                                    : float       = angleOfElevation
+        self.lecternAngle                                        : float       = lecternAngle
+        self.lecternMarginBelowBore                              : float       = lecternMarginBelowBore
+        self.lecternMarginAboveBore                              : float       = lecternMarginAboveBore
+        self.boreDiameterAllowance                               : float       = boreDiameterAllowance
+        self.mouthFilletRadius                                   : float       = mouthFilletRadius
+        self.bitProtrusion                                       : float       = bitProtrusion
+        self.labelExtentZ                                        : float       = labelExtentZ
+        self.labelThickness                                      : float       = labelThickness
+        self.labelZMax                                           : float       = labelZMax
+        self.labelFontHeight                                     : float       = labelFontHeight
+        self.labelFontName                                       : str         = labelFontName
+        self.labelSculptingStrategy                              : float       = labelSculptingStrategy
+        self.minimumAllowedExtentX                               : float       = minimumAllowedExtentX
+        self.minimumAllowedExtentY                               : float       = minimumAllowedExtentY
+        self.minimumAllowedLabelToZMinOffset                     : float       = minimumAllowedLabelToZMinOffset
+        self.minimumAllowedBoreToZMinOffset                      : float       = minimumAllowedBoreToZMinOffset
+        self.explicitLabelExtentX                                : bool        = explicitLabelExtentX
+        self.doLabelRetentionLip                                 : bool        = doLabelRetentionLip 
+        self.directionsOfEdgesThatWeWillAddALabelRetentionLipTo  : Sequence    = directionsOfEdgesThatWeWillAddALabelRetentionLipTo
+        
+           
+        
+        # doLabelRetentionLip only makes sense in the case where we are using the
         # "floodWithInk" label text mechanism to generate a rectangular pocket
         # (intended to hold a printed paper card).  
         # In that case, we can sweep a "retention lip" profile around (some of)
@@ -111,7 +143,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
         #     np.array((zeroLength, -0.07*millimeter))
         # ]
     
-        self.directionsOfEdgesThatWeWillAddALabelRetentionLipTo = [xHat]
+
         # we will not add a lip to all edges.  Rather, we will add a lip only to
         # edges that are parallel (possibly within some tolerance) (or
         # anti-parallel) to any of the specified directions.  (this is geared toward
@@ -141,8 +173,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
         # The origin is on the upper edge of the side-wall of the pocket.  
         # the X direction is perpendicular to that edge.  positive X points "off the
         # edge of the cliff".
-        self.bitHolder : BitHolder = BitHolder()
-        self.bitHolder.segments = [self]
+
         # as a side effect of the above, 
         # self.bitHolder will be set to dummyBitHolder.
 
@@ -210,13 +241,12 @@ class BitHolderSegment (fscad.BRepComponent)  :
             return self.extentX - 0.4 * millimeter
 
     @labelExtentX.setter   
-    #it would probably be better not to be so clever about the way to override the default-computer labelExtentX:
+    #it would probably be better not to be so clever about the way to override the default-computed labelExtentX:
     # Rather than have a setter with side effects, we should have the user deal directly with explicitLabelExtentX 
     # and a flag that controls whether the override applies.     
     def labelExtentX(self, x): 
         self.explicitLabelExtentX = x   
 
- 
     @property
     def labelText(self):
         return self.bit.preferredLabelText # "\u0298" is a unicode character that, at least in the Tinos font, consists of a circle, like an 'O', and a central isolated dot.  This character does not extrude correctly (the middle dot is missng)
@@ -661,6 +691,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
             bottomMargin=zeroLength
         )
 
+
         # myGalley.anchor = GalleyAnchor_e.CENTER
 
         # # myGalley.worldPlane = 
@@ -673,6 +704,24 @@ class BitHolderSegment (fscad.BRepComponent)  :
         # #         /* normal: */ -yHat,
         # #         /* x direction: */ xHat  
         # #     );
+
+        t = adsk.core.Matrix3D.create()
+        xAxis  = castToVector3d(xHat)
+        zAxis  = castToVector3d(-yHat)
+        yAxis = zAxis.copy().crossProduct(xAxis)
+        t.setWithCoordinateSystem(
+            origin = adsk.core.Point3D.create(self.labelXMin, self.labelYMin, self.labelZMin),
+            xAxis  = xAxis,
+            yAxis  = yAxis,
+            zAxis  = zAxis
+        )
+        myGalley.transform(t)
+
+        returnValue += [
+            fscad.brep().copy(x.brep)
+            for x in myGalley.bodies
+        ]
+
 
         # sheetBodiesInWorld = myGalley.buildSheetBodiesInWorld(context, uniqueId(context,id))
         
@@ -1094,7 +1143,6 @@ class BitHolderSegment (fscad.BRepComponent)  :
 
         return returnValue
             
-
 class MountHolesPositionZStrategy(Enum):
     # mountHolesPositionZSpecifier controls how the z position of the mount holes is determined.
     # the allowable values are 
@@ -1107,12 +1155,15 @@ class MountHolesPositionZStrategy(Enum):
     middle = enum.auto()
     explicit = enum.auto()
 
-class BitHolder :
+class BitHolder  (fscad.BRepComponent) :
     """ a BitHolder is a collection of BitHolderSegment objects along with some
     parameters that specify how the bitHolderSegments are to be welded together 
     to make a single BitHolder.     """
 
-    def __init__(self):
+    def __init__(self,
+            segments                                           : Sequence[BitHolderSegment],
+            name                                               : str = None 
+        ):
         self._segments : list[BitHolderSegment] = []
         self.mountHole : MountHole = MountHole()
         
@@ -1129,6 +1180,13 @@ class BitHolder :
         # the mountHolesInterval will be constrained to be an integer multiple of this length.
         self.mountHolesPositionZStrategy : MountHolesPositionZStrategy = MountHolesPositionZStrategy.grazeBottomOfSaddleBoreLip
         self.explicitMountHolesPositionZ  = zeroLength
+
+        # super().__init__(
+        #     *self._build(),
+        #     component = None, 
+        #     name = name
+        # )
+
 
     @property        
     def xMinMountHolePositionX(self):
@@ -1290,75 +1348,96 @@ class GalleyAnchor_e(Enum):
     BOTTOM_LEFT = enum.auto();  BOTTOM_CENTER = enum.auto();  BOTTOM_RIGHT = enum.auto();
 
 
-def castToNDArray(x) -> NDArray:
+def castToNDArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D], n: Optional[int] = None) -> NDArray:
+    #TODO: handle various ranks of NDArray rather than blindly assuming that we have been given a rank-1 array.
     if isinstance(x, np.ndarray):
-        return x
+        returnValue = x
     elif isinstance(x, adsk.core.Point3D):
-        return np.array(x.asArray())
+        returnValue =  np.array(x.asArray())
     elif isinstance(x, adsk.core.Vector3D):
-        return np.array(x.asArray())
+        returnValue =  np.array(x.asArray())
     elif isinstance(x, adsk.core.Point2D):
-        return np.array(x.asArray())
+        returnValue =  np.array(x.asArray())
     elif isinstance(x, adsk.core.Vector2D):
-        return np.array(x.asArray())
+        returnValue =  np.array(x.asArray())
     else:
-        return np.array(x)
+        returnValue =  np.array(x)
 
+    if n is not None:
+        #pad with zeros as needed to make sure we have at least n elements:
+        returnValue = np.append(
+            returnValue, 
+            (0,)*(n-len(returnValue))
+        )
+        #take the first n elements, to ensure that we end up with exactly n elements:
+        returnValue = returnValue[0:n]
+        # this cannot possibly be the most efficient way to do this, 
+        # but it has the advantage of being a fairly short line of code.
+    return returnValue
 
-def castTo3dArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Point2D]) -> NDArray: 
+def castTo3dArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D]) -> NDArray: 
     #need to figure out how to use the shape-specificatin facility that I think is part of the NDArray type alias.
-    a=castToNDArray(x)
-    return np.append(
-        a, 
-        (0,)*(3-len(a))
-    )[0:3]
-    # this cannot possibly be the most efficient way to do this, 
-    # but it has the advantage of being a fairly short line of code.
+    a=castToNDArray(x, 3)
+    # I am not sure whether what we should do with Point2D and Vector2D: should we treat them like Point3D and Vector3D that 
+    # happen to lie in the xy plane, or should we return the point in projective 3d space that they represent?
+    # for now, I am treating them like Point3D and Vector3D that happen to lie in the xy plane.
     #TODO: handle various sizes of NDArray rather than blindly assuming that we have been given a 3-array
+    return a
+
+def castTo4dArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D]) -> NDArray: 
+    #need to figure out how to use the shape-specificatin facility that I think is part of the NDArray type alias.
+    a=castToNDArray(x,4)
+    if isinstance(x, (adsk.core.Point3D, adsk.core.Point2D)):
+        a[3] = 1
 
 
-def castToPoint3d(x: Union[ndarray, adsk.core.Point3D, adsk.core.Point2D]) -> adsk.core.Point3D:
-    if isinstance(x, ndarray):
-        return adsk.core.Point3D.create(*x)
-        #TODO: handle various sizes of NDArray rather than blindly assuming that we have been given a 3-array
-    elif isinstance(x, adsk.core.Point3D):
+    return a
+
+def castToPoint3d(x: Union[adsk.core.Point3D, ndarray, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D]) -> adsk.core.Point3D:
+    if isinstance(x, adsk.core.Point3D):
         return x
-    elif isinstance(x, adsk.core.Point2D):
-        return adsk.core.Point3D.create(x.x, x.y, 0)
+    else:
+        return adsk.core.Point3D.create(*castTo3dArray(x))
 
-# class rectByCorners (fscad.Rect):
-#     # It probably makes sense to have this be a factory function that creates 
-#     # rect objects rather than a sub-type of rect.
-#     def __init__(self, *args, corner1 = vector(0,0) * meter, corner2 = vector(1,1) * meter, **kwargs):
-#         self.corner1 = castTo3dArray(corner1)
-#         self.corner2 = castTo3dArray(corner2)
-#         # set the 'x' and 'y' entries to kwargs (overriding any 'x' and 'y' that may have been passed)
 
-#         extent = abs(self.corner2 - self.corner1)
-#         minimumCorner = tuple(map(min, self.corner1, self.corner2))
-#         super().__init__(
-#             *args,
-#             **kwargs,
-#             x=extent[0],
-#             y=extent[1]
-#         )
-#         self.translate(*minimumCorner)
+def castToVector3d(x: Union[adsk.core.Point3D, ndarray, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D]) -> adsk.core.Vector3D:
+    if isinstance(x, adsk.core.Vector3D):
+        return x
+    else:
+        return adsk.core.Vector3D.create(*castTo3dArray(x))
 
-# an alternate constructor for fscad.Rect
+# we can think of adsk.core.Vector3D and adsk.core.Point3D as being special
+# cases of a 4-element sequence of reals.  Vector3D has the last element being 0
+# and Point3D has the last element being 1.  This produces the correct behavior
+# when we transform a Vector3D or a Point3D by multiplying by a 4x4 matrix on
+# the left.  Therefore, it might make sense to have a castTo4DArray that treats 
+# Vector3D and Point3D objects correctly.  
+
+# an alternate constructor for fscad.Rect:
 def rectByCorners(corner1 = vector(0,0) * meter, corner2 = vector(1,1) * meter, *args, **kwargs) -> fscad.Rect:
     corner1 = castTo3dArray(corner1)
     corner2 = castTo3dArray(corner2)
+    # print('corner1: ' + str(corner1))
+    # print('corner2: ' + str(corner2))
     # set the 'x' and 'y' entries to kwargs (overriding any 'x' and 'y' that may have been passed)
 
     extent = abs(corner2 - corner1)
     minimumCorner = tuple(map(min, corner1, corner2))
+    # minimumCorner = map(float, minimumCorner)
+    # print('minimumCorner: ' + str(minimumCorner))   
+    # print('type(minimumCorner[0]): ' + str(type(minimumCorner[0])))   
+    # v = adsk.core.Vector3D.create(minimumCorner[0], minimumCorner[1], minimumCorner[2])
+    # v = adsk.core.Vector3D.create(*minimumCorner)
 
     return fscad.Rect(
         x=extent[0],
         y=extent[1],
         *args,
         **kwargs,
-    ).translate(*minimumCorner)
+    ).translate(*map(float,minimumCorner))
+    # it is very hacky to have to cast to float above, but that
+    # is what we have to do to work around Python's lack of
+    # automatic type coercion.
 
 
 class Galley(fscad.BRepComponent):
@@ -1481,6 +1560,10 @@ class Galley(fscad.BRepComponent):
     @property
     def rowSpacings(self) -> Tuple[float]:
         return self._rowSpacings
+
+    @property
+    def midPoint(self) -> adsk.core.Point3D:
+        return adsk.core.Point3D.create(self.width/2, self.height/2, 0)
 
     def _build(self) -> Sequence[adsk.fusion.BRepBody]:
         returnValue : list[adsk.fusion.BRepBody] = []

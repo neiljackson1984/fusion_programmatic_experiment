@@ -456,7 +456,7 @@ def run(context:dict):
          adsk.fusion.Design.cast(app().activeProduct).designType = adsk.fusion.DesignTypes.DirectDesignType
      '''
 
-    def design2():
+    def design2_deprecated1():
 
         # x = bit_holder.castToNDArray(adsk.core.Point3D.create(2,3,4))
         # y = bit_holder.castTo3dArray(adsk.core.Point3D.create(2,3,4))
@@ -592,7 +592,11 @@ def run(context:dict):
         # print('x and x.asArray(): ' + str(x and x.asArray()))
         
 
+    def design2():
+        # v = adsk.core.Vector3D.create(0,0,0)
+        # v = adsk.core.Vector3D.create(False, False, False)
 
+        bit_holder.BitHolderSegment(labelSculptingStrategy=bit_holder.LabelSculptingStrategy.EMBOSS).create_occurrence()
 
     fscad.run_design(design_func=design2, message_box_on_error=False)
 
