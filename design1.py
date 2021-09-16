@@ -477,7 +477,8 @@ def run(context:dict):
         mm = bit_holder.millimeter
         g = bit_holder.Galley(
                 fontName=("Times New Roman","Arial"),
-                text="Ab",
+                # text="  sadf                                       ",
+                text="A\\floodWithInk",
                 width = 40*mm,
                 height = 60*mm,
                 rowSpacing = 1.5,
@@ -596,9 +597,17 @@ def run(context:dict):
         # v = adsk.core.Vector3D.create(0,0,0)
         # v = adsk.core.Vector3D.create(False, False, False)
 
-        bit_holder.BitHolderSegment(labelSculptingStrategy=bit_holder.LabelSculptingStrategy.EMBOSS).create_occurrence()
+        bit_holder.BitHolderSegment(
+            # labelSculptingStrategy=bit_holder.LabelSculptingStrategy.EMBOSS
+            # labelSculptingStrategy=bit_holder.LabelSculptingStrategy.ENGRAVE
+            bit=bit_holder.Bit(
+                # preferredLabelText="\\floodWithInk"
+                preferredLabelText="A"
+            )
+        ).create_occurrence()
 
     fscad.run_design(design_func=design2, message_box_on_error=False)
+
 
     print("finished creating new bolts")
     #     ScriptedComponent.updateAllScriptedComponentsInAFusionDesign(design)

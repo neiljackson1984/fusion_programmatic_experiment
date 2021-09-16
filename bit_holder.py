@@ -52,14 +52,16 @@ class LabelSculptingStrategy(Enum):
 class Bit :
     """ a bit is essentially a cylinder along with a preferredLabelText property -- for our 
     purposes, these are the only aspects of a bit that we care about."""
-    _defaultOuterDiameter = 17 * millimeter
-    _defaultLength = 25 * millimeter
-    _defaultPreferredLabelText = "DEFAULT"
 
-    def __init__(self):
-        self.outerDiameter : float = self._defaultOuterDiameter
-        self.length        : float = self._defaultLength
-        self.preferredLabelText : str = self._defaultPreferredLabelText
+
+    def __init__(self,
+        outerDiameter        : float = 17 * millimeter,
+        length               : float = 25 * millimeter,
+        preferredLabelText   : str   = "DEFAULT"
+    ):
+        self.outerDiameter      : float = outerDiameter
+        self.length             : float = length
+        self.preferredLabelText : str   = preferredLabelText
 
 class Socket (Bit):
     """ Socket is a specialized type of (i.e. inherits from) Bit. the only
@@ -67,8 +69,8 @@ class Socket (Bit):
     preferredLabelText property, and defines a couple of other properties to
     help specify preferredLabelText.
     """
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     #TODO: fill in the details
 
@@ -85,7 +87,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
         bitProtrusion                                      : float                   = 10.6 * millimeter,
         labelExtentZ                                       : float                   = 12   * millimeter,
         labelThickness                                     : float                   = 0.9  * millimeter,
-         #this is the thickness of the text (regardless of whether the text is engraved or embossed).
+        #this is the thickness of the text (regardless of whether the text is engraved or embossed).
                                  
         labelZMax                                          : float                   = -1   * millimeter,
         labelFontHeight                                    : float                   = 4.75 * millimeter,
@@ -97,7 +99,8 @@ class BitHolderSegment (fscad.BRepComponent)  :
         minimumAllowedExtentY                              : float                   = 0    * millimeter,  
         minimumAllowedLabelToZMinOffset                    : float                   = 0    * millimeter,  
         minimumAllowedBoreToZMinOffset                     : float                   = 2    * millimeter, 
-        explicitLabelExtentX                               : bool                    = False,
+        enableExplicitLabelExtentX                         : bool                    = False,
+        explicitLabelExtentX                               : float                   = 10    * millimeter,
         doLabelRetentionLip                                : bool                    = False, 
         directionsOfEdgesThatWeWillAddALabelRetentionLipTo : Sequence                = [xHat],
     
@@ -124,7 +127,8 @@ class BitHolderSegment (fscad.BRepComponent)  :
         self.minimumAllowedExtentY                               : float       = minimumAllowedExtentY
         self.minimumAllowedLabelToZMinOffset                     : float       = minimumAllowedLabelToZMinOffset
         self.minimumAllowedBoreToZMinOffset                      : float       = minimumAllowedBoreToZMinOffset
-        self.explicitLabelExtentX                                : bool        = explicitLabelExtentX
+        self.enableExplicitLabelExtentX                          : bool        = enableExplicitLabelExtentX
+        self.explicitLabelExtentX                                : float       = explicitLabelExtentX
         self.doLabelRetentionLip                                 : bool        = doLabelRetentionLip 
         self.directionsOfEdgesThatWeWillAddALabelRetentionLipTo  : Sequence    = directionsOfEdgesThatWeWillAddALabelRetentionLipTo
         
@@ -235,17 +239,17 @@ class BitHolderSegment (fscad.BRepComponent)  :
         
     @property
     def labelExtentX(self):
-        if self.explicitLabelExtentX is not False:
+        if self.enableExplicitLabelExtentX:
             return self.explicitLabelExtentX
         else:
             return self.extentX - 0.4 * millimeter
 
-    @labelExtentX.setter   
-    #it would probably be better not to be so clever about the way to override the default-computed labelExtentX:
-    # Rather than have a setter with side effects, we should have the user deal directly with explicitLabelExtentX 
-    # and a flag that controls whether the override applies.     
-    def labelExtentX(self, x): 
-        self.explicitLabelExtentX = x   
+    # @labelExtentX.setter   
+    # #it would probably be better not to be so clever about the way to override the default-computed labelExtentX:
+    # # Rather than have a setter with side effects, we should have the user deal directly with explicitLabelExtentX 
+    # # and a flag that controls whether the override applies.     
+    # def labelExtentX(self, x): 
+    #     self.explicitLabelExtentX = x   
 
     @property
     def labelText(self):
@@ -480,7 +484,8 @@ class BitHolderSegment (fscad.BRepComponent)  :
             )
         )
         # highlight(polygon)
-        mainComponent = fscad.Extrude(polygon, height=self.extentX)
+        mainPrivateComponent : fscad.Component
+        mainPrivateComponent : fscad.Component = fscad.Extrude(polygon, height=self.extentX)
         
 
         # //we now have the mainBody, which we will proceed to modify below.
@@ -559,7 +564,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
         # //debug(context, qCreatedBy(idOfSplitFace, EntityType.EDGE));
         # var edgesToFillet = qCreatedBy(idOfSplitFace, EntityType.EDGE);
         
-        boxOccurrence = mainComponent.create_occurrence()
+        boxOccurrence = mainPrivateComponent.create_occurrence()
         boxBody = boxOccurrence.bRepBodies.item(0)
         boreToolOccurrence = boreTool.create_occurrence()
         boreToolBody = boreToolOccurrence.bRepBodies.item(0)
@@ -655,11 +660,12 @@ class BitHolderSegment (fscad.BRepComponent)  :
 
         filletFeature = boxOccurrence.component.features.filletFeatures.add(filletFeatureInput)
         
+        mainPrivateComponent = fscad.BRepComponent(*boxOccurrence.bRepBodies)
 
-        returnValue += [
-            fscad.brep().copy(x)
-            for x in boxOccurrence.bRepBodies
-        ]
+        # returnValue += [
+        #     fscad.brep().copy(x)
+        #     for x in boxOccurrence.bRepBodies
+        # ]
         # it is probably somewhat inefficient to copy the bodies here, because they will just be fed into the constructor for BRepComponent, which will copy them again.
         # Ideally, I would leave the temporary boxOccurence in place until I had called the BRepComponent constructor, and then delete the temporary occurence.
 
@@ -692,6 +698,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
         )
 
 
+
         # myGalley.anchor = GalleyAnchor_e.CENTER
 
         # # myGalley.worldPlane = 
@@ -717,14 +724,15 @@ class BitHolderSegment (fscad.BRepComponent)  :
         )
         myGalley.transform(t)
 
-        returnValue += [
-            fscad.brep().copy(x.brep)
-            for x in myGalley.bodies
-        ]
+        
+        # returnValue += [
+        #     fscad.brep().copy(x.brep)
+        #     for x in myGalley.bodies
+        # ]
 
 
         # sheetBodiesInWorld = myGalley.buildSheetBodiesInWorld(context, uniqueId(context,id))
-        
+
         # var idOfLabelTool = uniqueId(context, id);
         # try
         # {
@@ -742,7 +750,41 @@ class BitHolderSegment (fscad.BRepComponent)  :
         #     );
         # }
         
-        # // sculpt (i.e. either emboss or engrave, according to self.label.sculptingStrategy) the label tool onto the main body.
+        #extrude myGalley to form labelSculptingTool
+        # labelSculptingTool = fscad.Extrude(myGalley, self.labelThickness)
+        
+
+        # in the case where len(myGalley.bodies) == 0 (which happens, for instance, when 
+        # labelText is an empty string or a string containing only whitepsace),
+        # the above fscad.Extrude operation throws an exception saying "can't extrude non-planer geometry with Extrude".
+        # I would propose modifying fscad.Extrude to be tolerant of the case of extruding an empty component.
+        # True, the empty component is not planar, but it can certainly be extruded - the result is trivial -- namely no bodies.
+        # Come on people; zero exists.
+
+        labelSculptingTool = (
+            fscad.Extrude(myGalley, -self.labelThickness)
+            # I would like to be able to specify or hint at an extrude direction, or specify
+            # start and end points, rather than relying on the vagueries of the face direction
+            # (which at least are consistent and predictable here -- actually they are not consistent
+            # the filled rectangle seems to point in a different direction from the text.).
+            # TODO, within Galley._build, ensure that the rect points up.  I suspect that, at the moment it points down.
+            # (or maybe the problem is with getAllSheetBodiesFromSketch returning faces whose normal is 
+            # pointing counter to the sketch's normal -- yes I suspect that is the problem.
+            if len(myGalley.bodies) > 0
+            else fscad.BRepComponent() # this is simply an empty component.
+        )
+
+        # returnValue += [
+        #     fscad.brep().copy(x.brep)
+        #     for x in labelSculptingTool.bodies
+        # ]
+
+        # returnValue += [
+        #     fscad.brep().copy(x.brep)
+        #     for x in myGalley.bodies
+        # ]
+
+        # // sculpt (i.e. either emboss or engrave, according to self.labelSculptingStrategy) the label tool onto the main body.
         # var idOfLabelSculpting = uniqueId(context,id);
         # try {opBoolean(context, idOfLabelSculpting,
         #     {
@@ -753,7 +795,16 @@ class BitHolderSegment (fscad.BRepComponent)  :
         #         keepTools:false
         #     }
         # );}
+
+        if self.labelSculptingStrategy == LabelSculptingStrategy.EMBOSS:
+            mainPrivateComponent = fscad.Union(mainPrivateComponent, labelSculptingTool)
+        elif self.labelSculptingStrategy == LabelSculptingStrategy.ENGRAVE:
+            mainPrivateComponent = fscad.Difference(mainPrivateComponent, labelSculptingTool)
         
+        returnValue += [
+            fscad.brep().copy(x.brep)
+            for x in mainPrivateComponent.bodies
+        ]
         # if(self.doLabelRetentionLip){
         #     //the edges that we might want to sweep along are the set of edges e such that:
         #     // 1) e was created by the labelSculpting operation 
@@ -1322,12 +1373,18 @@ class BitHolder  (fscad.BRepComponent) :
 class MountHole :
     """ a MountHole to be contained within a BitHolder.   """ 
 
-    def __init__(self):
-        self.shankClearanceDiameter = 3 * millimeter
-        self.headClearanceDiameter = 8 * millimeter
-        self.headClearanceHeight = 2.7 * millimeter
-        self.minimumAllowedClampingThickness = 1/4 * inch
-        self.clampingDiameter = 5/8 * inch
+    def __init__(self,
+        shankClearanceDiameter          : float = 3 * millimeter,
+        headClearanceDiameter           : float = 8 * millimeter,
+        headClearanceHeight             : float = 2.7 * millimeter,
+        minimumAllowedClampingThickness : float = 1/4 * inch,
+        clampingDiameter                : float = 5/8 * inch
+    ):
+        self.shankClearanceDiameter          : float = shankClearanceDiameter          
+        self.headClearanceDiameter           : float = headClearanceDiameter           
+        self.headClearanceHeight             : float = headClearanceHeight             
+        self.minimumAllowedClampingThickness : float = minimumAllowedClampingThickness 
+        self.clampingDiameter                : float = clampingDiameter                
 
 
 class HorizontalAlignment(Enum):
@@ -2046,11 +2103,37 @@ def getAllSheetBodiesFromSketch(sketch : adsk.fusion.Sketch) -> Sequence[adsk.fu
     # Besides SketchText objects and Profile objects, are there any other profile-like objects
     # that can be contained in a sketch that we should think about handling?
     for profile in itertools.chain(sketch.profiles, sketch.sketchTexts): 
+        # this extrude feature throws an exception in the case where profile is
+        # a sketchtext such that profile.text == '', or even where profile.text
+        # == ' ' (i.e. cases where the sketch text does not produce any "ink").
+        # Precisely what is wrong with extruding an empty region?  It simply
+        # yields an empty body. There's nothing ambiguous or problematic about
+        # it. This seems to me no reason for the software to get all hoo-hooed.
+        # how can we handle this situation gracefully.  Obviously, the correct
+        # outcome is to add no items to bodies on this pass through the loop.
+        # the question is not so much how to handle  the situation -- that's
+        # easy - just don't attempt the extrusion operation and don't add
+        # anything to bodies. the real question is how do we detect an "empty"
+        # (i.e. zero ink) sketch-text. options:
+        # - try the extrusion and look for exceptions.  The problem is that I am
+        #   not sure this is a very specific test (although it is sensitive).
+        # - inspect profile.boundingBox.  Unfortunately, in the case of a zero
+        #   ink sketch text, the bounding box does not have any zero dimensions
+        #   (small - 10 microns, perhaps, but not reliably zero)
+        # - inspect len(profile.asCurves() ) (winner)
+        
+        if isinstance(profile, adsk.fusion.SketchText) and len(profile.asCurves()) == 0: continue
+        
         extrudeFeature = sketch.parentComponent.features.extrudeFeatures.addSimple(
             profile= profile,
-            distance = adsk.core.ValueInput.createByReal(1),
+            distance = adsk.core.ValueInput.createByReal(-1),
+            # it is important that this be negative 1 so that the faces have normals 
+            # pointing in the same direction as the sketch's normal.
             operation = adsk.fusion.FeatureOperations.NewBodyFeatureOperation
         )
+        
+
+
         bodies += [
             fscad.brep().copy(face)
             for face in extrudeFeature.startFaces
