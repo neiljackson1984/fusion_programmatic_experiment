@@ -10,6 +10,8 @@ from .bolt import Bolt
 from .braids.fscad.src.fscad import fscad as fscad
 from .highlight import *
 import uuid
+import traceback
+import time
 
 import pathlib
 import itertools
@@ -598,16 +600,23 @@ def run(context:dict):
         # v = adsk.core.Vector3D.create(False, False, False)
 
         bit_holder.BitHolderSegment(
-            # labelSculptingStrategy=bit_holder.LabelSculptingStrategy.EMBOSS
+            # labelSculptingStrategy=bit_holder.LabelSculptingStrategy.EMBOSS,
             # labelSculptingStrategy=bit_holder.LabelSculptingStrategy.ENGRAVE
             bit=bit_holder.Bit(
-                # preferredLabelText="\\floodWithInk"
-                preferredLabelText="A"
+                preferredLabelText="\\floodWithInk"
+                # preferredLabelText="A"
             )
         ).create_occurrence()
 
-    fscad.run_design(design_func=design2, message_box_on_error=False)
+    #monkeypatching traceback with the vscode-compatible link formatting
 
+    initialTracebackStackSummaryFormatMethod = formatStackSummary
+    traceback.StackSummary.format = formatStackSummary
+
+    fscad.run_design(design_func=design2, message_box_on_error=False)
+    traceback.StackSummary.format = initialTracebackStackSummaryFormatMethod
+    # run_design(design_func=design2, message_box_on_error=False)
+    # print(traceback.format_tb(sys.last_traceback))
 
     print("finished creating new bolts")
     #     ScriptedComponent.updateAllScriptedComponentsInAFusionDesign(design)
@@ -620,3 +629,109 @@ def run(context:dict):
 def stop(context:dict):
     print(__file__ + " is stopping.")
     pass
+
+
+# #this is a near-copy of fscad.run_design() with a slightly different exception handler to
+# # format traceback reports in such a way that the file names and line numbers in the traceback report
+# # will be interpreted by vscode as links to specific lines in the file.
+# def run_design(design_func, message_box_on_error=True, print_runtime=True, document_name=None,
+#                design_args=None, design_kwargs=None):
+#     """Utility method to handle the common setup tasks for a script
+
+#     This can be used in a script like this::
+
+#         from fscad import *
+#         def run(_):
+#             run_design(_design, message_box_on_error=False, document_name=__name__)
+
+#     Args:
+#         design_func: The function that actually creates the design
+#         message_box_on_error: Set true to pop up a dialog with a stack trace if an error occurs
+#         print_runtime: If true, print the amount of time the design took to run
+#         document_name: The name of the document to create. If a document of the given name already exists, it will
+#             be forcibly closed and recreated.
+#         design_args: If provided, passed as unpacked position arguments to design_func
+#         design_kwargs: If provided, passed as unpacked named arguments to design_func
+#     """
+#     # noinspection PyBroadException
+#     try:
+#         start = time.time()
+#         if not document_name:
+#             frame = inspect.stack()[1]
+#             module = inspect.getmodule(frame[0])
+#             filename = module.__file__
+#             document_name = pathlib.Path(filename).stem
+#         fscad.setup_document(document_name)
+#         design_func(*(design_args or ()), **(design_kwargs or {}))
+#         end = time.time()
+#         if print_runtime:
+#             print("Run time: %f" % (end-start))
+#     except Exception:
+#         print(traceback.format_exc())
+#         etype, evalue, tb = sys.exc_info()
+#         stackSummary = traceback.extract_tb(tb)
+#         # print("\n".join(traceback.format_list(stackSummary)))
+#         # print("---")
+#         print("".join(formatStackSummary(stackSummary)))
+#         if message_box_on_error:
+#             ui().messageBox('Failed:\n{}'.format(traceback.format_exc()))
+
+#copied, with modification, from the python library function traceback.StackSummary::format()
+# we are tweaking the format of the file name and line number information to conform with
+# the relatively strict format (filename followed b y a colon followed by the line number) that
+# vscode must have in the debug console output in order to automatically create a link
+# to zap to the specified line number in the specified file.
+def formatStackSummary(stackSummary : traceback.StackSummary) -> Sequence[str]:
+    """Format the stack ready for printing.
+
+    Returns a list of strings ready for printing.  Each string in the
+    resulting list corresponds to a single frame from the stack.
+    Each string ends in a newline; the strings may contain internal
+    newlines as well, for those items with source text lines.
+
+    For long sequences of the same frame and line, the first few
+    repetitions are shown, followed by a summary line stating the exact
+    number of further repetitions.
+    """
+    result = []
+    last_file = None
+    last_line = None
+    last_name = None
+    count = 0
+    for frame in stackSummary:
+        if (last_file is None or last_file != frame.filename or
+            last_line is None or last_line != frame.lineno or
+            last_name is None or last_name != frame.name):
+            if count > traceback._RECURSIVE_CUTOFF:
+                count -= traceback._RECURSIVE_CUTOFF
+                result.append(
+                    f'  [Previous line repeated {count} more '
+                    f'time{"s" if count > 1 else ""}]\n'
+                )
+            last_file = frame.filename
+            last_line = frame.lineno
+            last_name = frame.name
+            count = 0
+        count += 1
+        if count > traceback._RECURSIVE_CUTOFF:
+            continue
+        row = []
+        # row.append('  File "{}", line {}, in {}\n'.format(
+        row.append('  File "{}:{}" in {}\n'.format(
+            frame.filename, frame.lineno, frame.name))
+        if frame.line:
+            row.append('    {}\n'.format(frame.line.strip()))
+        if frame.locals:
+            for name, value in sorted(frame.locals.items()):
+                row.append('    {name} = {value}\n'.format(name=name, value=value))
+        result.append(''.join(row))
+    if count > traceback._RECURSIVE_CUTOFF:
+        count -= traceback._RECURSIVE_CUTOFF
+        result.append(
+            f'  [Previous line repeated {count} more '
+            f'time{"s" if count > 1 else ""}]\n'
+        )
+    return result
+
+#monkeypatching traceback:
+traceback.StackSummary.format = formatStackSummary

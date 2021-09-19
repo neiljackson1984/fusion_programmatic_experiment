@@ -63,7 +63,11 @@
         },
         {   "label":"run_fusion",
             "type":"shell",
-            "command": "Fusion360 --nologo",
+            // "command": "Fusion360 --nologo",
+            "command": "Fusion360 --nologo --offlineStart",
+            // I would like to be a able to trun fusion in such a way that the fusion script runner addin is automatically imported.
+            // I would like to be able to run fusion in such a way that the recovery file prompt is suppressed.
+            // The --offlineStart switch seems to have no effect.
             // "isBackground": true,
             "presentation": {
                 "reveal": "silent",
