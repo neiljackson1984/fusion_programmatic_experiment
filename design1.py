@@ -604,8 +604,11 @@ def run(context:dict):
             # labelSculptingStrategy=bit_holder.LabelSculptingStrategy.ENGRAVE
             bit=bit_holder.Bit(
                 preferredLabelText="\\floodWithInk"
-                # preferredLabelText="A"
-            )
+                # preferredLabelText="ABC"
+            ),
+            # minimumAllowedLabelToZMinOffset=3*bit_holder.millimeter
+            doLabelRetentionLip=True,
+            directionsOfEdgesThatWeWillAddALabelRetentionLipTo=(bit_holder.xHat,)
         ).create_occurrence()
 
     #monkeypatching traceback with the vscode-compatible link formatting

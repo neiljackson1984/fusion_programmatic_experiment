@@ -74,6 +74,7 @@ class Socket (Bit):
 
     #TODO: fill in the details
 
+
 class BitHolderSegment (fscad.BRepComponent)  :
     def __init__(self, 
         bit                                                : Optional[Bit]           = None,
@@ -102,11 +103,11 @@ class BitHolderSegment (fscad.BRepComponent)  :
         enableExplicitLabelExtentX                         : bool                    = False,
         explicitLabelExtentX                               : float                   = 10    * millimeter,
         doLabelRetentionLip                                : bool                    = False, 
-        directionsOfEdgesThatWeWillAddALabelRetentionLipTo : Sequence                = [xHat],
+        directionsOfEdgesThatWeWillAddALabelRetentionLipTo : Sequence[NDArray]       = (xHat,),
     
         name                                               : str = None 
     
-    
+ 
     ):
         self.bit                                                 : Bit         = (bit if bit is not None else Bit())
         self.bitHolder                                           : BitHolder   = (bitHolder if bitHolder is not None else BitHolder(segments = [self]))
@@ -130,7 +131,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
         self.enableExplicitLabelExtentX                          : bool        = enableExplicitLabelExtentX
         self.explicitLabelExtentX                                : float       = explicitLabelExtentX
         self.doLabelRetentionLip                                 : bool        = doLabelRetentionLip 
-        self.directionsOfEdgesThatWeWillAddALabelRetentionLipTo  : Sequence    = directionsOfEdgesThatWeWillAddALabelRetentionLipTo
+        self.directionsOfEdgesThatWeWillAddALabelRetentionLipTo  : Sequence[NDArray]    = directionsOfEdgesThatWeWillAddALabelRetentionLipTo
         
            
         
@@ -486,7 +487,8 @@ class BitHolderSegment (fscad.BRepComponent)  :
         # highlight(polygon)
         mainPrivateComponent : fscad.Component
         mainPrivateComponent : fscad.Component = fscad.Extrude(polygon, height=self.extentX)
-        
+        mainPrivateComponent.name = 'mainPrivateComponent'
+        #the name is just for debugging
 
         # //we now have the mainBody, which we will proceed to modify below.
         # // As a side-effect of our modifications, we may end up with leftover bodies that were used for construction
@@ -569,20 +571,6 @@ class BitHolderSegment (fscad.BRepComponent)  :
         boreToolOccurrence = boreTool.create_occurrence()
         boreToolBody = boreToolOccurrence.bRepBodies.item(0)
 
-        def captureEntityTokens(occurrence : adsk.fusion.Occurrence):
-            return {
-                'occurrence': occurrence.entityToken,
-                'component': occurrence.component.entityToken,
-                'bodies' : [
-                    {
-                        'body'  : body.entityToken,
-                        'faces' : [face.entityToken for face in body.faces],
-                        'edges' : [edge.entityToken for edge in body.edges]
-                    }
-                    for body in occurrence.bRepBodies
-                ]
-            }
-
         initialEntityTokensOfBox = captureEntityTokens(boxOccurrence)
         initialEntityTokensOfBoreTool = captureEntityTokens(boreToolOccurrence)
 
@@ -660,7 +648,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
 
         filletFeature = boxOccurrence.component.features.filletFeatures.add(filletFeatureInput)
         
-        mainPrivateComponent = fscad.BRepComponent(*boxOccurrence.bRepBodies)
+        # mainPrivateComponent = fscad.BRepComponent(*boxOccurrence.bRepBodies)
 
         # returnValue += [
         #     fscad.brep().copy(x)
@@ -669,7 +657,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
         # it is probably somewhat inefficient to copy the bodies here, because they will just be fed into the constructor for BRepComponent, which will copy them again.
         # Ideally, I would leave the temporary boxOccurence in place until I had called the BRepComponent constructor, and then delete the temporary occurence.
 
-        boxOccurrence.deleteMe()
+        # boxOccurrence.deleteMe()
         # returnValue += [
         #     x.brep 
         #     for x in TextRow(
@@ -773,6 +761,8 @@ class BitHolderSegment (fscad.BRepComponent)  :
             if len(myGalley.bodies) > 0
             else fscad.BRepComponent() # this is simply an empty component.
         )
+        labelSculptingTool.name = 'labelSculptingTool'
+        # the name is only used a s a sanity check during debugging
 
         # returnValue += [
         #     fscad.brep().copy(x.brep)
@@ -796,70 +786,155 @@ class BitHolderSegment (fscad.BRepComponent)  :
         #     }
         # );}
 
-        if self.labelSculptingStrategy == LabelSculptingStrategy.EMBOSS:
-            mainPrivateComponent = fscad.Union(mainPrivateComponent, labelSculptingTool)
-        elif self.labelSculptingStrategy == LabelSculptingStrategy.ENGRAVE:
-            mainPrivateComponent = fscad.Difference(mainPrivateComponent, labelSculptingTool)
+        # if self.labelSculptingStrategy == LabelSculptingStrategy.EMBOSS:
+        #     mainPrivateComponent = fscad.Union(mainPrivateComponent, labelSculptingTool)
+        # elif self.labelSculptingStrategy == LabelSculptingStrategy.ENGRAVE:
+        #     mainPrivateComponent = fscad.Difference(mainPrivateComponent, labelSculptingTool)
         
-        returnValue += [
-            fscad.brep().copy(x.brep)
-            for x in mainPrivateComponent.bodies
+        # returnValue += [
+        #     fscad.brep().copy(x.brep)
+        #     for x in mainPrivateComponent.bodies
+        # ]
+        
+        boxBody = boxOccurrence.bRepBodies.item(0)
+        labelSculptingToolOccurrence = labelSculptingTool.create_occurrence()
+        labelSculptingToolBodies = labelSculptingToolOccurrence.bRepBodies
+
+        initialEntityTokensOfBox = captureEntityTokens(boxOccurrence)
+        initialEntityTokensOfLabelSculptingTool = captureEntityTokens(labelSculptingToolOccurrence)
+        
+        combineFeatureInput = rootComponent().features.combineFeatures.createInput(targetBody=boxBody, toolBodies=fscad._collection_of(labelSculptingToolOccurrence.bRepBodies))
+        combineFeatureInput.operation = (adsk.fusion.FeatureOperations.JoinFeatureOperation if self.labelSculptingStrategy == LabelSculptingStrategy.EMBOSS else adsk.fusion.FeatureOperations.CutFeatureOperation)
+        combineFeature = rootComponent().features.combineFeatures.add(combineFeatureInput)
+
+        finalEntityTokensOfBox = captureEntityTokens(boxOccurrence)
+        finalEntityTokensOfLabelSculptingTool = captureEntityTokens(labelSculptingToolOccurrence)
+        
+
+        edgesDescendedFromInitialEdges = [
+            entity 
+            for item in initialEntityTokensOfBox['bodies']
+            for initialEdgeEntityToken in item['edges']
+            for entity in design().findEntityByToken(initialEdgeEntityToken)
         ]
-        # if(self.doLabelRetentionLip){
-        #     //the edges that we might want to sweep along are the set of edges e such that:
-        #     // 1) e was created by the labelSculpting operation 
-        #     // and 2) e bounds a face that existed before the label sculpting operation (i.e. a face that the labelSculpting operation modified but did not create.)
-        #     // another way to state condition 2 is: e bounds a face that was not created by the label sculpting region.
-        #     // another way to state condition 2 is: there exists a face not created by the label sculpting operation that owns e
-            
-        #     //var facesCreatedByTheLabelSculptingOperation = qCreatedBy(idOfLabelSculpting, EntityType.FACE);
-        #     //println("facesCreatedByTheLabelSculptingOperation: ");print(reportOnEntities(context, facesCreatedByTheLabelSculptingOperation,0));
-        #     //var sweepingEdgeCandidates = qCreatedBy(idOfLabelSculpting, EntityType.EDGE);
-        #     var sweepingEdgeCandidates = qLoopEdges(qCreatedBy(idOfLabelSculpting, EntityType.FACE)); 
-        #     //debug(context, sweepingEdgeCandidates);
-        #     //debug(context, mainBody);
-            
-            
-        #     // test case:
-        #     // var sweepingEdges = qUnion(
-        #     //     mapArray(
-        #     //         connectedComponents(context, sweepingEdgeCandidates, AdjacencyType.VERTEX),
-        #     //         function(x){return qUnion(array_slice(x,1));}
-        #     //     )
-        #     // );
-        #     var sweepingEdges = qUnion(
-        #         filter(
-        #             evaluateQuery(context, sweepingEdgeCandidates)  ,
-        #             function(sweepingEdgeCandidate){
-        #                 var edgeTangentDirection = evEdgeTangentLine(context, {edge: sweepingEdgeCandidate, parameter: 0}).direction;
-                        
-        #                 // we return true iff. there is at least one element of directionsOfEdgesThatWeWillAddALabelRetentionLipTo
-        #                 // to which sweepingEdgeCandidate is parallel.
-        #                 for(var direction in self.directionsOfEdgesThatWeWillAddALabelRetentionLipTo){
-        #                     //evidently, the parallelVectors() function returns true in the case where the vectors parallel AND in
-        #                     // the case where the vectors are anti-parallel.  That is an important fact that
-        #                     // the documentation omits.
-        #                     // fortunately, in our case, this is precisely the behavior that we want.
-        #                     if(parallelVectors(edgeTangentDirection, direction)){
-        #                         // if(dot(edgeTangentDirection, direction) < 0){
-        #                         //     println(
-        #                         //         "that's interesting, the parallelVectors() function regards two vectors as parallel "
-        #                         //         ~ " even though the angle between them is " ~ 
-        #                         //         (acos(dot(normalize(edgeTangentDirection), normalize(direction)))/degree) //angleBetween(,direction) 
-        #                         //         ~ " degrees, "
-        #                         //         ~ "which is not zero."
-        #                         //     );
-        #                         //}
-                                
-        #                         return true;   
-        #                     }
-        #                 }
-        #                 return false;
-        #             }
-        #         )
-        #     );
+
+
+        facesDescendedFromInitialFaces = [
+            entity 
+            for item in initialEntityTokensOfBox['bodies']
+            for initialFaceEntityToken in item['faces']
+            for entity in design().findEntityByToken(initialFaceEntityToken)
+        ]
+
+        edgesUsedByFacesDescendedFromIntialFaces = [
+            edge 
+            for face in facesDescendedFromInitialFaces
+            for edge in face.edges
+        ]
+
+        edgesOfInterest = [
+            edge
+            for edge in edgesUsedByFacesDescendedFromIntialFaces
+            if edge not in edgesDescendedFromInitialEdges
+        ]
+        labelSculptingToolOccurrence.deleteMe()
+        # highlight(edgesOfInterest)
+        # print('len(edgesOfInterest): ' + str(len(edgesOfInterest)))
+        # mainPrivateComponent = fscad.BRepComponent(*boxOccurrence.bRepBodies)
+        # print('mainPrivateComponent.name: ' +  mainPrivateComponent.name)
+
+        sweepingEdgeCandidates = edgesOfInterest
+
+        # returnValue += [fscad.brep().copy(x) for x in boxOccurrence.bRepBodies]; boxOccurrence.deleteMe()
+
+        if self.doLabelRetentionLip:
+            # doLabelRetentionLip is intended to be used only in the case where self.labelSculptingStrategy == LabelSculptingStrategy.ENGRAVE
+            # and where the label sculpting operation created a big rectangular pocket (e.g. the labelText contained the \floodWithInk directive).
+
+            # identify the edges that we want to sweep the lip profile along.
+            #     //the edges that we might want to sweep along are the set of edges e such that:
+            #     // 1) e was created by the labelSculpting operation 
+            #     // and 2) e bounds a face that existed before the label sculpting operation (i.e. a face that the labelSculpting operation modified but did not create.)
+            #     // another way to state condition 2 is: e bounds a face that was not created by the label sculpting region.
+            #     // another way to state condition 2 is: there exists a face not created by the label sculpting operation that owns e
             
             
+
+
+            #     //var facesCreatedByTheLabelSculptingOperation = qCreatedBy(idOfLabelSculpting, EntityType.FACE);
+            #     //println("facesCreatedByTheLabelSculptingOperation: ");print(reportOnEntities(context, facesCreatedByTheLabelSculptingOperation,0));
+            #     //var sweepingEdgeCandidates = qCreatedBy(idOfLabelSculpting, EntityType.EDGE);
+            #     var sweepingEdgeCandidates = qLoopEdges(qCreatedBy(idOfLabelSculpting, EntityType.FACE)); 
+            #     //debug(context, sweepingEdgeCandidates);
+            #     //debug(context, mainBody);
+                
+            #     var sweepingEdges = qUnion(
+            #         filter(
+            #             evaluateQuery(context, sweepingEdgeCandidates)  ,
+            #             function(sweepingEdgeCandidate){
+            #                 var edgeTangentDirection = evEdgeTangentLine(context, {edge: sweepingEdgeCandidate, parameter: 0}).direction;
+                            
+            #                 // we return true iff. there is at least one element of directionsOfEdgesThatWeWillAddALabelRetentionLipTo
+            #                 // to which sweepingEdgeCandidate is parallel.
+            #                 for(var direction in self.directionsOfEdgesThatWeWillAddALabelRetentionLipTo){
+            #                     //evidently, the parallelVectors() function returns true in the case where the vectors parallel AND in
+            #                     // the case where the vectors are anti-parallel.  That is an important fact that
+            #                     // the documentation omits.
+            #                     // fortunately, in our case, this is precisely the behavior that we want.
+            #                     if(parallelVectors(edgeTangentDirection, direction)){
+            #                         // if(dot(edgeTangentDirection, direction) < 0){
+            #                         //     println(
+            #                         //         "that's interesting, the parallelVectors() function regards two vectors as parallel "
+            #                         //         ~ " even though the angle between them is " ~ 
+            #                         //         (acos(dot(normalize(edgeTangentDirection), normalize(direction)))/degree) //angleBetween(,direction) 
+            #                         //         ~ " degrees, "
+            #                         //         ~ "which is not zero."
+            #                         //     );
+            #                         //}
+                                    
+            #                         return true;   
+            #                     }
+            #                 }
+            #                 return false;
+            #             }
+            #         )
+            #     );
+
+            # figure out which of the sweepingEdgeCandidates are aligned with any of the self.directionsOfEdgesThatWeWillAddALabelRetentionLipTo
+            
+            def isAlignedWithAnyOfDirectionsOfEdgesThatWeWillAddALabelRetentionLipTo(candidateEdge: adsk.fusion.BRepEdge) -> bool:
+                testDirection : NDArray
+                for testDirection in self.directionsOfEdgesThatWeWillAddALabelRetentionLipTo:
+                    # return true if the candidateEdge (or, for our purposes, the tangent direction of the edge at some arbitrary point on the edge (because our
+                    # application is geared toward the candidateEdges being straight lines)) is aligned with (i.e. parallel or anti-parallel to) testDirection
+                    edgeTangentDirection = candidateEdge.evaluator.getTangent(candidateEdge.evaluator.getParameterExtents()[1])[1]
+                    # what is the difference between
+                    # CurveEvaluator3D::getTangent() and
+                    # CurveEvaluator3D::getFirstDerivative() ?   Maybe tangent
+                    # is normalized whereas first derivative has menaningful
+                    # magnitude? 
+
+
+                    if castToVector3d(testDirection).isParallelTo(edgeTangentDirection):
+                        return True
+
+                    # adsk.core.Vector3D::isParallelTo() seems to return true in both the parallel and the anti-parallel case --
+                    # I don't like this definition personally, but in our case here that is the test we are interested in 
+                    # (i.e. we want to pick out the edges that are parallel or anti-parallel to the testDirection).
+                return False
+
+            sweepingEdges = list(
+                filter(
+                    isAlignedWithAnyOfDirectionsOfEdgesThatWeWillAddALabelRetentionLipTo,
+                    sweepingEdgeCandidates
+                )
+            )
+
+            highlight(sweepingEdges)
+
+            # we might also consider filtering on the whether candidateEdge.geometry.curveType == adsk.core.Curve3DTypes.Line3DCurveType ,
+            # which I think would select all the straight line edges (and only those edges).
+
         #     var lipBodies = qNothing();
             
         #     //we want to iterate over all connected chains of edges that exist within the set of sweepingEdges.
@@ -2147,3 +2222,21 @@ def getAllSheetBodiesFromSketch(sketch : adsk.fusion.Sketch) -> Sequence[adsk.fu
 
 
     return bodies
+
+
+
+def captureEntityTokens(occurrence : adsk.fusion.Occurrence):
+    return {
+        'occurrence': occurrence.entityToken,
+        'component': occurrence.component.entityToken,
+        'bodies' : [
+            {
+                'body'  : body.entityToken,
+                'faces' : [face.entityToken for face in body.faces],
+                'edges' : [edge.entityToken for edge in body.edges]
+            }
+            for body in occurrence.bRepBodies
+        ]
+    }
+
+#####################

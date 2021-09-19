@@ -41,9 +41,9 @@ inch = 25.4 * millimeter
 
 # we would benefit from having an organized system of physical units.  For now, I am implicitly assuming that all distance units are millimeters.
 
-xHat = np.array((1.0,0,0))
-yHat = np.array((0,1.0,0))
-zHat = np.array((0,0,1.0))
+xHat : NDArray = np.array((1.0,0,0))
+yHat : NDArray = np.array((0,1.0,0))
+zHat : NDArray = np.array((0,0,1.0))
 
 
 
