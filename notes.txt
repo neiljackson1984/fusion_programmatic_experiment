@@ -377,3 +377,8 @@ Notice that commands 1 and 2 above, are completely independent of any specific s
 
 
 https://github.com/JesusFreke/fscad
+
+
+"C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install matplotlib
+"C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip freeze > requirements.txt
+python -m pip install -r requirements.txt

@@ -1,12 +1,17 @@
 
 import adsk.core, adsk.fusion
-from typing import Optional, Iterable, Union
+from typing import Optional, Iterable, Union, Sequence, SupportsFloat, Tuple
 from .braids.fscad.src.fscad import fscad as fscad
 from PIL import Image
 from PIL import ImageFont
 from PIL import ImageDraw 
 import tempfile
 import uuid
+import matplotlib.colors
+import itertools
+
+def getColorCycle():
+    return itertools.cycle(matplotlib.rcParams["axes.prop_cycle"])
 
 FusionBRepEntity = (
     Union[
@@ -129,6 +134,8 @@ HighlightableThing = (
             adsk.fusion.BRepBody, 
             adsk.fusion.Occurrence, 
             adsk.core.Point3D,
+            adsk.fusion.Path,
+            adsk.fusion.PathEntity,
             fscad.BRepEntity,
             fscad.Component
         ])
@@ -139,6 +146,17 @@ def getOwningComponent(customGraphicsGroup : adsk.fusion.CustomGraphicsGroup) ->
         returnValue = returnValue.parent
     return returnValue
 
+MatPlotLibColorLike = Union[
+    str,
+    Tuple[float, float, float],
+    Tuple[float, float, float, float],
+]
+
+ColorLike = Union[
+    adsk.core.Color,
+    MatPlotLibColorLike
+]
+
 CustomGraphicsColorEffectLike = Union[
         adsk.fusion.CustomGraphicsColorEffect,
         # 3-element sequence of reals
@@ -146,15 +164,28 @@ CustomGraphicsColorEffectLike = Union[
         # strings that are color names
         # strings that are html color codes? 
         # etc.
-        adsk.core.Color,
-        None
+        ColorLike
     ]
+
+
+
+
+def castToColor(x: ColorLike = (0,0,0)):  
+    if isinstance(x, adsk.core.Color):
+        return x
+    else: # elif isinstance(x, MatPlotLibColorLike):
+        return adsk.core.Color.create(
+            *map(
+                lambda y: int(y*255),
+                matplotlib.colors.to_rgba(x)
+            )
+        )
 
 def castToCustomGraphicsColorEffect(x : CustomGraphicsColorEffectLike) -> adsk.fusion.CustomGraphicsColorEffect:
     if isinstance(x, adsk.fusion.CustomGraphicsColorEffect):
         return x
-    elif isinstance(x, adsk.core.Color):
-        return adsk.fusion.CustomGraphicsSolidColorEffect.create(x)
+    elif isinstance(x, (adsk.core.Color, Sequence)):
+        return adsk.fusion.CustomGraphicsSolidColorEffect.create(castToColor(x))
     else:
         reasonableDefaultColor = adsk.core.Color.create(red=255, green=0, blue=0, opacity=255)
         return castToCustomGraphicsColorEffect(reasonableDefaultColor)
@@ -164,7 +195,7 @@ def highlight(
     *args : Union[HighlightableThing, Iterable[HighlightableThing]],
     customGraphicsGroupToReceiveTheCustomGraphics : Optional[adsk.fusion.CustomGraphicsGroup] = None,
     fallbackComponentToReceiveTheCustomGraphics : Optional[adsk.fusion.Component] = None,
-    customGraphicsColorEffect : Optional[adsk.fusion.CustomGraphicsColorEffect] = None
+    colorEffect : CustomGraphicsColorEffectLike = (1,0,0),
     ):
 
     """ The highlight will consist of custom graphics entities.  Custom graphics
@@ -199,7 +230,9 @@ def highlight(
         exist).
      """
 
-    if customGraphicsColorEffect is None: customGraphicsColorEffect = castToCustomGraphicsColorEffect(None)
+    customGraphicsColorEffect = castToCustomGraphicsColorEffect(colorEffect)
+
+    # print('customGraphicsColorEffect.color: ' + str(adsk.fusion.CustomGraphicsSolidColorEffect.cast(customGraphicsColorEffect).color.getColor()))
 
     preferredWeight = 3
 
@@ -209,7 +242,12 @@ def highlight(
             # this is not quite the test I want, because
             # because we could conceivably have some object (maybe) that is both a HighlightableThing and Iterable,
             # in which case I would want to first attempt to treat it as a HighlightableThing.
-            for highlightableThing in arg: highlight(highlightableThing, customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics, fallbackComponentToReceiveTheCustomGraphics=fallbackComponentToReceiveTheCustomGraphics)
+            for highlightableThing in arg: 
+                highlight(highlightableThing, 
+                customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics, 
+                fallbackComponentToReceiveTheCustomGraphics=fallbackComponentToReceiveTheCustomGraphics, 
+                colorEffect=colorEffect
+            )
             continue
         
         
@@ -252,7 +290,7 @@ def highlight(
             # The general strategy here is to make a reasonable choice about which component we want
             # to place the custom graphics in, and then create a new (or maybe reuse an existing?) custom graphics
             # group within that component.
-            componentToReceiveTheCustomGraphics = None
+            componentToReceiveTheCustomGraphics : Optional[adsk.fusion.Component] = None
 
             # First, we inspect the highlightableThing itself to see if it
             # offers any clues about which component to use.  Of all of our
@@ -271,8 +309,26 @@ def highlight(
                     or hintBody.parentComponent
                     or None
                 )
-                # we look at hintBody.assemblyContext 
-                # in order to sensibly handle the case of nested components.            
+            elif isinstance(highlightableThing, (adsk.fusion.Path, adsk.fusion.PathEntity)):
+                pathEntities : Sequence[adsk.fusion.PathEntity] = (
+                    tuple(highlightableThing)
+                    if isinstance(highlightableThing, adsk.fusion.Path)
+                    else (highlightableThing,)
+                )
+                pathEntity : adsk.fusion.PathEntity
+                for pathEntity in pathEntities:
+                    entity : Optional[Union[adsk.fusion.SketchCurve, adsk.fusion.BRepEdge]] = pathEntity.entity 
+                    if isinstance(entity, adsk.fusion.SketchCurve):
+                        componentToReceiveTheCustomGraphics = entity.parentSketch.parentComponent
+                    elif isinstance(entity, adsk.fusion.BRepEdge):
+                        hintBody : adsk.fusion.BRepBody = entity.body
+                        componentToReceiveTheCustomGraphics : Optional[adsk.fusion.Component] = (
+                            (hintBody.assemblyContext and hintBody.assemblyContext.sourceComponent)
+                            or hintBody.parentComponent
+                            or None
+                        )
+                    if componentToReceiveTheCustomGraphics is not None: break
+                    
             if componentToReceiveTheCustomGraphics is None: 
                 componentToReceiveTheCustomGraphics = fallbackComponentToReceiveTheCustomGraphics
             if componentToReceiveTheCustomGraphics is None: 
@@ -309,8 +365,16 @@ def highlight(
                 print("failed to identify a suitable customGraphicsGroupToReceiveTheCustomGraphics, therefore giving up on trying to highlight this thing of type " + str(type(highlightableThing)) + ".")
                 continue
 
-        # if execution reaches this point, we are guaranteed to have a _customGraphicsGroupToReceiveTheCustomGraphics
-
+        # if execution reaches this point, we are guaranteed to have a
+        # _customGraphicsGroupToReceiveTheCustomGraphics In all subsequent (i.e.
+        # recursive) calls to highlight() that we make below, we will pass,
+        # among the arguments, customGraphicsGroupToReceiveTheCustomGraphics =
+        # _customGraphicsGroupToReceiveTheCustomGraphics (rather than simply
+        # passing on  customGraphicsGroupToReceiveTheCustomGraphics =
+        # customGraphicsGroupToReceiveTheCustomGraphics. also, we will not pass
+        # any fallbackComponentToReceiveTheCustomGraphics argument because it
+        # will have no effect, since we will passing a
+        # customGraphicsGroupToReceiveTheCustomGraphics argument.
         
         if   isinstance(highlightableThing, adsk.fusion.BRepBody    ):
             bRepBody : adsk.fusion.BRepBody = highlightableThing
@@ -357,6 +421,7 @@ def highlight(
             highlight(
                 bRepEdge.geometry, 
                 customGraphicsGroupToReceiveTheCustomGraphics=_customGraphicsGroupToReceiveTheCustomGraphics, 
+                colorEffect=colorEffect
             )
         elif isinstance(highlightableThing, adsk.fusion.BRepFace    ):
             bRepFace : adsk.fusion.BRepFace = highlightableThing
@@ -373,7 +438,8 @@ def highlight(
 
             highlight(
                 bRepBody, 
-                customGraphicsGroupToReceiveTheCustomGraphics=_customGraphicsGroupToReceiveTheCustomGraphics
+                customGraphicsGroupToReceiveTheCustomGraphics=_customGraphicsGroupToReceiveTheCustomGraphics,
+                colorEffect=colorEffect
             )
         elif isinstance(highlightableThing, adsk.fusion.Occurrence  ):
             occurrence : adsk.fusion.Occurrence = highlightableThing
@@ -385,19 +451,36 @@ def highlight(
             # pylance seems to be smart enough not to need the above line for type inference, but I want it for my own sanity.
             highlight(
                 bRepEntity.brep, 
-                customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics, 
+                customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics,
+                colorEffect=colorEffect 
             )
         elif isinstance(highlightableThing, fscad.Component         ):
             fscadComponent : fscad.Component = highlightableThing
             highlight(
                 fscadComponent.bodies, 
-                customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics
+                customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics,
+                colorEffect=colorEffect
             )
         elif isinstance(highlightableThing, adsk.core.Curve3D       ):
             curve3D : adsk.core.Curve3D = highlightableThing
             customGraphicsCurve : Optional[adsk.fusion.CustomGraphicsCurve] = _customGraphicsGroupToReceiveTheCustomGraphics.addCurve(curve3D) 
             customGraphicsCurve.weight=preferredWeight
             customGraphicsCurve.color=customGraphicsColorEffect
+        elif isinstance(highlightableThing, adsk.fusion.Path        ):
+            path : adsk.fusion.Path = highlightableThing
+            for i in range(path.count):
+                highlight(
+                    path.item(i), 
+                    customGraphicsGroupToReceiveTheCustomGraphics=_customGraphicsGroupToReceiveTheCustomGraphics, 
+                    colorEffect=colorEffect
+                )
+        elif isinstance(highlightableThing, adsk.fusion.PathEntity  ):
+            pathEntity : adsk.fusion.PathEntity = highlightableThing
+            highlight(
+                pathEntity.curve, 
+                customGraphicsGroupToReceiveTheCustomGraphics=_customGraphicsGroupToReceiveTheCustomGraphics, 
+                colorEffect=colorEffect
+            )
         elif isinstance(highlightableThing, adsk.core.Point3D       ):
             point3D : adsk.core.Point3D = highlightableThing
 
@@ -425,6 +508,7 @@ def highlight(
                 pointImage=pathOfPointImageFile
             )
             customGraphicsPointSet.color = customGraphicsColorEffect
+        
         else:
             print("We do not know how to highlight a " + str(type(highlightableThing)))
             continue

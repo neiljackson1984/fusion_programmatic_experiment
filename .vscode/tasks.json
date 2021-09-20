@@ -68,12 +68,38 @@
             // I would like to be a able to trun fusion in such a way that the fusion script runner addin is automatically imported.
             // I would like to be able to run fusion in such a way that the recovery file prompt is suppressed.
             // The --offlineStart switch seems to have no effect.
-            // "isBackground": true,
+            "isBackground": true,
             "presentation": {
                 "reveal": "silent",
                 "panel":  "dedicated",
                 "showReuseMessage": false,
                 "close": false
+            },
+            "problemMatcher": {
+                // "owner": "typescript",
+                
+                "fileLocation": "absolute",
+               
+                // this pattern object is meaningles -- copied from an example in the vscode documentation in order to
+                // make vscode accept this problemMatcher as valid.
+                "pattern": {
+                    "regexp": "^([^\\s].*)\\((\\d+|\\d+,\\d+|\\d+,\\d+,\\d+,\\d+)\\):\\s+(error|warning|info)\\s+(TS\\d+)\\s*:\\s*(.*)$",
+                    "file": 1,
+                    "location": 2,
+                    "severity": 3,
+                    "code": 4,
+                    "message": 5
+                  },
+
+                "background":  {
+                    "activeOnStart": true,
+                    "beginsPattern": "^eeb5c33769fd42f092da745bd4e089fe",
+                    // "endsPattern": "^\\s*Remote debugging server started successfully\\. Try pointing a Chromium-based browser to http://127\\.0\\.0\\.1:9766"
+                    "endsPattern": "^MAG\\.Default: \\[Idle Status\\] Report Idle\\(Idle or Not\\):  true"
+                    // the endsPattern above is a string that happens to emit on stdout towards the end of its startup process.  When vscode sees this string,
+                    // it then regards the run_fusion task as finished, for the purpose of task dependency (although, since we have set isBackground to true for
+                    // this task, vscode allows fusion to keep running in the abckground.
+                }
             }
         },
         // {   "label":"ensure_that_fusion_is_running",
@@ -173,7 +199,7 @@
         {   "label":"run_design1_with_debugging",
             "type":"shell",
             "command": "${config:python.pythonPath} \"${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}run_script_in_fusion.py\"",
-            // "dependsOn": ["run_fusion"] ,
+            "dependsOn": ["run_fusion"] ,
             // "dependsOrder": "parallel",
             "args":[
                 "--script"                                  , "${workspaceFolder}${pathSeparator}design1.py"   ,                                                 

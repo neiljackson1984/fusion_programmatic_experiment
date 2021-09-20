@@ -4,6 +4,7 @@ import enum
 import math
 import functools
 import scipy
+import itertools
 # the above import of scipy requires the user to have taken action to ensure that scipy is available somewhere on the system path,
 # for instance by doing "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install scipy
 # I would like to automate the management of dependencies like this.  With a "normal" Python project, pipenv would be the logical way to do it,
@@ -19,8 +20,12 @@ from numpy import ndarray
 from numpy import number
 from math import sin, cos
 import adsk
+import adsk.fusion, adsk.core
 import unyt
 import operator
+from .braids.fscad.src.fscad import fscad as fscad
+
+from adsk.fusion import BRepEdge
 # "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install unyt
 
 def app()           -> adsk.core.Application   : return adsk.core.Application.get()
@@ -121,3 +126,339 @@ def vector(*args) -> ndarray:
     return np.array(args)
 
 
+def partitionEdgeSequenceIntoChains(edges: Sequence[adsk.fusion.BRepEdge]) -> Sequence[Sequence[adsk.fusion.BRepEdge]]:
+    """ takes a set of edges.  partitions the edge into subsets, where each subset forms a chain (i.e. the end vertex of one edge is the start vertex of the next, etc.).
+        
+        This is useful when you have a collection of not-necessarily connected edges, and you want to produce input to one or more calls of adsk.fusion.Features.createPath().
+        This function is more stringent than adsk.fusion.Path.create() when it comes to defining a chain.  This function picks out only topological chains, whereas Path.create() 
+        would, I think, accept a sequence of edges that simply had coincident sequential endpoints.
+    """
+    #note: depending on the topological connection between edges, the result will not necessarily be unique. (e.g. in the case of a 'Y' shape, we could join either of the two legs with the base.)
+    #it might be good to think about what we should do when edges contains repeated edges.
+    # if we were being sophisticated, we might use loop membership to sway us toward one particular parititioning in degenerate cases.
+    edgePool : Sequence[adsk.fusion.BRepEdge] = list(edges)
+    chains=[]
+    while len(edgePool) > 0:
+        #start a new chain based on the next member of edgePool
+        seedLink = edgePool.pop()
+        thisChain : Sequence[adsk.fusion.BRepEdge]  = [seedLink]
+        leftVertexOfThisChain = seedLink.startVertex
+        rightVertexOfThisChain = seedLink.endVertex
+        # we don't pay any attention to the direction of the edge -- we are treating the topology as a non-directed graph.
+
+        # search for links connected on the right
+        keepSearchingRightward = True
+        while keepSearchingRightward and len(edgePool) > 0:
+            #look for the next link to the right
+            for i in range(len(edgePool)):
+                if edgePool[i].startVertex == rightVertexOfThisChain:
+                    newLink = edgePool.pop(i)
+                    # add the link to the chain, and update rightVertexOfThisChain 
+                    thisChain.append(newLink)
+                    rightVertexOfThisChain = newLink.endVertex
+                    keepSearchingRightward = True
+                    break
+                elif edgePool[i].endVertex == rightVertexOfThisChain:
+                    newLink = edgePool.pop(i)
+                    # add the link to the chain, and update rightVertexOfThisChain 
+                    thisChain.append(newLink)
+                    rightVertexOfThisChain = newLink.startVertex
+                    keepSearchingRightward = True
+                    break
+                else:
+                    keepSearchingRightward = False
+        
+        # search for links connected on the left
+        keepSearchingLeftward = True
+        while keepSearchingLeftward and len(edgePool) > 0:
+            #look for the next link to the left
+            for i in range(len(edgePool)):
+                if edgePool[i].startVertex == leftVertexOfThisChain:
+                    newLink = edgePool.pop(i)
+                    # add the link to the chain, and update leftVertexOfThisChain 
+                    # thisChain.append(newLink)
+                    thisChain.insert(0,newLink) # inserting at the beginning of the list is not really necessary, but I am arranging things so that thisChain[i] has (at least) one common vertex with thisChain[i+1] for all i, just for the heck of it.
+                    leftVertexOfThisChain = newLink.endVertex
+                    keepSearchingLeftward = True
+                    break
+                elif edgePool[i].endVertex == leftVertexOfThisChain:
+                    newLink = edgePool.pop(i)
+                    # add the link to the chain, and update leftVertexOfThisChain 
+                    # thisChain.append(newLink)
+                    thisChain.insert(0,newLink)
+                    leftVertexOfThisChain = newLink.startVertex
+                    keepSearchingLeftward = True
+                    break
+                else:
+                    keepSearchingLeftward = False
+        
+        chains.append(thisChain)
+
+    return chains
+
+
+
+def partitionEdgeSequenceIntoPaths(edges: Sequence[adsk.fusion.BRepEdge]) -> Sequence[adsk.fusion.Path]:
+    """takes a set of edges.  partitions the edge into subsets, where each subset forms a chain (i.e. the end vertex of one edge is the start vertex of the next, etc.).
+        Then feeds the aforementioned subsets, one by one, into adsk.fusion.Path.create(), to produce a sequence of paths.
+        This is useful when you have a collection of not-necessarily connected edges, and you want to produce input to one or more calls of adsk.fusion.Features.createPath().
+        This function is more stringent than adsk.fusion.Path.create() when it comes to defining a chain.  This function picks out only topological chains, whereas Path.create() 
+        would, I think, accept a sequence of edges that simply had coincident sequential endpoints.
+    """
+
+    return tuple(
+        map(
+            lambda x: 
+                adsk.fusion.Path.create(
+                    curves=fscad._collection_of(x), 
+                    chainOptions=adsk.fusion.ChainedCurveOptions.noChainedCurves
+                    # the chainOptions argument tells fusion whether to try to find add add to the path edges or sketch curves other than those specified in curves. 
+                    # we are telling fusion not to try to find more edges than those we havve (carefully) specified.
+                ),
+            partitionEdgeSequenceIntoChains(edges)
+        )
+    )
+
+
+
+
+def castToNDArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D], n: Optional[int] = None) -> NDArray:
+    #TODO: handle various ranks of NDArray rather than blindly assuming that we have been given a rank-1 array.
+    if isinstance(x, np.ndarray):
+        returnValue = x
+    elif isinstance(x, adsk.core.Point3D):
+        returnValue =  np.array(x.asArray())
+    elif isinstance(x, adsk.core.Vector3D):
+        returnValue =  np.array(x.asArray())
+    elif isinstance(x, adsk.core.Point2D):
+        returnValue =  np.array(x.asArray())
+    elif isinstance(x, adsk.core.Vector2D):
+        returnValue =  np.array(x.asArray())
+    else:
+        returnValue =  np.array(x)
+
+    if n is not None:
+        #pad with zeros as needed to make sure we have at least n elements:
+        returnValue = np.append(
+            returnValue, 
+            (0,)*(n-len(returnValue))
+        )
+        #take the first n elements, to ensure that we end up with exactly n elements:
+        returnValue = returnValue[0:n]
+        # this cannot possibly be the most efficient way to do this, 
+        # but it has the advantage of being a fairly short line of code.
+    return returnValue
+
+def castTo3dArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D]) -> NDArray: 
+    #need to figure out how to use the shape-specificatin facility that I think is part of the NDArray type alias.
+    a=castToNDArray(x, 3)
+    # I am not sure whether what we should do with Point2D and Vector2D: should we treat them like Point3D and Vector3D that 
+    # happen to lie in the xy plane, or should we return the point in projective 3d space that they represent?
+    # for now, I am treating them like Point3D and Vector3D that happen to lie in the xy plane.
+    #TODO: handle various sizes of NDArray rather than blindly assuming that we have been given a 3-array
+    return a
+
+def castTo4dArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D]) -> NDArray: 
+    #need to figure out how to use the shape-specificatin facility that I think is part of the NDArray type alias.
+    a=castToNDArray(x,4)
+    if isinstance(x, (adsk.core.Point3D, adsk.core.Point2D)):
+        a[3] = 1
+
+
+    return a
+
+def castToPoint3D(x: Union[adsk.core.Point3D, ndarray, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D]) -> adsk.core.Point3D:
+    if isinstance(x, adsk.core.Point3D):
+        return x
+    else:
+        return adsk.core.Point3D.create(*castTo3dArray(x).astype(dtype = float))
+
+
+def castToVector3d(x: Union[adsk.core.Point3D, ndarray, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D]) -> adsk.core.Vector3D:
+    if isinstance(x, adsk.core.Vector3D):
+        return x
+    else:
+        return adsk.core.Vector3D.create(*castTo3dArray(x))
+
+# we can think of adsk.core.Vector3D and adsk.core.Point3D as being special
+# cases of a 4-element sequence of reals.  Vector3D has the last element being 0
+# and Point3D has the last element being 1.  This produces the correct behavior
+# when we transform a Vector3D or a Point3D by multiplying by a 4x4 matrix on
+# the left.  Therefore, it might make sense to have a castTo4DArray that treats 
+# Vector3D and Point3D objects correctly.  
+
+# rectByCorners is a factory function to make an fscad.Rect:
+def rectByCorners(corner1 = vector(0,0) * meter, corner2 = vector(1,1) * meter, *args, **kwargs) -> fscad.Rect:
+    corner1 = castTo3dArray(corner1)
+    corner2 = castTo3dArray(corner2)
+    # print('corner1: ' + str(corner1))
+    # print('corner2: ' + str(corner2))
+    # set the 'x' and 'y' entries to kwargs (overriding any 'x' and 'y' that may have been passed)
+
+    extent = abs(corner2 - corner1)
+    minimumCorner = tuple(map(min, corner1, corner2))
+    # minimumCorner = map(float, minimumCorner)
+    # print('minimumCorner: ' + str(minimumCorner))   
+    # print('type(minimumCorner[0]): ' + str(type(minimumCorner[0])))   
+    # v = adsk.core.Vector3D.create(minimumCorner[0], minimumCorner[1], minimumCorner[2])
+    # v = adsk.core.Vector3D.create(*minimumCorner)
+
+    return fscad.Rect(
+        x=extent[0],
+        y=extent[1],
+        *args,
+        **kwargs,
+    ).translate(*map(float,minimumCorner))
+    # it is very hacky to have to cast to float above, but that
+    # is what we have to do to work around Python's lack of
+    # automatic type coercion.
+
+
+def getAllSheetBodiesFromSketch(sketch : adsk.fusion.Sketch) -> Sequence[adsk.fusion.BRepBody]:
+    """ returns a sequence of BRepBody, containing one member for each member of sketch.profiles and 
+    sheet bodies corresponding to the sketch texts. 
+    each body is a sheet body having exactly one face."""
+    #TODO: allow control over how we deal with overlapping profiles (which
+    #generally happens in the case of nested loops).  For instance, we might
+    #want to return only "odd-rank" faces.
+    bodies = []
+
+    ## FIRST ATTEMPT - construct the bodies "from scratch" by extracting the primitive entities from sketch.profiles.
+    ## foiled due to missing functionality in fusion api.  Also foiled for SketchText objects that SketchText doesn't show up in sketch.profiles.
+        # # profile : adsk.fusion.Profile
+        # # for profile in sketch.profiles: 
+        # #     bRepBodyDefinition : adsk.fusion.BRepBodyDefinition = adsk.fusion.BRepBodyDefinition.create()
+        # #     brepLumpDefinition  = bRepBodyDefinition.lumpDefinitions.add()
+        # #     brepShellDefinition = brepLumpDefinition.shellDefinitions.add()
+        # #     brepFaceDefinition  = brepShellDefinition.faceDefinitions.add(
+        # #         surfaceGeometry=profile.plane, 
+        # #         isParamReversed=False
+        # #         )
+
+        # #     loop: adsk.fusion.ProfileLoop
+        # #     for loop in profile.profileLoops:
+        # #         bRepLoopDefinition = brepFaceDefinition.loopDefinitions.add()
+
+                
+                
+        # #         edgeDefinitions = []
+        # #         profileCurve : adsk.fusion.ProfileCurve
+        # #         for profileCurve in loop.profileCurves:
+                    
+        # #             # in order to make edgeDefinitions, we need to have vertexDefinitions.
+        # #             # There is no good way to construct all the vertexDefinitions (in general) because
+        # #             # we some of our vertexDefinitions might need to correspond to the intersection of sketch curves, rather
+        # #             # than their endpoints.
+        # #             # therefore, we will have to generate a temporary body by means of TemporaryBrepManager::createWireFromCurves() and 
+        # #             #  TemporaryBrepManager::createFaceFromPlanarWires()
+
+
+                    
+        # #             edgeDefinition = bRepBodyDefinition.createEdgeDefinitionByCurve(
+        # #                 startVertex= sourceVertexTempIdsToDestinationVertexDefinitions[sourceEdge.startVertex.tempId],
+        # #                 endVertex= sourceVertexTempIdsToDestinationVertexDefinitions[sourceEdge.endVertex.tempId],
+        # #                 modelSpaceCurve=profileCurve.geometry
+        # #             )
+                    
+        # #             edgeDefinitions.append(
+        # #                 profileCurve.
+        # #             )
+
+
+        # #         for coEdgeLikeThing in collectionOfSuchThings:
+        # #             bRepCoEdgeDefinition = bRepLoopDefinition.bRepCoEdgeDefinitions.add(
+        # #                 edgeDefinition= , #construct an edgeDefinition object corresponding to coEdgeLikeThing
+        # #                 isOpposedToEdge= # Set the isOpposedToEdge property according to some property of coEdgeLikeThing
+        # #             )
+
+        # #     bodies.append(bRepBodyDefinition.createBody())  
+    
+    # It seems to be prohibitively difficult to construct the bodies "from
+    ## scratch" by extracting the primitive geometry from the profiles (because
+    ## adsk.fusion.Profile doesn't quite expose enough of the underlying geometry
+    ## to reliably handle all cases (for instance: vertices that are formed by
+    ## the intersection of two sketch curves, not on the endpoints of the curve.)
+    ## Therefore, we will do some fusion feature (probably, Extrude.  could
+    ## possibly also use a Patch feature) that takes sketch profiles as input,
+    ## and extract the needed geometry from the resultant bodies.
+
+    ## SECOND ATTEMPT -- do a single Extrude feature and pass the collection of profiles as input.
+    # foiled due to the fact that the fusion extrude feature 
+    # automatically merges adjacent profiles, 
+    # but we want to preserve the profiles as is.
+        # # extrudeFeature = sketch.parentComponent.features.extrudeFeatures.addSimple(
+        # #     profile= fscad._collection_of(sketch.profiles),
+        # #     distance = adsk.core.ValueInput.createByReal(1),
+        # #     operation = adsk.fusion.FeatureOperations.NewBodyFeatureOperation
+        # # )
+        # # bodies += [
+        # #     fscad.brep().copy(face)
+        # #     for face in extrudeFeature.startFaces
+        # # ]
+
+
+    ## THIRD ATTEMPT -- do one Extrude feature for each profile and each SketchText.
+    profile : Union[adsk.fusion.Profile, adsk.fusion.SketchText]
+    # Besides SketchText objects and Profile objects, are there any other profile-like objects
+    # that can be contained in a sketch that we should think about handling?
+    for profile in itertools.chain(sketch.profiles, sketch.sketchTexts): 
+        # this extrude feature throws an exception in the case where profile is
+        # a sketchtext such that profile.text == '', or even where profile.text
+        # == ' ' (i.e. cases where the sketch text does not produce any "ink").
+        # Precisely what is wrong with extruding an empty region?  It simply
+        # yields an empty body. There's nothing ambiguous or problematic about
+        # it. This seems to me no reason for the software to get all hoo-hooed.
+        # how can we handle this situation gracefully.  Obviously, the correct
+        # outcome is to add no items to bodies on this pass through the loop.
+        # the question is not so much how to handle  the situation -- that's
+        # easy - just don't attempt the extrusion operation and don't add
+        # anything to bodies. the real question is how do we detect an "empty"
+        # (i.e. zero ink) sketch-text. options:
+        # - try the extrusion and look for exceptions.  The problem is that I am
+        #   not sure this is a very specific test (although it is sensitive).
+        # - inspect profile.boundingBox.  Unfortunately, in the case of a zero
+        #   ink sketch text, the bounding box does not have any zero dimensions
+        #   (small - 10 microns, perhaps, but not reliably zero)
+        # - inspect len(profile.asCurves() ) (winner)
+        
+        if isinstance(profile, adsk.fusion.SketchText) and len(profile.asCurves()) == 0: continue
+        
+        extrudeFeature = sketch.parentComponent.features.extrudeFeatures.addSimple(
+            profile= profile,
+            distance = adsk.core.ValueInput.createByReal(-1),
+            # it is important that this be negative 1 so that the faces have normals 
+            # pointing in the same direction as the sketch's normal.
+            operation = adsk.fusion.FeatureOperations.NewBodyFeatureOperation
+        )
+        
+
+
+        bodies += [
+            fscad.brep().copy(face)
+            for face in extrudeFeature.startFaces
+        ]
+        # In the case where profile is a single SketchProfile, I expect that
+        # extrudeFeature.startFaces will always have just one face.  However,
+        # this will not generally be true for the case where profile is a
+        # SketchText. 
+        
+        extrudeFeature.deleteMe()
+
+
+    return bodies
+
+
+def captureEntityTokens(occurrence : adsk.fusion.Occurrence):
+    return {
+        'occurrence': occurrence.entityToken,
+        'component': occurrence.component.entityToken,
+        'bodies' : [
+            {
+                'body'  : body.entityToken,
+                'faces' : [face.entityToken for face in body.faces],
+                'edges' : [edge.entityToken for edge in body.edges]
+            }
+            for body in occurrence.bRepBodies
+        ]
+    }
+ 

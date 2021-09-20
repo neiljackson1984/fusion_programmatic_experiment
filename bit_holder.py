@@ -3,9 +3,10 @@ from enum import Enum
 import enum
 import math
 from .braids.fscad.src.fscad import fscad as fscad
-from .highlight import *
+from . import highlight as highlight
 import itertools
 import re
+import adsk.fusion, adsk.core
 
 import scipy
 # the above import of scipy requires the user to have taken action to ensure that scipy is available somewhere on the system path,
@@ -167,6 +168,12 @@ class BitHolderSegment (fscad.BRepComponent)  :
         a = 0.4*millimeter
         b = 0.4*millimeter
         c = 0.03*millimeter
+
+        #just for debugging, scale way down:
+        # a*=0.1
+        # b*=0.1
+        # c*=0.1
+
         self.labelRetentionLipProfile = [
             np.array((zeroLength, zeroLength)),
             np.array((a, zeroLength)),
@@ -398,24 +405,8 @@ class BitHolderSegment (fscad.BRepComponent)  :
 
     def _build(self) -> Sequence[adsk.fusion.BRepBody]:
         returnValue : list[adsk.fusion.BRepBody] = []
-        # var idOfInitialBodyCreationOperation = id + "mainBody";
-        # // fCuboid(
-        # //     context,
-        # //     idOfInitialBodyCreationOperation,
-        # //     {
-        # //         corner1:vector(self.xMin,self.yMin,self.zMin),
-        # //         corner2:vector(self.xMax,self.yMax,self.zMax)
-        # //     }
-        # // );
+        colorCycleForHighlighting = highlight.getColorCycle()
         
-        # var polygonVertices = 
-        #     [
-        #         vector(self.yMin, zeroLength),
-        #         vector(self.yMin, zeroLength) + vector(tan(self.lecternAngle) * self.zMax , self.zMax),
-        #         vector(self.yMax,self.zMax),
-        #         vector(self.yMax,self.zMin),
-        #         vector(self.yMin,self.zMin),
-        #     ];
         polygonVertices = [
                 vector(self.xMin, self.yMin, zeroLength),
                 vector(self.xMin, self.yMin + tan(self.lecternAngle) * self.zMax , self.zMax),
@@ -423,60 +414,28 @@ class BitHolderSegment (fscad.BRepComponent)  :
                 vector(self.xMin, self.yMax, self.zMin),
                 vector(self.xMin, self.yMin, self.zMin),
 
-                #vector(self.xMin, self.yMin, zeroLength), #do we need to repeat the initial point? no, and evidently, we mustn't repeat the initial point.  This might differ 
-                # from the behavior of my OnShape function "createRightPolygonalPrism", which I think I would have made tolerant of a repeated final point.
+                #vector(self.xMin, self.yMin, zeroLength), 
+                #
+                # do we need to repeat the initial point? no, and evidently, we
+                # mustn't repeat the initial point.  This might differ from the
+                # behavior of my OnShape function "createRightPolygonalPrism",
+                # which I think I would have made tolerant of a repeated final
+                # point.
             ]
-        # print('self.minimumAllowedExtentY: ' + str(self.minimumAllowedExtentY))
-        # print('self.bitHolder.mountHole.minimumAllowedClampingThickness: ' + str(self.bitHolder.mountHole.minimumAllowedClampingThickness))
-        # print('self.bitHolder.mountHole.headClearanceHeight: ' + str(self.bitHolder.mountHole.headClearanceHeight))
-        # print('self.boreDirection: ' + str(self.boreDirection))
-        # print('self.boreDiameter: ' + str(self.boreDiameter))
-        # print('self.extentY: ' + str(self.extentY))
-        # print('yHat @ ( self.boreBottomCenter + self.boreDiameter/2 * (rotationMatrix3d(xHat, -90 * degree) @ self.boreDirection)): ' + str(   
-        #         yHat
-        #         @ (
-        #             self.boreBottomCenter + self.boreDiameter/2 * (rotationMatrix3d(xHat, -90 * degree) @ self.boreDirection)
-        #         ) 
-        #     )
-        # )
-        # print('self.boreDiameter/2 * (rotationMatrix3d(xHat, -90 * degree) @ self.boreDirection): ' + str(
-        #         self.boreDiameter/2 * (rotationMatrix3d(xHat, -90 * degree) @ self.boreDirection)
-        #     )
-        # )
-        # print('rotationMatrix3d(xHat, -90 * degree) @ self.boreDirection) ' + str(
-        #         rotationMatrix3d(xHat, -90 * degree) @ self.boreDirection
-        #     )
-        # )
-        # print('rotationMatrix3d(xHat, 90 * degree) ' + "\n" + str(
-        #         rotationMatrix3d(xHat, 90 * degree)
-        #     )
-        # )
+        
         polygonVertices.reverse()
-        # the order of the vertices determines the direction of the face, which in turn determines the direction of the Extrude.
-        # I would prefer to describe the extrude by giving a start point and an endpoint, but there is not at present 
-        # a pre-existing function to do this.
+        # the order of the vertices determines the direction of the face, which
+        # in turn determines the direction of the Extrude. I would prefer to
+        # describe the extrude by giving a start point and an endpoint, but
+        # there is not at present a pre-existing function to do this.
 
         # print(polygonVertices)
-        # highlight(
+        # highlight.highlight(
         #     itertools.starmap(
         #         adsk.core.Point3D.create,
         #         polygonVertices
         #     )
         # )
-        
-        # createRightPolygonalPrism(
-        #     context, 
-        #     idOfInitialBodyCreationOperation, 
-        #     {
-        #         "plane": plane(vector(zeroLength,zeroLength,zeroLength), xHat, yHat),
-        #         "vertices":
-        #             polygonVertices,
-        #         "height":self.extentX
-        #     }
-        # );
-        
-        # var mainBody = qBodyType(qCreatedBy(idOfInitialBodyCreationOperation, EntityType.BODY), BodyType.SOLID);
-        # var returnValue = mainBody;
 
         polygon = fscad.Polygon(
             *itertools.starmap(
@@ -484,52 +443,11 @@ class BitHolderSegment (fscad.BRepComponent)  :
                 polygonVertices
             )
         )
-        # highlight(polygon)
+        # highlight.highlight(polygon)
         mainPrivateComponent : fscad.Component
         mainPrivateComponent : fscad.Component = fscad.Extrude(polygon, height=self.extentX)
         mainPrivateComponent.name = 'mainPrivateComponent'
         #the name is just for debugging
-
-        # //we now have the mainBody, which we will proceed to modify below.
-        # // As a side-effect of our modifications, we may end up with leftover bodies that were used for construction
-        # // We want to be sure to delete any of these leftover bodies before we return from this build() function.
-        # // we will collect throwaway entities that need to be deleted in throwAwayEntities:
-        # // var throwAwayEntities = qNothing();
-        # //Actually, I suspect that we might be able to accomplish this goal
-        # // by doing an opDelete on a query that finds all bodies "created by" id, except mainBody.
-        # // This will work assuming that qCreatedBy(id, EntityType.body), returns all bodies
-        # // that were created by any operation whose id is descended from id, because all
-        # // the operation ids that I construct in this build() function I construct
-        # // using uniquid(context, id), and the uniqueid function returns an id that is descended from the input id.
-        
-        # //println("reportOnEntities(context, mainBody): " ~ reportOnEntities(context, mainBody, 0, 0));
-        
-        # // mapArray(
-        # //     polygonVertices,
-        # //     function(vertex)
-        # //     {
-        # //         var vertex3d = vector(zeroLength, vertex[0], vertex[1]);  
-        # //         debug(context, vertex3d);
-        # //     }
-        # // );
-        
-        # var idOfBore = id + "bore";
-        # var idOfBoreTool = id + "boretool";
-        # // debug(context, qCreatedBy(idOfInitialBodyCreationOperation));
-        # // debug(context, self.borePiercePoint);
-        # // println("self.boreBottomCenter: " ~ toString(self.boreBottomCenter));		// self.boreBottomCenter
-        # // println("self.boreTopCenter: " ~ toString(self.boreTopCenter));		// self.boreTopCenter
-        # fCylinder(
-        #     context,
-        #     idOfBoreTool,
-        #     {
-        #         topCenter: self.boreTopCenter,
-        #         bottomCenter: self.boreBottomCenter,
-        #         radius: self.boreDiameter/2
-        #     }
-        # );
-        # //debug(context, qCreatedBy(idOfBoreTool, EntityType.BODY));
-        
 
         boreTool = fscad.Cylinder(height=1*meter,radius=self.boreDiameter/2)
         
@@ -544,27 +462,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
         )
         t.translation = adsk.core.Vector3D.create(*self.boreBottomCenter)
         boreTool.transform(t)
-        # highlight(boreTool)
-        # var idOfSplitFace = uniqueId(context,id);
-        # opSplitFace(context,idOfSplitFace,
-        #     {
-        #         // faceTargets: qCreatedBy(idOfInitialBodyCreationOperation, EntityType.FACE),
-        #         faceTargets: qOwnedByBody(mainBody, EntityType.FACE),
-        #         bodyTools: qCreatedBy(idOfBoreTool, EntityType.BODY)
-        #     }
-        # );
-        
-
-        # opBoolean(context, idOfBore,
-        #     {
-        #         tools: qCreatedBy(idOfBoreTool, EntityType.BODY),
-        #         targets: mainBody,
-        #         operationType: BooleanOperationType.SUBTRACTION,
-        #         targetsAndToolsNeedGrouping:true
-        #     }
-        # );
-        # //debug(context, qCreatedBy(idOfSplitFace, EntityType.EDGE));
-        # var edgesToFillet = qCreatedBy(idOfSplitFace, EntityType.EDGE);
+        # highlight.highlight(boreTool)
         
         boxOccurrence = mainPrivateComponent.create_occurrence()
         boxBody = boxOccurrence.bRepBodies.item(0)
@@ -622,21 +520,8 @@ class BitHolderSegment (fscad.BRepComponent)  :
             if edge not in edgesDescendedFromInitialEdges
         ]
         boreToolOccurrence.deleteMe()
-        # highlight(edgesOfInterest)
+        # highlight.highlight(edgesOfInterest)
         # print('len(edgesOfInterest): ' + str(len(edgesOfInterest)))
-
-
-        # var idOfFillet =  uniqueId(context,id);
-        # try silent
-        # {
-        #     opFillet(context, idOfFillet,
-        #         {
-        #             entities:edgesToFillet,
-        #             radius:self.mouthFilletRadius,
-        #             tangentPropagation:false
-        #         }
-        #     );
-        # }
         
         filletFeatureInput = boxOccurrence.component.features.filletFeatures.createInput()
 
@@ -685,21 +570,6 @@ class BitHolderSegment (fscad.BRepComponent)  :
             bottomMargin=zeroLength
         )
 
-
-
-        # myGalley.anchor = GalleyAnchor_e.CENTER
-
-        # # myGalley.worldPlane = 
-        # #     plane(
-        # #         /* origin: */ vector(
-        # #             mean([self.labelXMin, self.labelXMax]),
-        # #             self.labelYMin, 
-        # #             mean([self.labelZMin, self.labelZMax])
-        # #         ),
-        # #         /* normal: */ -yHat,
-        # #         /* x direction: */ xHat  
-        # #     );
-
         t = adsk.core.Matrix3D.create()
         xAxis  = castToVector3d(xHat)
         zAxis  = castToVector3d(-yHat)
@@ -719,25 +589,6 @@ class BitHolderSegment (fscad.BRepComponent)  :
         # ]
 
 
-        # sheetBodiesInWorld = myGalley.buildSheetBodiesInWorld(context, uniqueId(context,id))
-
-        # var idOfLabelTool = uniqueId(context, id);
-        # try
-        # {
-        #     opExtrude(
-        #         context,
-        #         idOfLabelTool,
-        #         {
-        #             entities:  qOwnedByBody(sheetBodiesInWorld, EntityType.FACE),
-        #             direction: yHat,
-        #             endBound: BoundingType.BLIND,
-        #             endDepth: self.labelThickness,
-        #             startBound: BoundingType.BLIND,
-        #             startDepth: zeroLength
-        #         }
-        #     );
-        # }
-        
         #extrude myGalley to form labelSculptingTool
         # labelSculptingTool = fscad.Extrude(myGalley, self.labelThickness)
         
@@ -775,16 +626,6 @@ class BitHolderSegment (fscad.BRepComponent)  :
         # ]
 
         # // sculpt (i.e. either emboss or engrave, according to self.labelSculptingStrategy) the label tool onto the main body.
-        # var idOfLabelSculpting = uniqueId(context,id);
-        # try {opBoolean(context, idOfLabelSculpting,
-        #     {
-        #         tools: qCreatedBy(idOfLabelTool, EntityType.BODY),
-        #         targets: mainBody,
-        #         operationType:  (self.labelSculptingStrategy==labelSculptingStrategy.ENGRAVE ? BooleanOperationType.SUBTRACTION : BooleanOperationType.UNION),
-        #         targetsAndToolsNeedGrouping:true, //regardless of whether the tool was kissing the main body, disjoint from the main body, or overlapping the main body, the feature failed unless targetsAndToolsNeedGrouping was true.  when kssing, a single Part was created.  When disjoint, two Part(s) were created.
-        #         keepTools:false
-        #     }
-        # );}
 
         # if self.labelSculptingStrategy == LabelSculptingStrategy.EMBOSS:
         #     mainPrivateComponent = fscad.Union(mainPrivateComponent, labelSculptingTool)
@@ -838,7 +679,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
             if edge not in edgesDescendedFromInitialEdges
         ]
         labelSculptingToolOccurrence.deleteMe()
-        # highlight(edgesOfInterest)
+        # highlight.highlight(edgesOfInterest)
         # print('len(edgesOfInterest): ' + str(len(edgesOfInterest)))
         # mainPrivateComponent = fscad.BRepComponent(*boxOccurrence.bRepBodies)
         # print('mainPrivateComponent.name: ' +  mainPrivateComponent.name)
@@ -847,6 +688,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
 
         # returnValue += [fscad.brep().copy(x) for x in boxOccurrence.bRepBodies]; boxOccurrence.deleteMe()
 
+        doHighlighting = False
         if self.doLabelRetentionLip:
             # doLabelRetentionLip is intended to be used only in the case where self.labelSculptingStrategy == LabelSculptingStrategy.ENGRAVE
             # and where the label sculpting operation created a big rectangular pocket (e.g. the labelText contained the \floodWithInk directive).
@@ -861,44 +703,6 @@ class BitHolderSegment (fscad.BRepComponent)  :
             
 
 
-            #     //var facesCreatedByTheLabelSculptingOperation = qCreatedBy(idOfLabelSculpting, EntityType.FACE);
-            #     //println("facesCreatedByTheLabelSculptingOperation: ");print(reportOnEntities(context, facesCreatedByTheLabelSculptingOperation,0));
-            #     //var sweepingEdgeCandidates = qCreatedBy(idOfLabelSculpting, EntityType.EDGE);
-            #     var sweepingEdgeCandidates = qLoopEdges(qCreatedBy(idOfLabelSculpting, EntityType.FACE)); 
-            #     //debug(context, sweepingEdgeCandidates);
-            #     //debug(context, mainBody);
-                
-            #     var sweepingEdges = qUnion(
-            #         filter(
-            #             evaluateQuery(context, sweepingEdgeCandidates)  ,
-            #             function(sweepingEdgeCandidate){
-            #                 var edgeTangentDirection = evEdgeTangentLine(context, {edge: sweepingEdgeCandidate, parameter: 0}).direction;
-                            
-            #                 // we return true iff. there is at least one element of directionsOfEdgesThatWeWillAddALabelRetentionLipTo
-            #                 // to which sweepingEdgeCandidate is parallel.
-            #                 for(var direction in self.directionsOfEdgesThatWeWillAddALabelRetentionLipTo){
-            #                     //evidently, the parallelVectors() function returns true in the case where the vectors parallel AND in
-            #                     // the case where the vectors are anti-parallel.  That is an important fact that
-            #                     // the documentation omits.
-            #                     // fortunately, in our case, this is precisely the behavior that we want.
-            #                     if(parallelVectors(edgeTangentDirection, direction)){
-            #                         // if(dot(edgeTangentDirection, direction) < 0){
-            #                         //     println(
-            #                         //         "that's interesting, the parallelVectors() function regards two vectors as parallel "
-            #                         //         ~ " even though the angle between them is " ~ 
-            #                         //         (acos(dot(normalize(edgeTangentDirection), normalize(direction)))/degree) //angleBetween(,direction) 
-            #                         //         ~ " degrees, "
-            #                         //         ~ "which is not zero."
-            #                         //     );
-            #                         //}
-                                    
-            #                         return true;   
-            #                     }
-            #                 }
-            #                 return false;
-            #             }
-            #         )
-            #     );
 
             # figure out which of the sweepingEdgeCandidates are aligned with any of the self.directionsOfEdgesThatWeWillAddALabelRetentionLipTo
             
@@ -911,15 +715,14 @@ class BitHolderSegment (fscad.BRepComponent)  :
                     # what is the difference between
                     # CurveEvaluator3D::getTangent() and
                     # CurveEvaluator3D::getFirstDerivative() ?   Maybe tangent
-                    # is normalized whereas first derivative has menaningful
+                    # is normalized whereas first derivative has meaningful
                     # magnitude? 
-
 
                     if castToVector3d(testDirection).isParallelTo(edgeTangentDirection):
                         return True
 
                     # adsk.core.Vector3D::isParallelTo() seems to return true in both the parallel and the anti-parallel case --
-                    # I don't like this definition personally, but in our case here that is the test we are interested in 
+                    # I don't like this definition personally, but in our case here that is the desired behavior.
                     # (i.e. we want to pick out the edges that are parallel or anti-parallel to the testDirection).
                 return False
 
@@ -930,11 +733,208 @@ class BitHolderSegment (fscad.BRepComponent)  :
                 )
             )
 
-            highlight(sweepingEdges)
+            # sweepingPaths = partitionEdgeSequenceIntoPaths(sweepingEdges)
 
-            # we might also consider filtering on the whether candidateEdge.geometry.curveType == adsk.core.Curve3DTypes.Line3DCurveType ,
-            # which I think would select all the straight line edges (and only those edges).
+            sweepingChains = partitionEdgeSequenceIntoChains(sweepingEdges)
+            # for sweepingEdge in sweepingEdges:
+            #     highlight.highlight(sweepingEdge, colorEffect=next(colorCycleForHighlighting)['color'])
 
+
+            # for sweepingPath in sweepingPaths:
+            #     highlight.highlight(sweepingPath, colorEffect=next(colorCycleForHighlighting)['color'])
+
+
+            # we might also consider filtering on the whether
+            # candidateEdge.geometry.curveType ==
+            # adsk.core.Curve3DTypes.Line3DCurveType , which I think would
+            # select all the straight line edges (and only those edges). we want
+            # to iterate over all connected chains of edges that exist within
+            # the set of sweepingEdges. for each connected chain, we will sweep
+            # a lip. 
+
+            # we want a coordinate system whose y axis points "up" out of the pocket. 
+            # whose z axis is along (tangent or anti-tangent) to the edge, directed in such a way so 
+            # that the x axis points "off the edge of the cliff"
+            # and whose origin is on the edge
+
+            #          y
+            #          ^
+            #          |
+            #          |--> x
+            #
+            # _________. (0,0)          ________________
+            #          |               |
+            #          |   ( pocket )  |
+            #          |_______________|
+
+            lipProfile = fscad.Polygon(*map(castToPoint3D, self.labelRetentionLipProfile), name='lipProfile')
+            # highlight.highlight(lipProfile, colorEffect=next(colorCycleForHighlighting)['color'])
+
+            lipBodies : Sequence[adsk.fusion.BRepBodies] = []
+            
+            # for sweepingChain in sweepingChains:
+            for i in range(len(sweepingChains)):
+                sweepingChain = sweepingChains[i]
+                # highlight.highlight(sweepingPath, colorEffect=next(colorCycleForHighlighting)['color'])
+                if doHighlighting:
+                    colorEffectForHighlighting = next(colorCycleForHighlighting)['color']
+                    customGraphicsGroupToReceiveTheCustomGraphics=fscad.BRepComponent(name='highlight').create_occurrence().component.customGraphicsGroups.add()
+                sweepingPath = adsk.fusion.Path.create(
+                    curves=fscad._collection_of(sweepingChain), 
+                    chainOptions=adsk.fusion.ChainedCurveOptions.noChainedCurves
+                    # the chainOptions argument tells fusion whether to try to find add add to the path edges or sketch curves other than those specified in curves. 
+                    # we are telling fusion not to try to find more edges than those we havve (carefully) specified.
+                )
+
+                # sweepingPath = boxOccurrence.component.features.createPath(
+                #     curve=fscad._collection_of(sweepingChain),
+                #     isChain = False
+                # )
+                
+                if doHighlighting:
+                    highlight.highlight(sweepingPath, 
+                        colorEffect=colorEffectForHighlighting, 
+                        customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics
+                    )
+
+                sampleEdge = sweepingPath.item(0).entity
+                assert isinstance(sampleEdge, adsk.fusion.BRepEdge)
+                # sampleEdge is any arbitrary edge in the path.  We will use sampleEdge to
+                # place our profile so that it is suitable for sweeping along sweepingPath.
+
+                # the hostFace is the face into which the pocket was cut.
+                # we can get the host face by finding the member of facesDescendedFromInitialFaces that has sampleEdge
+                # in one of its loops.  I think that there will always be exactly one such face.
+                
+                # print("len(sampleEdge.faces): " + str(len(sampleEdge.faces)))
+
+                candidateHostFaces = tuple( 
+                    face for
+                    face in sampleEdge.faces 
+                    if  face in facesDescendedFromInitialFaces
+                )
+                # assert len(candidateHostFaces) == 1
+                hostFace : adsk.fusion.BRepFace = candidateHostFaces[0]
+
+                # sampleCoEdge is the coedge whose edge is sampleEdge, and whose loop whose parent face is hostFace.
+                sampleCoEdge : adsk.fusion.BRepCoEdge = tuple(
+                    coEdge
+                    for coEdge in sampleEdge.coEdges
+                    if coEdge.loop.face == hostFace
+                )[0]
+
+                # I trust that, whereas the sense of direction along sampleEdge is arbitrary, 
+                # the sense of direction along sampleCoEdge is such that, if we were to walk
+                # along sampleCoEdge in the increasing-parameter direction, with up being the normal of hostFace,
+                # hostFace would be on our left.
+
+                doHighlightHostFace = False
+                if doHighlighting and doHighlightHostFace:
+                    highlight.highlight(hostFace, 
+                        colorEffect=colorEffectForHighlighting,
+                        customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics
+                    )
+
+                #var yDirection = -yHat In our case, we have constructed things
+                # above so that we know that the normal of the host facce is
+                # -yHat.  However, let's write this in a way that would work
+                # generally:
+                origin = sampleEdge.pointOnEdge
+                # some (arbitrary) point along the
+                # sampleEdge
+                yDirection = hostFace.evaluator.getNormalAtPoint(origin)[1]
+                # in the present application, hostface is always going to be
+                # planar, so it doesn't really matter along the edge (or even
+                # along the whole face) we evaluate the normal.
+                zDirection = sampleEdge.evaluator.getTangent(sampleEdge.evaluator.getParameterAtPoint(origin)[1])[1]
+                
+                zDirection.scaleBy(
+                      (-1 if sampleCoEdge.isOpposedToEdge else 1)
+                    * (-1 if sampleEdge.isParamReversed else 1)
+                    * -1
+                )
+                # zDirection is such that if we walk along sampleEdge in zDirection with hostFace normal being up,
+                # the hostFace will be on our right.
+                # print('zDirection: ' + str(zDirection.asArray()))
+                
+                xDirection = yDirection.copy().crossProduct(zDirection)
+
+                xDirection.normalize()
+                yDirection.normalize()
+                zDirection.normalize()
+
+                t = adsk.core.Matrix3D.create()
+                t.setWithCoordinateSystem(
+                    origin = origin,
+                    xAxis  = xDirection,
+                    yAxis  = yDirection,
+                    zAxis  = zDirection
+                )
+                placedLipProfile = lipProfile.copy().transform(t)
+                # placedLipProfile.name = 'placedLipProfile ' + str(i)
+                # placedLipProfile.create_occurrence()
+
+                # print('t' + str(i) + ': ' + str(t.asArray()))
+                # print(str(i) + ': t.determinant: ' + str(t.determinant))
+                # print(str(i) + ': xDirection.length: ' + str(xDirection.length))
+                # print(str(i) + ': yDirection.length: ' + str(yDirection.length))
+                # print(str(i) + ': zDirection.length: ' + str(zDirection.length))
+
+
+                if doHighlighting:
+                    highlight.highlight(placedLipProfile, 
+                        colorEffect=colorEffectForHighlighting,
+                        customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics
+                    )
+
+
+
+                # sweepFeatureInput = boxOccurrence.component.features.sweepFeatures.createInput(
+                #     profile= fscad._collection_of(tuple(
+                #         fscadFace.brep
+                #         for fscadFace in placedLipProfile.faces
+                #     )),
+                #     path = sweepingPath,
+                #     operation = adsk.fusion.FeatureOperations.NewBodyFeatureOperation
+                # )
+
+
+                # sweepFeature = boxOccurrence.component.features.sweepFeatures.add(sweepFeatureInput)
+
+                lip = fscad.Sweep(
+                    entity=placedLipProfile, 
+                    path = tuple(
+                        pathEntity.curve
+                        for pathEntity in sweepingPath
+                    ), 
+                    name='lip'
+                )
+                if doHighlighting:
+                    highlight.highlight(lip, 
+                        colorEffect=colorEffectForHighlighting,
+                        customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics
+                    )
+                lipBodies += list(
+                    body.brep for body in lip.bodies
+                )
+
+            
+                
+
+            lipTool = fscad.BRepComponent(*lipBodies, name='lipTool')
+            lipToolOccurrence = lipTool.create_occurrence()
+
+            combineFeatureInput = boxOccurrence.component.features.combineFeatures.createInput(
+                targetBody=boxOccurrence.bRepBodies[0], 
+                toolBodies=fscad._collection_of(lipToolOccurrence.bRepBodies)
+            )
+            combineFeatureInput.operation = adsk.fusion.FeatureOperations.JoinFeatureOperation
+            combineFeature = boxOccurrence.component.features.combineFeatures.add(combineFeatureInput)
+            lipToolOccurrence.deleteMe()
+            # var chainCandidates = connectedComponents(context,
+            # sweepingEdges, AdjacencyType.VERTEX);
+
+        returnValue += [fscad.brep().copy(x) for x in boxOccurrence.bRepBodies]; boxOccurrence.deleteMe()
         #     var lipBodies = qNothing();
             
         #     //we want to iterate over all connected chains of edges that exist within the set of sweepingEdges.
@@ -1480,98 +1480,6 @@ class GalleyAnchor_e(Enum):
     BOTTOM_LEFT = enum.auto();  BOTTOM_CENTER = enum.auto();  BOTTOM_RIGHT = enum.auto();
 
 
-def castToNDArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D], n: Optional[int] = None) -> NDArray:
-    #TODO: handle various ranks of NDArray rather than blindly assuming that we have been given a rank-1 array.
-    if isinstance(x, np.ndarray):
-        returnValue = x
-    elif isinstance(x, adsk.core.Point3D):
-        returnValue =  np.array(x.asArray())
-    elif isinstance(x, adsk.core.Vector3D):
-        returnValue =  np.array(x.asArray())
-    elif isinstance(x, adsk.core.Point2D):
-        returnValue =  np.array(x.asArray())
-    elif isinstance(x, adsk.core.Vector2D):
-        returnValue =  np.array(x.asArray())
-    else:
-        returnValue =  np.array(x)
-
-    if n is not None:
-        #pad with zeros as needed to make sure we have at least n elements:
-        returnValue = np.append(
-            returnValue, 
-            (0,)*(n-len(returnValue))
-        )
-        #take the first n elements, to ensure that we end up with exactly n elements:
-        returnValue = returnValue[0:n]
-        # this cannot possibly be the most efficient way to do this, 
-        # but it has the advantage of being a fairly short line of code.
-    return returnValue
-
-def castTo3dArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D]) -> NDArray: 
-    #need to figure out how to use the shape-specificatin facility that I think is part of the NDArray type alias.
-    a=castToNDArray(x, 3)
-    # I am not sure whether what we should do with Point2D and Vector2D: should we treat them like Point3D and Vector3D that 
-    # happen to lie in the xy plane, or should we return the point in projective 3d space that they represent?
-    # for now, I am treating them like Point3D and Vector3D that happen to lie in the xy plane.
-    #TODO: handle various sizes of NDArray rather than blindly assuming that we have been given a 3-array
-    return a
-
-def castTo4dArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D]) -> NDArray: 
-    #need to figure out how to use the shape-specificatin facility that I think is part of the NDArray type alias.
-    a=castToNDArray(x,4)
-    if isinstance(x, (adsk.core.Point3D, adsk.core.Point2D)):
-        a[3] = 1
-
-
-    return a
-
-def castToPoint3d(x: Union[adsk.core.Point3D, ndarray, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D]) -> adsk.core.Point3D:
-    if isinstance(x, adsk.core.Point3D):
-        return x
-    else:
-        return adsk.core.Point3D.create(*castTo3dArray(x))
-
-
-def castToVector3d(x: Union[adsk.core.Point3D, ndarray, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D]) -> adsk.core.Vector3D:
-    if isinstance(x, adsk.core.Vector3D):
-        return x
-    else:
-        return adsk.core.Vector3D.create(*castTo3dArray(x))
-
-# we can think of adsk.core.Vector3D and adsk.core.Point3D as being special
-# cases of a 4-element sequence of reals.  Vector3D has the last element being 0
-# and Point3D has the last element being 1.  This produces the correct behavior
-# when we transform a Vector3D or a Point3D by multiplying by a 4x4 matrix on
-# the left.  Therefore, it might make sense to have a castTo4DArray that treats 
-# Vector3D and Point3D objects correctly.  
-
-# an alternate constructor for fscad.Rect:
-def rectByCorners(corner1 = vector(0,0) * meter, corner2 = vector(1,1) * meter, *args, **kwargs) -> fscad.Rect:
-    corner1 = castTo3dArray(corner1)
-    corner2 = castTo3dArray(corner2)
-    # print('corner1: ' + str(corner1))
-    # print('corner2: ' + str(corner2))
-    # set the 'x' and 'y' entries to kwargs (overriding any 'x' and 'y' that may have been passed)
-
-    extent = abs(corner2 - corner1)
-    minimumCorner = tuple(map(min, corner1, corner2))
-    # minimumCorner = map(float, minimumCorner)
-    # print('minimumCorner: ' + str(minimumCorner))   
-    # print('type(minimumCorner[0]): ' + str(type(minimumCorner[0])))   
-    # v = adsk.core.Vector3D.create(minimumCorner[0], minimumCorner[1], minimumCorner[2])
-    # v = adsk.core.Vector3D.create(*minimumCorner)
-
-    return fscad.Rect(
-        x=extent[0],
-        y=extent[1],
-        *args,
-        **kwargs,
-    ).translate(*map(float,minimumCorner))
-    # it is very hacky to have to cast to float above, but that
-    # is what we have to do to work around Python's lack of
-    # automatic type coercion.
-
-
 class Galley(fscad.BRepComponent):
     # I don't think I fully appreciate fscad's use of child components,
     # and fscad's convention that child components are optionally-displayable precursors of the component.  It might
@@ -1729,8 +1637,8 @@ class Galley(fscad.BRepComponent):
         )
 
 
-        # highlight(fscad.Rect(self.width, self.height).edges)
-        # highlight(
+        # highlight.highlight(fscad.Rect(self.width, self.height).edges)
+        # highlight.highlight(
         #     rectByCorners(
         #         (self.leftMargin, self.bottomMargin),
         #         (self.width - self.rightMargin, self.height - self.topMargin)
@@ -2045,7 +1953,7 @@ class TextRow(fscad.BRepComponent):
          # sketch.sketchCurves.sketchCircles.addByCenterRadius(centerPoint=layoutDefiningPoints[1] , radius=0.4)
          # sketch.sketchCurves.sketchCircles.addByCenterRadius(centerPoint=adsk.core.Point3D.create(0,0,0) , radius=0.06)
          #
-         # highlight((sketchText.boundingBox.minPoint, sketchText.boundingBox.maxPoint))
+         # highlight.highlight((sketchText.boundingBox.minPoint, sketchText.boundingBox.maxPoint))
          # FilledRectangle(
          #     sketchText.boundingBox.minPoint, 
          #     sketchText.boundingBox.maxPoint
@@ -2087,156 +1995,5 @@ class TextRow(fscad.BRepComponent):
 
 
 
-
-
-
-def getAllSheetBodiesFromSketch(sketch : adsk.fusion.Sketch) -> Sequence[adsk.fusion.BRepBody]:
-    """ returns a sequence of BRepBody, containing one member for each member of sketch.profiles and 
-    sheet bodies corresponding to the sketch texts. 
-    each body is a sheet body having exactly one face."""
-    #TODO: allow control over how we deal with overlapping profiles (which
-    #generally happens in the case of nested loops).  For instance, we might
-    #want to return only "odd-rank" faces.
-    bodies = []
-
-    ## FIRST ATTEMPT - construct the bodies "from scratch" by extracting the primitive entities from sketch.profiles.
-    ## foiled due to missing functionality in fusion api.  Also foiled for SketchText objects that SketchText doesn't show up in sketch.profiles.
-        # # profile : adsk.fusion.Profile
-        # # for profile in sketch.profiles: 
-        # #     bRepBodyDefinition : adsk.fusion.BRepBodyDefinition = adsk.fusion.BRepBodyDefinition.create()
-        # #     brepLumpDefinition  = bRepBodyDefinition.lumpDefinitions.add()
-        # #     brepShellDefinition = brepLumpDefinition.shellDefinitions.add()
-        # #     brepFaceDefinition  = brepShellDefinition.faceDefinitions.add(
-        # #         surfaceGeometry=profile.plane, 
-        # #         isParamReversed=False
-        # #         )
-
-        # #     loop: adsk.fusion.ProfileLoop
-        # #     for loop in profile.profileLoops:
-        # #         bRepLoopDefinition = brepFaceDefinition.loopDefinitions.add()
-
-                
-                
-        # #         edgeDefinitions = []
-        # #         profileCurve : adsk.fusion.ProfileCurve
-        # #         for profileCurve in loop.profileCurves:
-                    
-        # #             # in order to make edgeDefinitions, we need to have vertexDefinitions.
-        # #             # There is no good way to construct all the vertexDefinitions (in general) because
-        # #             # we some of our vertexDefinitions might need to correspond to the intersection of sketch curves, rather
-        # #             # than their endpoints.
-        # #             # therefore, we will have to generate a temporary body by means of TemporaryBrepManager::createWireFromCurves() and 
-        # #             #  TemporaryBrepManager::createFaceFromPlanarWires()
-
-
-                    
-        # #             edgeDefinition = bRepBodyDefinition.createEdgeDefinitionByCurve(
-        # #                 startVertex= sourceVertexTempIdsToDestinationVertexDefinitions[sourceEdge.startVertex.tempId],
-        # #                 endVertex= sourceVertexTempIdsToDestinationVertexDefinitions[sourceEdge.endVertex.tempId],
-        # #                 modelSpaceCurve=profileCurve.geometry
-        # #             )
-                    
-        # #             edgeDefinitions.append(
-        # #                 profileCurve.
-        # #             )
-
-
-        # #         for coEdgeLikeThing in collectionOfSuchThings:
-        # #             bRepCoEdgeDefinition = bRepLoopDefinition.bRepCoEdgeDefinitions.add(
-        # #                 edgeDefinition= , #construct an edgeDefinition object corresponding to coEdgeLikeThing
-        # #                 isOpposedToEdge= # Set the isOpposedToEdge property according to some property of coEdgeLikeThing
-        # #             )
-
-        # #     bodies.append(bRepBodyDefinition.createBody())  
-    
-    # It seems to be prohibitively difficult to construct the bodies "from
-    ## scratch" by extracting the primitive geometry from the profiles (because
-    ## adsk.fusion.Profile doesn't quite expose enough of the underlying geometry
-    ## to reliably handle all cases (for instance: vertices that are formed by
-    ## the intersection of two sketch curves, not on the endpoints of the curve.)
-    ## Therefore, we will do some fusion feature (probably, Extrude.  could
-    ## possibly also use a Patch feature) that takes sketch profiles as input,
-    ## and extract the needed geometry from the resultant bodies.
-
-    ## SECOND ATTEMPT -- do a single Extrude feature and pass the collection of profiles as input.
-    # foiled due to the fact that the fusion extrude feature 
-    # automatically merges adjacent profiles, 
-    # but we want to preserve the profiles as is.
-        # # extrudeFeature = sketch.parentComponent.features.extrudeFeatures.addSimple(
-        # #     profile= fscad._collection_of(sketch.profiles),
-        # #     distance = adsk.core.ValueInput.createByReal(1),
-        # #     operation = adsk.fusion.FeatureOperations.NewBodyFeatureOperation
-        # # )
-        # # bodies += [
-        # #     fscad.brep().copy(face)
-        # #     for face in extrudeFeature.startFaces
-        # # ]
-
-
-    ## THIRD ATTEMPT -- do one Extrude feature for each profile and each SketchText.
-    profile : Union[adsk.fusion.Profile, adsk.fusion.SketchText]
-    # Besides SketchText objects and Profile objects, are there any other profile-like objects
-    # that can be contained in a sketch that we should think about handling?
-    for profile in itertools.chain(sketch.profiles, sketch.sketchTexts): 
-        # this extrude feature throws an exception in the case where profile is
-        # a sketchtext such that profile.text == '', or even where profile.text
-        # == ' ' (i.e. cases where the sketch text does not produce any "ink").
-        # Precisely what is wrong with extruding an empty region?  It simply
-        # yields an empty body. There's nothing ambiguous or problematic about
-        # it. This seems to me no reason for the software to get all hoo-hooed.
-        # how can we handle this situation gracefully.  Obviously, the correct
-        # outcome is to add no items to bodies on this pass through the loop.
-        # the question is not so much how to handle  the situation -- that's
-        # easy - just don't attempt the extrusion operation and don't add
-        # anything to bodies. the real question is how do we detect an "empty"
-        # (i.e. zero ink) sketch-text. options:
-        # - try the extrusion and look for exceptions.  The problem is that I am
-        #   not sure this is a very specific test (although it is sensitive).
-        # - inspect profile.boundingBox.  Unfortunately, in the case of a zero
-        #   ink sketch text, the bounding box does not have any zero dimensions
-        #   (small - 10 microns, perhaps, but not reliably zero)
-        # - inspect len(profile.asCurves() ) (winner)
-        
-        if isinstance(profile, adsk.fusion.SketchText) and len(profile.asCurves()) == 0: continue
-        
-        extrudeFeature = sketch.parentComponent.features.extrudeFeatures.addSimple(
-            profile= profile,
-            distance = adsk.core.ValueInput.createByReal(-1),
-            # it is important that this be negative 1 so that the faces have normals 
-            # pointing in the same direction as the sketch's normal.
-            operation = adsk.fusion.FeatureOperations.NewBodyFeatureOperation
-        )
-        
-
-
-        bodies += [
-            fscad.brep().copy(face)
-            for face in extrudeFeature.startFaces
-        ]
-        # In the case where profile is a single SketchProfile, I expect that
-        # extrudeFeature.startFaces will always have just one face.  However,
-        # this will not generally be true for the case where profile is a
-        # SketchText. 
-        
-        extrudeFeature.deleteMe()
-
-
-    return bodies
-
-
-
-def captureEntityTokens(occurrence : adsk.fusion.Occurrence):
-    return {
-        'occurrence': occurrence.entityToken,
-        'component': occurrence.component.entityToken,
-        'bodies' : [
-            {
-                'body'  : body.entityToken,
-                'faces' : [face.entityToken for face in body.faces],
-                'edges' : [edge.entityToken for edge in body.edges]
-            }
-            for body in occurrence.bRepBodies
-        ]
-    }
 
 #####################

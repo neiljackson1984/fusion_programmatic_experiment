@@ -10,7 +10,8 @@
 					"remoteRoot":	"${workspaceRoot}"
 				}],
 			"port":	9000,
-			"host":	"localhost"
+			"host":	"localhost",
+			// "preLaunchTask":"run_fusion"
 		},
 		{
 			"name":"neil1",
