@@ -570,17 +570,13 @@ class BitHolderSegment (fscad.BRepComponent)  :
             bottomMargin=zeroLength
         )
 
-        t = adsk.core.Matrix3D.create()
-        xAxis  = castToVector3d(xHat)
-        zAxis  = castToVector3d(-yHat)
-        yAxis = zAxis.copy().crossProduct(xAxis)
-        t.setWithCoordinateSystem(
+
+
+        myGalley.transform(rigidTransform3D(
             origin = adsk.core.Point3D.create(self.labelXMin, self.labelYMin, self.labelZMin),
-            xAxis  = xAxis,
-            yAxis  = yAxis,
-            zAxis  = zAxis
-        )
-        myGalley.transform(t)
+            xDirection  = xHat,
+            zDirection  = -yHat
+        ))
 
         
         # returnValue += [
@@ -718,7 +714,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
                     # is normalized whereas first derivative has meaningful
                     # magnitude? 
 
-                    if castToVector3d(testDirection).isParallelTo(edgeTangentDirection):
+                    if castToVector3D(testDirection).isParallelTo(edgeTangentDirection):
                         return True
 
                     # adsk.core.Vector3D::isParallelTo() seems to return true in both the parallel and the anti-parallel case --
@@ -857,19 +853,13 @@ class BitHolderSegment (fscad.BRepComponent)  :
                 # the hostFace will be on our right.
                 # print('zDirection: ' + str(zDirection.asArray()))
                 
-                xDirection = yDirection.copy().crossProduct(zDirection)
+                t = rigidTransform3D(
+                        origin = origin,
+                        yDirection = yDirection,
+                        zDirection = zDirection,
+                    )
 
-                xDirection.normalize()
-                yDirection.normalize()
-                zDirection.normalize()
-
-                t = adsk.core.Matrix3D.create()
-                t.setWithCoordinateSystem(
-                    origin = origin,
-                    xAxis  = xDirection,
-                    yAxis  = yDirection,
-                    zAxis  = zDirection
-                )
+                print("t.determinant: " + str(t.determinant))
                 placedLipProfile = lipProfile.copy().transform(t)
                 # placedLipProfile.name = 'placedLipProfile ' + str(i)
                 # placedLipProfile.create_occurrence()

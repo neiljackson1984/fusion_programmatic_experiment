@@ -5,6 +5,7 @@ import math
 import functools
 import scipy
 import itertools
+import warnings
 # the above import of scipy requires the user to have taken action to ensure that scipy is available somewhere on the system path,
 # for instance by doing "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install scipy
 # I would like to automate the management of dependencies like this.  With a "normal" Python project, pipenv would be the logical way to do it,
@@ -249,7 +250,8 @@ def castToNDArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.
         # but it has the advantage of being a fairly short line of code.
     return returnValue
 
-def castTo3dArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D]) -> NDArray: 
+VectorLike = Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D]
+def castTo3dArray(x: VectorLike) -> NDArray: 
     #need to figure out how to use the shape-specificatin facility that I think is part of the NDArray type alias.
     a=castToNDArray(x, 3)
     # I am not sure whether what we should do with Point2D and Vector2D: should we treat them like Point3D and Vector3D that 
@@ -258,7 +260,7 @@ def castTo3dArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.
     #TODO: handle various sizes of NDArray rather than blindly assuming that we have been given a 3-array
     return a
 
-def castTo4dArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D]) -> NDArray: 
+def castTo4dArray(x: VectorLike) -> NDArray: 
     #need to figure out how to use the shape-specificatin facility that I think is part of the NDArray type alias.
     a=castToNDArray(x,4)
     if isinstance(x, (adsk.core.Point3D, adsk.core.Point2D)):
@@ -267,18 +269,18 @@ def castTo4dArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.
 
     return a
 
-def castToPoint3D(x: Union[adsk.core.Point3D, ndarray, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D]) -> adsk.core.Point3D:
+def castToPoint3D(x: VectorLike) -> adsk.core.Point3D:
     if isinstance(x, adsk.core.Point3D):
-        return x
+        return x.copy()
     else:
         return adsk.core.Point3D.create(*castTo3dArray(x).astype(dtype = float))
 
 
-def castToVector3d(x: Union[adsk.core.Point3D, ndarray, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D]) -> adsk.core.Vector3D:
+def castToVector3D(x: VectorLike) -> adsk.core.Vector3D:
     if isinstance(x, adsk.core.Vector3D):
-        return x
+        return x.copy()
     else:
-        return adsk.core.Vector3D.create(*castTo3dArray(x))
+        return adsk.core.Vector3D.create(*castTo3dArray(x).astype(dtype = float))
 
 # we can think of adsk.core.Vector3D and adsk.core.Point3D as being special
 # cases of a 4-element sequence of reals.  Vector3D has the last element being 0
@@ -462,3 +464,119 @@ def captureEntityTokens(occurrence : adsk.fusion.Occurrence):
         ]
     }
  
+def rigidTransform3D(
+    xDirection : Optional[VectorLike] = None, 
+    yDirection : Optional[VectorLike] = None, 
+    zDirection : Optional[VectorLike] = None, 
+    origin : Optional[VectorLike] = None 
+) -> adsk.core.Matrix3D :
+    '''this is a factory for producing an adsk.core.Matrix3D that is guaranteed
+    to be a rigid transform . This function is flexible (no pun intended) in the
+    combination of basis directions that can be specified.  
+    You are free to omit the origin, in which case we will assume (0,0,0). Only
+    the direction, not the magnitude, of the direction arguments is meaningful.
+    If you give all three direction vectors, only two of them are taken into
+    account -- the third is ignored. If you give two direction vectors, the
+    missing third is constructed according to the right-hand rule. If you give
+    one direction vector, you have not fully specified the transform, but we
+    will choose an arbitrary perpendicular vector to serve as one of the missing
+    direction vectors.
+
+
+    This function is an imporvement on the built-in factory-function,
+    adsk.core.Matrix3D.create(), in that the built-in function does not
+    guarantee to return a rigid transform, and the built-in function requires
+    all three basis directions to specified, which is redundant when the
+    transform is assumed to be rigid (which means the basis directions will be
+    mutually pairwise perpendicular).  The built-in factory function is geared
+    towards specifying arbitrary values for all of the top 3 rows of the 4x4
+    matrix, whereas for our factory function, the upper-left 3x3 submatrix,
+    being a rigid rotation, represents only 3 degrees of freedom, not 9.
+    '''
+
+    if origin is None: 
+        origin=adsk.core.Point3D.create(0,0,0)
+    else:
+        origin = castToPoint3D(origin)
+    
+
+    # to form the rotational part of the transform, take the first two non-None direction vectors.
+    givenDirections = [xDirection, yDirection, zDirection]
+    # indicesOfNoneDirections = tuple(i for  i, x in enumerate(givenDirections) if x is None)
+    # indicesOfNonNoneDirections = tuple(i for  i, x in enumerate(givenDirections) if x is not None)
+    
+    indicesOfNoneDirections : Sequence[int] = []
+    indicesOfNonNoneDirections : Sequence[int] = [] 
+    basisVectors : Sequence[Optional[adsk.core.Vector3D]] = []
+    for i in range(len(givenDirections)):
+        if (
+            (givenDirections[i] is None )
+            or 
+            (len(indicesOfNonNoneDirections) == 2)
+            #this ensures that we ignore the third slot in the case
+            # that the first two slots were non-None.
+        ):
+            # the 
+            indicesOfNoneDirections.append(i)
+            thisVectorAsOptionalVector3D = None
+        else:
+            indicesOfNonNoneDirections.append(i)
+            thisVectorAsOptionalVector3D = castToVector3D(givenDirections[i])
+        basisVectors.append(thisVectorAsOptionalVector3D)
+
+    numberOfNoneDirections = len(indicesOfNoneDirections)
+    # numberOfNoneDirections will be 1,2, or 3 -- it is guaranteed not to be 0
+    # due to our discarding of the third slot if the first two slots are
+    # occupied, above.
+
+
+
+    if numberOfNoneDirections == 1:
+        #fill in the "empty" slot:
+        indexOfTheEmptySlot = indicesOfNoneDirections[0]
+        indexOfTheFirstNonEmptySlot = indicesOfNonNoneDirections[0]
+        indexOfTheSecondNonEmptySlot = indicesOfNonNoneDirections[1]
+        #------------------------------------------------------------------------------------------------------
+        #  cases:            ||  derived quantities:
+        #  ------------------||-----------------------------------------------------------------------------
+        #                    ||  indicesOfNonNoneDirections  | fill the       |  then, redefine the second 
+        #                    ||                              | empty slot     |  originally-nonempty slot 
+        #  indexOfEmptySlot  ||                              |                |  to ensure perpendicularity (if needed)
+        # -------------------||------------------------------|----------------|-----------------------------
+        #  0                 ||  1,2                         | v0 := v1 X v2  |  v2 := v0 X v1
+        #  1                 ||  0,2                         | v1 := v2 X v0  |  v2 := v0 X v1
+        #  2                 ||  0,1                         | v2 := v0 X v1  |  v1 := v2 X v0
+
+        basisVectors[indexOfTheEmptySlot] = (
+                basisVectors[ (indexOfTheEmptySlot + 1) % 3 ].crossProduct(
+                    basisVectors[(indexOfTheEmptySlot + 2) % 3 ]
+                )
+            )    
+        
+        if not basisVectors[indexOfTheFirstNonEmptySlot].isPerpendicularTo(basisVectors[indexOfTheSecondNonEmptySlot]):
+            warnings.warn("rigidTransform3D has received two non-perpendicular vectors as arguments -- we are coercing the result to be fully perpendicular.") 
+            basisVectors[indexOfTheSecondNonEmptySlot] = (
+                    basisVectors[ (indexOfTheSecondNonEmptySlot + 1) % 3 ].crossProduct(
+                        basisVectors[(indexOfTheSecondNonEmptySlot + 2) % 3 ]
+                    )
+                )    
+        # we might want to force (or at least verify) that vectors in the two slots are perpendicular to one another.
+    elif numberOfNoneDirections == 2:
+        raise Exception(" rigidTransform3D()'s ability to construct a transform based on only a single direction basis vector has not yet been implemented.")
+        pass
+        #todo: pick an arbitrary vector perpendicular to the one given vector.
+        #if we get here, it means that numberOfNoneDirections is 1, 2, or 3
+        # if numberOfNoneDirections == 1:
+        #     indicesOfDirectionsToOverwrite = list(indicesOfNoneDirections)
+        #     givenDirections[indicesOfNoneDirections[0]] = 
+        # elif numberOfNoneDirections == 2:
+        #     indicesOfDirectionsToOverwrite = list(indicesOfNoneDirections)
+        # else: # elif numberOfNoneDirections == 3:
+        #     givenDirections[0] = xHat
+        #     givenDirections[1] = yHat
+        #     givenDirections[2] = zHat
+
+    for x in basisVectors: x.normalize()
+    returnValue : adsk.core.Matrix3D = adsk.core.Matrix3D.create()
+    returnValue.setWithCoordinateSystem(origin, *basisVectors)
+    return returnValue

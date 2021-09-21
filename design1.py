@@ -603,7 +603,7 @@ def run(context:dict):
             # labelSculptingStrategy=bit_holder.LabelSculptingStrategy.EMBOSS,
             # labelSculptingStrategy=bit_holder.LabelSculptingStrategy.ENGRAVE
             bit=bit_holder.Bit(
-                 preferredLabelText="\\floodWithInk"
+                preferredLabelText="\\floodWithInk"
                 #preferredLabelText="ABC"
             ),
             minimumAllowedLabelToZMinOffset=3*bit_holder.millimeter,
