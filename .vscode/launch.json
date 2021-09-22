@@ -12,6 +12,7 @@
 			"port":	9000,
 			"host":	"localhost",
 			// "preLaunchTask":"run_fusion"
+			"preLaunchTask":"run_design1_with_debugging"
 		},
 		{
 			"name":"neil1",

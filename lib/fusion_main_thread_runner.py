@@ -81,11 +81,11 @@ class FusionMainThreadRunner(object):
                     try:
                         self._owner._logger.debug("getting from queue...")
                         task = self._owner._taskQueue.get_nowait()
-                        self._owner._logger.debug("got from queue.")
+                        # self._owner._logger.debug("got from queue.")
                     except queue.Empty as e:
-                        self._owner._logger.debug("tried to get from an empty queue... breaking.")
+                        # self._owner._logger.debug("tried to get from an empty queue... breaking.")
                         break
-                    self._owner._logger.debug("running a task.")
+                    self._owner._logger.debug("running a task that we have retrieved from the queue.")
                     result = task()
                     self._owner._taskQueue.task_done()
 

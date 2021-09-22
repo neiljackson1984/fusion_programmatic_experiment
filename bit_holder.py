@@ -50,6 +50,20 @@ class LabelSculptingStrategy(Enum):
     EMBOSS = enum.auto()
     ENGRAVE = enum.auto()
 
+            
+class MountHolesPositionZStrategy(Enum):
+    # mountHolesPositionZSpecifier controls how the z position of the mount holes is determined.
+    # the allowable values are 
+    #  1) the string "grazeBottomOfSaddleBoreLip", which will cause the mount hole z position to be determined automatically so that the counterbore of the mount hole is tangent to the bottom lip of the socket bore lip.
+    #  2)  the string "middle", which will cause the mount hole z position to be placed in the middle of the bit holder.
+    #  3)  a valueWithUnits (e.g. -2 * millimeter), which will simply force the mount holes to be placed at the specified z coordinate (as measured in the frame of the bit holder).
+    # Note: for porting to Fusion, I am changing this protocol a bit; now, case 3 is to use the "explicit" value o fhtis enum,
+    # and specify the actual value with a separate property of the BitHolder object.
+    grazeBottomOfSaddleBoreLip = enum.auto()
+    middle = enum.auto()
+    explicit = enum.auto()
+
+
 class Bit :
     """ a bit is essentially a cylinder along with a preferredLabelText property -- for our 
     purposes, these are the only aspects of a bit that we care about."""
@@ -106,7 +120,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
         doLabelRetentionLip                                : bool                    = False, 
         directionsOfEdgesThatWeWillAddALabelRetentionLipTo : Sequence[NDArray]       = (xHat,),
     
-        name                                               : str = None 
+        name                                               : Optional[str]  = None ,
     
  
     ):
@@ -235,8 +249,8 @@ class BitHolderSegment (fscad.BRepComponent)  :
         return max(
                     self.minimumAllowedExtentY,
                     # the minimum thickness to guarantee that the bore does not impinge on the mount hole or the clearance zone for the head of the mount screw.
-                    self.bitHolder.mountHole.minimumAllowedClampingThickness
-                    + self.bitHolder.mountHole.headClearanceHeight
+                    self.bitHolder.mountHoleSpec.minimumAllowedClampingThickness
+                    + self.bitHolder.mountHoleSpec.headClearanceHeight
                     + (
                         yHat
                         @ (
@@ -554,7 +568,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
 
 
 
-        myGalley = Galley(
+        labelGalley = Galley(
             fontName=self.labelFontName,
             text=self.labelText,
             width = self.labelExtentX,
@@ -572,7 +586,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
 
 
 
-        myGalley.transform(rigidTransform3D(
+        labelGalley.transform(rigidTransform3D(
             origin = adsk.core.Point3D.create(self.labelXMin, self.labelYMin, self.labelZMin),
             xDirection  = xHat,
             zDirection  = -yHat
@@ -597,7 +611,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
         # Come on people; zero exists.
 
         labelSculptingTool = (
-            fscad.Extrude(myGalley, -self.labelThickness)
+            fscad.Extrude(labelGalley, -self.labelThickness)
             # I would like to be able to specify or hint at an extrude direction, or specify
             # start and end points, rather than relying on the vagueries of the face direction
             # (which at least are consistent and predictable here -- actually they are not consistent
@@ -605,7 +619,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
             # TODO, within Galley._build, ensure that the rect points up.  I suspect that, at the moment it points down.
             # (or maybe the problem is with getAllSheetBodiesFromSketch returning faces whose normal is 
             # pointing counter to the sketch's normal -- yes I suspect that is the problem.
-            if len(myGalley.bodies) > 0
+            if len(labelGalley.bodies) > 0
             else fscad.BRepComponent() # this is simply an empty component.
         )
         labelSculptingTool.name = 'labelSculptingTool'
@@ -925,351 +939,8 @@ class BitHolderSegment (fscad.BRepComponent)  :
             # sweepingEdges, AdjacencyType.VERTEX);
 
         returnValue += [fscad.brep().copy(x) for x in boxOccurrence.bRepBodies]; boxOccurrence.deleteMe()
-        #     var lipBodies = qNothing();
-            
-        #     //we want to iterate over all connected chains of edges that exist within the set of sweepingEdges.
-        #     //for each connected chain, we will sweep a lip.
-        #     //var chainCandidates = connectedComponents(context, sweepingEdges, AdjacencyType.VERTEX);
-            
-        #     //println("size(chainCandidates): " ~ size(chainCandidates));
-            
-            
-        #     // for(var chainCandidate in chainCandidates){
-        #     //     println("size(chainCandidate): " ~ size(chainCandidate));
-        #     //     for(var chainCandidateElement in chainCandidate){
-        #     //         debug(context, chainCandidateElement) ;  
-        #     //     }
-        #     // }
-            
-        #     var chains = mapArray(
-        #         connectedComponents(context, sweepingEdges, AdjacencyType.VERTEX),
-        #         function(x){return qUnion(x);}
-        #     );
-            
-            
-            
-        #     //println("size(chains): " ~ size(chains));
-        #     //debug(context, chains[1]);
-        #     //for(var chain in chains){
-        #     //    debug(context, chain);   
-        #     //}
-            
-
-            
-            
-        #     var weAreOnTheFirstIteration = true;
-        #     if(false){
-        #         for (var sweepingEdge in evaluateQuery(context, sweepingEdgeCandidates)){
-                    
-        #             var hostFace = qSubtraction(
-        #                 qAdjacent(sweepingEdge, AdjacencyType.EDGE, EntityType.FACE),
-        #                 qCreatedBy(idOfLabelSculpting)
-        #             );
-                    
-        #             if(weAreOnTheFirstIteration){println("hostFace: ");print(reportOnEntities(context, hostFace,0,0));}
-                    
-        #             // var yDirection = -yHat;
-        #             // In our case, we have constructed things above so that we know that the normal
-        #             // of the host facce is -yHat.  However, let's write this in a way that would work generally:
-        #             var yDirection = evFaceNormalAtEdge(context,
-        #                 {
-        #                     edge: sweepingEdge,
-        #                     face: hostFace,
-        #                     parameter: 0
-        #                 }
-        #             );
-                    
-        #             var edgeTangentLine = evEdgeTangentLine(context, {
-        #                 edge: sweepingEdge, 
-        #                 parameter: 0,
-        #                 // face is expected to be a face adjacent to edge.  The direction of the returned
-        #                 // tangent line will be such that when walking in that direction with the face 
-        #                 // normal being "up", the face will be on the left.
-        #                 // the face that we want to use (which might now no longer exist) is the face of the
-        #                 // ink sheet (the face such that gazing ant-parallel to the face's normal at the text, we will 
-        #                 // see the text in the "correct" chirality (i.e. not a mirror image))
-        #                 //because that face probably doesn't exist any more (it was a temporary construction thing to create the extruded text),
-        #                 //we will instead provide the OTHER face that owns sweeping edge, namely, the face that the extruded text was cut into (or 
-        #                 // embossed out of (the face whose normal is yDirection)
-        #                 face: hostFace
-        #             });
-                    
-        #             var zDirection =  -edgeTangentLine.direction;
-                    
-                    
-        #             var labelRetentionLipCrossSectionSheetBody = createPolygonalSheetBody(context, uniqueId(context, id),
-        #                 {
-        #                     //we want a coordinate system whose y axis points "up" out of the pocket. 
-        #                     // whose z axis is along (tangent or anti-tangent) to the edge, directed in such a way so 
-        #                     // that the x axis points "off the edge of the cliff"
-        #                     // and whose origin is on the edge
-        #                     "coordSystem": 
-        #                         coordSystem(
-        #                             /* origin: */ 
-        #                             //I am assuming that the origin of the line returned by evEdgeTangentLine is the tangent point.
-        #                             //This is not guaranteed anywhere in the documentation, but ios probably a safe assumption.
-        #                             edgeTangentLine.origin,
-                                        
-        #                             /* xAxis:  */  
-        #                             cross(yDirection, zDirection), 
-                                    
-        #                             /* zAxis:  */  
-        #                             zDirection
-        #                         ),
-        #                     "vertices": self.labelRetentionLipProfile
-        #                 }                        
-        #             );
-        #             if(weAreOnTheFirstIteration){debug(context, labelRetentionLipCrossSectionSheetBody);}
-        #             //if(weAreOnTheFirstIteration){debug(context, qOwnedByBody(labelRetentionLipCrossSectionSheetBody, EntityType.EDGE));}
-        #             var faceToSweep = qOwnedByBody(labelRetentionLipCrossSectionSheetBody, EntityType.FACE);
-        #             if(weAreOnTheFirstIteration){println("faceToSweep: ");print(reportOnEntities(context, faceToSweep,0,0));}
-                    
-        #             var idOfLipSweep = uniqueId(context, id);
-                    
-        #             opSweep(context, idOfLipSweep,
-        #                 {
-        #                     profiles: faceToSweep,
-        #                     path: sweepingEdge,
-        #                     keepProfileOrientation: false,
-        #                     lockFaces: qNothing()
-        #                 }
-        #             );
-                    
-        #             var lipBody = qCreatedBy(idOfLipSweep, EntityType.BODY);
-        #             lipBodies = qUnion([lipBodies, lipBody]);
-        #             //if(weAreOnTheFirstIteration){debug(context, lipBody);}
-        #             if(weAreOnTheFirstIteration){println("lipBody: ");print(reportOnEntities(context, lipBody,0,0));}
-                    
-                    
-        #             if(weAreOnTheFirstIteration){
-        #                 var idOfOperationToCreateDisposableCopyOfMainBody = uniqueId(context, id);
-        #                 opPattern(context, idOfOperationToCreateDisposableCopyOfMainBody,
-        #                     {
-        #                         entities: mainBody,
-        #                         transforms: [identityTransform()],
-        #                         instanceNames: ["disposableCopy"],
-        #                         copyPropertiesAndAttributes: true
-        #                     }
-        #                 );
-                        
-        #                 var disposableCopyOfMainBody = qCreatedBy(idOfOperationToCreateDisposableCopyOfMainBody, EntityType.BODY);
-        #                 var idOfOperationJoiningLipBodyToTheDisposableCopyOfTheMainBody = uniqueId(context, id);
-        #                 opBoolean(context,idOfOperationJoiningLipBodyToTheDisposableCopyOfTheMainBody,
-        #                     {
-        #                         operationType: BooleanOperationType.UNION,
-        #                         tools: qUnion([ disposableCopyOfMainBody, lipBody ]),
-        #                         //targets: qNothing(),
-        #                         keepTools:false,
-        #                         //targetsAndToolsNeedGrouping: false,
-        #                         //matches: [],
-        #                         //recomputeMatches: false
-        #                     }
-        #                 ); 
-        #                 if(weAreOnTheFirstIteration){debug(context, disposableCopyOfMainBody);}
-        #                 //if(weAreOnTheFirstIteration){debug(context, qOwnedByBody(disposableCopyOfMainBody, EntityType.EDGE));}
-        #             }
-                    
-                    
-                    
-        #             weAreOnTheFirstIteration = false;
-        #         }  
-        #     }
-            
-            
-        #     for (var chain in chains){
-                
-        #         var sampleEdge = qNthElement(chain, 0);
-        #         var hostFace = qSubtraction(
-        #             qAdjacent(sampleEdge, AdjacencyType.EDGE, EntityType.FACE),
-        #             qCreatedBy(idOfLabelSculpting)
-        #         );
-                
-        #         //if(weAreOnTheFirstIteration){println("hostFace: ");print(reportOnEntities(context, hostFace,0,0));}
-                
-        #         // var yDirection = -yHat;
-        #         // In our case, we have constructed things above so that we know that the normal
-        #         // of the host facce is -yHat.  However, let's write this in a way that would work generally:
-        #         var yDirection = evFaceNormalAtEdge(context,
-        #             {
-        #                 edge: sampleEdge,
-        #                 face: hostFace,
-        #                 parameter: 0
-        #             }
-        #         );
-                
-        #         var edgeTangentLine = evEdgeTangentLine(context, {
-        #             edge: sampleEdge, 
-        #             parameter: 0,
-        #             // face is expected to be a face adjacent to edge.  The direction of the returned
-        #             // tangent line will be such that when walking in that direction with the face 
-        #             // normal being "up", the face will be on the left.
-        #             // the face that we want to use (which might now no longer exist) is the face of the
-        #             // ink sheet (the face such that gazing ant-parallel to the face's normal at the text, we will 
-        #             // see the text in the "correct" chirality (i.e. not a mirror image))
-        #             //because that face probably doesn't exist any more (it was a temporary construction thing to create the extruded text),
-        #             //we will instead provide the OTHER face that owns sweeping edge, namely, the face that the extruded text was cut into (or 
-        #             // embossed out of (the face whose normal is yDirection)
-        #             face: hostFace
-        #         });
-                
-        #         var zDirection =  -edgeTangentLine.direction;
-                
-                
-        #         var labelRetentionLipCrossSectionSheetBody = createPolygonalSheetBody(context, uniqueId(context, id),
-        #             {
-        #                 //we want a coordinate system whose y axis points "up" out of the pocket. 
-        #                 // whose z axis is along (tangent or anti-tangent) to the edge, directed in such a way so 
-        #                 // that the x axis points "off the edge of the cliff"
-        #                 // and whose origin is on the edge
-        #                 "coordSystem": 
-        #                     coordSystem(
-        #                         /* origin: */ 
-        #                         //I am assuming that the origin of the line returned by evEdgeTangentLine is the tangent point.
-        #                         //This is not guaranteed anywhere in the documentation, but ios probably a safe assumption.
-        #                         edgeTangentLine.origin,
-                                    
-        #                         /* xAxis:  */  
-        #                         cross(yDirection, zDirection), 
-                                
-        #                         /* zAxis:  */  
-        #                         zDirection
-        #                     ),
-        #                 "vertices": self.labelRetentionLipProfile
-        #             }                        
-        #         );
-        #         //if(weAreOnTheFirstIteration){debug(context, labelRetentionLipCrossSectionSheetBody);}
-        #         //if(weAreOnTheFirstIteration){debug(context, qOwnedByBody(labelRetentionLipCrossSectionSheetBody, EntityType.EDGE));}
-        #         var faceToSweep = qOwnedByBody(labelRetentionLipCrossSectionSheetBody, EntityType.FACE);
-        #         //if(weAreOnTheFirstIteration){println("faceToSweep: ");print(reportOnEntities(context, faceToSweep,0,0));}
-                
-        #         var idOfLipSweep = uniqueId(context, id);
-                
-        #         try{
-        #             opSweep(context, idOfLipSweep,
-        #                 {
-        #                     profiles: faceToSweep,
-        #                     path: chain,
-        #                     keepProfileOrientation: false,
-        #                     lockFaces: qNothing()
-        #                 }
-        #             );
-        #         } catch (error){
-        #             println("An exception occured during sweep: " ~ toString(error));
-        #             println(toString(getFeatureStatus(context, idOfLipSweep)));
-        #         }
-                
-                
-                
-        #         var lipBody = qCreatedBy(idOfLipSweep, EntityType.BODY);
-        #         if(queryReturnsSomething(context, lipBody)){
-                    
-        #             lipBodies = qUnion([lipBodies, lipBody]);
-        #             //debug(context, qOwnedByBody(lipBody,EntityType.EDGE));
-        #             //if(weAreOnTheFirstIteration){println("lipBody: ");print(reportOnEntities(context, lipBody,0,0));}
-                    
-                    
-        #             if(false){
-        #                 var idOfOperationToCreateDisposableCopyOfMainBody = uniqueId(context, id);
-        #                 opPattern(context, idOfOperationToCreateDisposableCopyOfMainBody,
-        #                     {
-        #                         entities: mainBody,
-        #                         transforms: [identityTransform()],
-        #                         instanceNames: ["disposableCopy"],
-        #                         copyPropertiesAndAttributes: true
-        #                     }
-        #                 );
-        #                 var disposableCopyOfMainBody = qCreatedBy(idOfOperationToCreateDisposableCopyOfMainBody, EntityType.BODY);
-                        
-        #                 var idOfOperationToCreateDisposableCopyOfLipBody = uniqueId(context, id);
-        #                 opPattern(context, idOfOperationToCreateDisposableCopyOfLipBody,
-        #                     {
-        #                         entities: lipBody,
-        #                         transforms: [identityTransform()],
-        #                         instanceNames: ["disposableCopy"],
-        #                         copyPropertiesAndAttributes: true
-        #                     }
-        #                 );
-        #                 var disposableCopyOfLipBody = qCreatedBy(idOfOperationToCreateDisposableCopyOfLipBody, EntityType.BODY);
-                        
-                        
-                        
-        #                 var idOfOperationJoiningTheDisposableCopyOfLipBodyToTheDisposableCopyOfMainBody = uniqueId(context, id);
-        #                 opBoolean(context,idOfOperationJoiningTheDisposableCopyOfLipBodyToTheDisposableCopyOfMainBody,
-        #                     {
-        #                         operationType: BooleanOperationType.UNION,
-        #                         tools: qUnion([ disposableCopyOfMainBody, disposableCopyOfLipBody ]),
-        #                         //targets: qNothing(),
-        #                         keepTools:false,
-        #                         //targetsAndToolsNeedGrouping: false,
-        #                         //matches: [],
-        #                         //recomputeMatches: false
-        #                     }
-        #                 ); 
-        #                 if(weAreOnTheFirstIteration){debug(context, disposableCopyOfMainBody);}
-        #                 //if(weAreOnTheFirstIteration){debug(context, qOwnedByBody(disposableCopyOfMainBody, EntityType.EDGE));}
-        #             }
-        #         }
-                
-                
-                
-        #         weAreOnTheFirstIteration = false;
-        #     }
-            
-            
-        #     //println("lipBodies: ");print(reportOnEntities(context, lipBodies,0,0));
-        #     var idOfOperationJoiningLipsToTheMainBody = uniqueId(context, id);
-            
-            
-            
-        #     try{
-        #         opBoolean(context,idOfOperationJoiningLipsToTheMainBody,
-        #             {
-        #                 operationType: BooleanOperationType.UNION,
-        #                 tools: qUnion([mainBody, lipBodies]),
-        #                 //targets: qNothing(),
-        #                 //keepTools:false,
-        #                 //targetsAndToolsNeedGrouping: false,
-        #                 //matches: [],
-        #                 //recomputeMatches: false
-        #             }
-        #         );
-        #     }
-                
-        #     //just in case the lipBodies are not in contact with the main body:
-        #     returnValue = qUnion([returnValue, qCreatedBy(idOfOperationJoiningLipsToTheMainBody, EntityType.BODY)]);
-        #     //this probably isn't necessary    
-                
-            
-        # }
         
-        # var leftoverBodiesToBeDeleted = qSubtraction(
-        #     qCreatedBy(id, EntityType.BODY),
-        #     returnValue
-        # );
-        
-        # //println("leftoverBodiesToBeDeleted: ");print(reportOnEntities(context, leftoverBodiesToBeDeleted,0,0));
-        
-        # try {opDeleteBodies(context, uniqueId(context, id), {entities: leftoverBodiesToBeDeleted}); }
-        
-        # // return qBodyType(qCreatedBy(idOfInitialBodyCreationOperation, EntityType.BODY), BodyType.SOLID);
-        # //return mainBody;
-        # //println("returnValue: " ~ reportOnEntities(context, returnValue,0,0));
-        # return returnValue;
-
-
         return returnValue
-            
-class MountHolesPositionZStrategy(Enum):
-    # mountHolesPositionZSpecifier controls how the z position of the mount holes is determined.
-    # the allowable values are 
-    #  1) the string "grazeBottomOfSaddleBoreLip", which will cause the mount hole z position to be determined automatically so that the counterbore of the mount hole is tangent to the bottom lip of the socket bore lip.
-    #  2)  the string "middle", which will cause the mount hole z position to be placed in the middle of the bit holder.
-    #  3)  a valueWithUnits (e.g. -2 * millimeter), which will simply force the mount holes to be placed at the specified z coordinate (as measured in the frame of the bit holder).
-    # Note: for porting to Fusion, I am changing this protocol a bit; now, case 3 is to use the "explicit" value o fhtis enum,
-    # and specify the actual value with a separate property of the BitHolder object.
-    grazeBottomOfSaddleBoreLip = enum.auto()
-    middle = enum.auto()
-    explicit = enum.auto()
 
 class BitHolder  (fscad.BRepComponent) :
     """ a BitHolder is a collection of BitHolderSegment objects along with some
@@ -1277,25 +948,33 @@ class BitHolder  (fscad.BRepComponent) :
     to make a single BitHolder.     """
 
     def __init__(self,
-            segments                                           : Sequence[BitHolderSegment],
-            name                                               : str = None 
+            segments                    : Optional[Sequence[BitHolderSegment]] = None                                                    ,
+            mountHoleSpec               : Optional['MountHoleSpec']            = None                                                    ,
+            minimumAllowedExtentY       : float                                = 12 * millimeter                                         ,
+            mountHolesGridSpacing       : float                                = 1 * inch                                                ,
+            explicitMountHolesPositionZ : float                                = zeroLength                                              ,
+            mountHolesPositionZStrategy : MountHolesPositionZStrategy          = MountHolesPositionZStrategy.grazeBottomOfSaddleBoreLip  ,
+            name                        : Optional[str]                        = None                                                    ,
         ):
-        self._segments : list[BitHolderSegment] = []
-        self.mountHole : MountHole = MountHole()
         
-        #these clearance diameters are appropriate for a UTS 8-32 pan-head screw.
-        self.mountHole.shankClearanceDiameter            = 4.4958 * millimeter
-        self.mountHole.headClearanceDiameter             = 8.6 * millimeter
-        self.mountHole.minimumAllowedClampingThickness   = 3 * millimeter
-        self.mountHole.clampingDiameter                  = 21 * millimeter
-        self.mountHole.headClearanceHeight               = 2.7 * millimeter
-        
-        self.minimumAllowedExtentY = 12 * millimeter
-    
-        self.mountHolesGridSpacing = 1 * inch
+        self.segments : Sequence[BitHolderSegment] = (segments if segments is not None else
+            []
+        )
+        self.mountHoleSpec : MountHoleSpec = (mountHoleSpec if mountHoleSpec is not None else
+            MountHoleSpec(
+                #these clearance diameters are appropriate for a UTS 8-32 pan-head screw.
+                shankClearanceDiameter            = 4.4958 * millimeter,
+                headClearanceDiameter             = 8.6    * millimeter,
+                minimumAllowedClampingThickness   = 3      * millimeter,
+                clampingDiameter                  = 21     * millimeter,
+                headClearanceHeight               = 2.7    * millimeter,
+            )
+        )
+        self.minimumAllowedExtentY : float = minimumAllowedExtentY
+        self.mountHolesGridSpacing : float = mountHolesGridSpacing
         # the mountHolesInterval will be constrained to be an integer multiple of this length.
-        self.mountHolesPositionZStrategy : MountHolesPositionZStrategy = MountHolesPositionZStrategy.grazeBottomOfSaddleBoreLip
-        self.explicitMountHolesPositionZ  = zeroLength
+        self.mountHolesPositionZStrategy : MountHolesPositionZStrategy = mountHolesPositionZStrategy
+        self.explicitMountHolesPositionZ : float = explicitMountHolesPositionZ  
 
         # super().__init__(
         #     *self._build(),
@@ -1323,7 +1002,7 @@ class BitHolder  (fscad.BRepComponent) :
                         lambda x: zHat @ x.bottomSaddlePointOfMouthFillet,
                         self.segments
                     )
-                ) + self.mountHole.headClearanceDiameter/2
+                ) + self.mountHoleSpec.headClearanceDiameter/2
         
         elif self.mountHolesPositionZStrategy == MountHolesPositionZStrategy.middle :
             # strategy 3: z midpoint
@@ -1337,7 +1016,7 @@ class BitHolder  (fscad.BRepComponent) :
         
 
         mountHolesInterval =  floor(
-                self.extentX - self.xMinMountHolePositionX - self.mountHole.clampingDiameter/2 , 
+                self.extentX - self.xMinMountHolePositionX - self.mountHoleSpec.clampingDiameter/2 , 
                 self.mountHolesGridSpacing
             )            
         mountHolePositions[0] = (
@@ -1380,6 +1059,37 @@ class BitHolder  (fscad.BRepComponent) :
         for segment in self.segments:
             segment.minimumAllowedExtentY = commonMinimumAllowedExtentY
     
+        # In the onshape version of this project, we regarded BitHolder and
+        # BitHolderSegment as mutable types, having a member function that would
+        # generate the bodies on demand based on the the (then-current) mutable
+        # properties of the object. By contrast, in the new, fscad-based,
+        # version of this project, we are regarding BitHolder and
+        # BitHolderSegment as immutable -- we give them their properties at time
+        # of creation and do not change them afterward.  Therefore,
+        # makeExtentYOfAllSegmentsTheSame() ought not to modify the existing
+        # segments, but ought instead to create new segments.  Also, since
+        # BitHolder is now regarded as an immutable type, we should not expose
+        # makeExtentYOfAllSegmentsTheSame() as a public method, but should
+        # rather perform the tweaking of the segments within the constructor.
+        #
+        # One way to clean things up might be to have a BitHolderSegmentSpec
+        # class that serves merely to contain the specification of a
+        # BitHolderSegment, but not itself be responsible for creating bodies,
+        # and then we have an additional BitHolder class that has a
+        # BitHolderSegmentSpec property -- that's messy.  I think I prefer the
+        # model wherein BitHolder and BitHolderSegment are mutable, with methods
+        # that generate the bodies on demand.  I have been assuming that fscad
+        # generally follows the model of Component objects being immutable, but
+        # maybe I should confirm this.  If fscad has a natural way to have
+        # mutable components, then I might want to set up BitHolder and
+        # BitHoldersegment to be mutable fscad Components.
+        #
+        # One way in which fscad components are mutable is that they can be
+        # moved and rotated and scaled, and you can assign names to the
+        # contained brep entities.
+        #
+
+
     @property
     def zMax(self):
         return max(
@@ -1435,8 +1145,11 @@ class BitHolder  (fscad.BRepComponent) :
             segment.bitHolder = self
     
 
-class MountHole :
-    """ a MountHole to be contained within a BitHolder.   """ 
+class MountHoleSpec :
+    """ a MountHole (or, perhaps more correctly, specifications for a mount
+    hole) to be contained within a BitHolder.   This construction of the bodies
+    used in the creation of the mount hole is done by the user of this class.
+    """ 
 
     def __init__(self,
         shankClearanceDiameter          : float = 3 * millimeter,

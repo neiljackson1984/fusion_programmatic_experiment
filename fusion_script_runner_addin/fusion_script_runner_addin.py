@@ -113,7 +113,7 @@ class AddIn(object):
             # except Exception:
             #     pass
 
-            logger.debug("ahoy there")
+            logger.debug(f"Hello from {__file__}")
             logger.debug("os.getcwd(): " + os.getcwd())
 
             
