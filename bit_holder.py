@@ -1,4 +1,4 @@
-from typing import Optional, Sequence, Tuple, Union
+from typing import Optional, Sequence, Tuple, Union, Iterable
 from enum import Enum
 import enum
 import math
@@ -90,7 +90,7 @@ class Socket (Bit):
     #TODO: fill in the details
 
 
-class BitHolderSegment (fscad.BRepComponent)  :
+class BitHolderSegment (fscad.Component)  :
     def __init__(self, 
         bit                                                : Optional[Bit]           = None,
         bitHolder                                          : Optional['BitHolder']   = None,
@@ -113,6 +113,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
         # used to enforce minimum interval between bits for ease of grabbing very small bits with fingers.
 
         minimumAllowedExtentY                              : float                   = 0    * millimeter,  
+        # extentYOfMountingMeat                : float                   = 0    * millimeter,  
         minimumAllowedLabelToZMinOffset                    : float                   = 0    * millimeter,  
         minimumAllowedBoreToZMinOffset                     : float                   = 2    * millimeter, 
         enableExplicitLabelExtentX                         : bool                    = False,
@@ -121,11 +122,9 @@ class BitHolderSegment (fscad.BRepComponent)  :
         directionsOfEdgesThatWeWillAddALabelRetentionLipTo : Sequence[NDArray]       = (xHat,),
     
         name                                               : Optional[str]  = None ,
-    
- 
     ):
         self.bit                                                 : Bit         = (bit if bit is not None else Bit())
-        self.bitHolder                                           : BitHolder   = (bitHolder if bitHolder is not None else BitHolder(segments = [self]))
+        self.bitHolder                                           : Optional[BitHolder] = bitHolder
         self.angleOfElevation                                    : float       = angleOfElevation
         self.lecternAngle                                        : float       = lecternAngle
         self.lecternMarginBelowBore                              : float       = lecternMarginBelowBore
@@ -141,6 +140,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
         self.labelSculptingStrategy                              : float       = labelSculptingStrategy
         self.minimumAllowedExtentX                               : float       = minimumAllowedExtentX
         self.minimumAllowedExtentY                               : float       = minimumAllowedExtentY
+        # self.extentYOfMountingMeat                 : float       = extentYOfMountingMeat
         self.minimumAllowedLabelToZMinOffset                     : float       = minimumAllowedLabelToZMinOffset
         self.minimumAllowedBoreToZMinOffset                      : float       = minimumAllowedBoreToZMinOffset
         self.enableExplicitLabelExtentX                          : bool        = enableExplicitLabelExtentX
@@ -203,10 +203,66 @@ class BitHolderSegment (fscad.BRepComponent)  :
         # as a side effect of the above, 
         # self.bitHolder will be set to dummyBitHolder.
 
-        super().__init__(
-            *self._build(),
-            component = None, 
-            name = name
+        # super().__init__(
+        #     *self._build(),
+        #     component = None, 
+        #     name = name
+        # )
+
+        super().__init__(name)
+
+    def copyWithModification(self,
+        bit                                                : Optional[Bit]                     = None,
+        bitHolder                                          : Optional['BitHolder']             = None,
+        angleOfElevation                                   : Optional[float]                   = None,
+        lecternAngle                                       : Optional[float]                   = None,
+        lecternMarginBelowBore                             : Optional[float]                   = None,
+        lecternMarginAboveBore                             : Optional[float]                   = None,
+        boreDiameterAllowance                              : Optional[float]                   = None,
+        mouthFilletRadius                                  : Optional[float]                   = None,
+        bitProtrusion                                      : Optional[float]                   = None,
+        labelExtentZ                                       : Optional[float]                   = None,
+        labelThickness                                     : Optional[float]                   = None,                 
+        labelZMax                                          : Optional[float]                   = None,
+        labelFontHeight                                    : Optional[float]                   = None,
+        labelFontName                                      : Optional[str]                     = None,
+        labelSculptingStrategy                             : Optional[LabelSculptingStrategy]  = None,
+        minimumAllowedExtentX                              : Optional[float]                   = None,
+        minimumAllowedExtentY                              : Optional[float]                   = None,
+        minimumAllowedLabelToZMinOffset                    : Optional[float]                   = None,
+        minimumAllowedBoreToZMinOffset                     : Optional[float]                   = None,
+        enableExplicitLabelExtentX                         : Optional[bool]                    = None,
+        explicitLabelExtentX                               : Optional[float]                   = None,
+        doLabelRetentionLip                                : Optional[bool]                    = None,
+        directionsOfEdgesThatWeWillAddALabelRetentionLipTo : Optional[Sequence[NDArray]]       = None,
+        name                                               : Optional[str]                     = None,
+    ) -> 'BitHolderSegment':
+        """ creates a new BitHolderSegment that has the same parameters as self, except for the specified new parameter values """
+        return BitHolderSegment(
+            bit                                                = bit                                                or self.bit                                                ,
+            bitHolder                                          = bitHolder                                          or self.bitHolder                                          ,
+            angleOfElevation                                   = angleOfElevation                                   or self.angleOfElevation                                   ,
+            lecternAngle                                       = lecternAngle                                       or self.lecternAngle                                       ,
+            lecternMarginBelowBore                             = lecternMarginBelowBore                             or self.lecternMarginBelowBore                             ,
+            lecternMarginAboveBore                             = lecternMarginAboveBore                             or self.lecternMarginAboveBore                             ,
+            boreDiameterAllowance                              = boreDiameterAllowance                              or self.boreDiameterAllowance                              ,
+            mouthFilletRadius                                  = mouthFilletRadius                                  or self.mouthFilletRadius                                  ,
+            bitProtrusion                                      = bitProtrusion                                      or self.bitProtrusion                                      ,
+            labelExtentZ                                       = labelExtentZ                                       or self.labelExtentZ                                       ,
+            labelThickness                                     = labelThickness                                     or self.labelThickness                                     ,
+            labelZMax                                          = labelZMax                                          or self.labelZMax                                          ,
+            labelFontHeight                                    = labelFontHeight                                    or self.labelFontHeight                                    ,
+            labelFontName                                      = labelFontName                                      or self.labelFontName                                      ,
+            labelSculptingStrategy                             = labelSculptingStrategy                             or self.labelSculptingStrategy                             ,
+            minimumAllowedExtentX                              = minimumAllowedExtentX                              or self.minimumAllowedExtentX                              ,
+            minimumAllowedExtentY                              = minimumAllowedExtentY                              or self.minimumAllowedExtentY                              ,
+            minimumAllowedLabelToZMinOffset                    = minimumAllowedLabelToZMinOffset                    or self.minimumAllowedLabelToZMinOffset                    ,
+            minimumAllowedBoreToZMinOffset                     = minimumAllowedBoreToZMinOffset                     or self.minimumAllowedBoreToZMinOffset                     ,
+            enableExplicitLabelExtentX                         = enableExplicitLabelExtentX                         or self.enableExplicitLabelExtentX                         ,
+            explicitLabelExtentX                               = explicitLabelExtentX                               or self.explicitLabelExtentX                               ,
+            doLabelRetentionLip                                = doLabelRetentionLip                                or self.doLabelRetentionLip                                ,
+            directionsOfEdgesThatWeWillAddALabelRetentionLipTo = directionsOfEdgesThatWeWillAddALabelRetentionLipTo or self.directionsOfEdgesThatWeWillAddALabelRetentionLipTo ,
+            name                                               = name                                               or self.name                                               ,
         )
 
     @property
@@ -247,17 +303,27 @@ class BitHolderSegment (fscad.BRepComponent)  :
     @property
     def extentY(self):
         return max(
-                    self.minimumAllowedExtentY,
-                    # the minimum thickness to guarantee that the bore does not impinge on the mount hole or the clearance zone for the head of the mount screw.
-                    self.bitHolder.mountHoleSpec.minimumAllowedClampingThickness
-                    + self.bitHolder.mountHoleSpec.headClearanceHeight
+            map(
+                lambda x: max(
+                    x.minimumAllowedExtentY,
+                    (x.bitHolder.minimumAllowedExtentY if x.bitHolder else zeroLength),
+                    (
+                        x.bitHolder.mountHoleSpec.minimumAllowedClampingThickness
+                        + x.bitHolder.mountHoleSpec.headClearanceHeight
+                        if x.bitHolder
+                        else zeroLength
+                    )
                     + (
                         yHat
                         @ (
-                            self.boreBottomCenter + self.boreDiameter/2 * (rotationMatrix3d(xHat, -90 * degree) @ self.boreDirection)
+                            x.boreBottomCenter + x.boreDiameter/2 * (rotationMatrix3d(xHat, -90 * degree) @ x.boreDirection)
                         )
-                    )
+                    )  
+                ),
+                ( self.bitHolder.segments if self.bitHolder else (self,) )
             )
+        )
+
         
     @property
     def labelExtentX(self):
@@ -417,7 +483,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
     def bottomSaddlePointOfMouthFillet(self): #//see neil-4936          
         return self.bottomPointOfMouthFilletSweepPath + self.mouthFilletRadius * zHat
 
-    def _build(self) -> Sequence[adsk.fusion.BRepBody]:
+    def _raw_bodies(self) -> Iterable[adsk.fusion.BRepBody]:
         returnValue : list[adsk.fusion.BRepBody] = []
         colorCycleForHighlighting = highlight.getColorCycle()
         
@@ -942,7 +1008,7 @@ class BitHolderSegment (fscad.BRepComponent)  :
         
         return returnValue
 
-class BitHolder  (fscad.BRepComponent) :
+class BitHolder  (fscad.Component) :
     """ a BitHolder is a collection of BitHolderSegment objects along with some
     parameters that specify how the bitHolderSegments are to be welded together 
     to make a single BitHolder.     """
@@ -981,6 +1047,7 @@ class BitHolder  (fscad.BRepComponent) :
         #     component = None, 
         #     name = name
         # )
+        super().__init__(name)
 
 
     @property        
@@ -1046,50 +1113,6 @@ class BitHolder  (fscad.BRepComponent) :
     def xMax(self):
         return self.xMin + self.extentX
     
-    # caution: this modifies the segments in self.segments.
-    def makeExtentYOfAllSegmentsTheSame(self) -> None :
-        commonMinimumAllowedExtentY = max(
-            *map(
-                lambda segment: segment.extentY,
-                self.segments
-            ),
-            self.minimumAllowedExtentY 
-        )
-  
-        for segment in self.segments:
-            segment.minimumAllowedExtentY = commonMinimumAllowedExtentY
-    
-        # In the onshape version of this project, we regarded BitHolder and
-        # BitHolderSegment as mutable types, having a member function that would
-        # generate the bodies on demand based on the the (then-current) mutable
-        # properties of the object. By contrast, in the new, fscad-based,
-        # version of this project, we are regarding BitHolder and
-        # BitHolderSegment as immutable -- we give them their properties at time
-        # of creation and do not change them afterward.  Therefore,
-        # makeExtentYOfAllSegmentsTheSame() ought not to modify the existing
-        # segments, but ought instead to create new segments.  Also, since
-        # BitHolder is now regarded as an immutable type, we should not expose
-        # makeExtentYOfAllSegmentsTheSame() as a public method, but should
-        # rather perform the tweaking of the segments within the constructor.
-        #
-        # One way to clean things up might be to have a BitHolderSegmentSpec
-        # class that serves merely to contain the specification of a
-        # BitHolderSegment, but not itself be responsible for creating bodies,
-        # and then we have an additional BitHolder class that has a
-        # BitHolderSegmentSpec property -- that's messy.  I think I prefer the
-        # model wherein BitHolder and BitHolderSegment are mutable, with methods
-        # that generate the bodies on demand.  I have been assuming that fscad
-        # generally follows the model of Component objects being immutable, but
-        # maybe I should confirm this.  If fscad has a natural way to have
-        # mutable components, then I might want to set up BitHolder and
-        # BitHoldersegment to be mutable fscad Components.
-        #
-        # One way in which fscad components are mutable is that they can be
-        # moved and rotated and scaled, and you can assign names to the
-        # contained brep entities.
-        #
-
-
     @property
     def zMax(self):
         return max(
@@ -1143,7 +1166,22 @@ class BitHolder  (fscad.BRepComponent) :
         self._segments = newSegments
         for segment in self._segments:
             segment.bitHolder = self
-    
+        # this is not quite right/complete in that the user might do x.segments.append(y),
+        # and we would miss it.
+
+    def _raw_bodies(self) -> Iterable[adsk.fusion.BRepBody]:
+        returnValue : list[adsk.fusion.BRepBody] = []
+        insertionPoint = vector(self.xMin, zeroLength, zeroLength).astype(dtype = float)
+        transformedSegments : list[fscad.Component] = []
+        segment: BitHolderSegment
+        for segment in self.segments:
+            transformedSegments.append(segment.copyWithModification().translate(*(insertionPoint - segment.xMin * xHat)))
+            insertionPoint += segment.extentX * xHat
+        combinedSegments = fscad.Union(*transformedSegments)
+
+        returnValue = (x.brep for x in combinedSegments.bodies)
+
+        return returnValue
 
 class MountHoleSpec :
     """ a MountHole (or, perhaps more correctly, specifications for a mount

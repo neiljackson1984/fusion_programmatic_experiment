@@ -599,20 +599,55 @@ def run(context:dict):
         # v = adsk.core.Vector3D.create(0,0,0)
         # v = adsk.core.Vector3D.create(False, False, False)
 
-        bit_holder.BitHolderSegment(
-            # labelSculptingStrategy=bit_holder.LabelSculptingStrategy.EMBOSS,
-            # labelSculptingStrategy=bit_holder.LabelSculptingStrategy.ENGRAVE
-            bit=bit_holder.Bit(
-                preferredLabelText="\\floodWithInk"
-                #preferredLabelText="ABC"
-            ),
-            minimumAllowedLabelToZMinOffset=3*bit_holder.millimeter,
-            doLabelRetentionLip=True,
-            directionsOfEdgesThatWeWillAddALabelRetentionLipTo=(
-                bit_holder.xHat,
-                # bit_holder.yHat,
-                # bit_holder.zHat,
-            )
+        # bit_holder.BitHolderSegment(
+        #     # labelSculptingStrategy=bit_holder.LabelSculptingStrategy.EMBOSS,
+        #     # labelSculptingStrategy=bit_holder.LabelSculptingStrategy.ENGRAVE
+        #     bit=bit_holder.Bit(
+        #         preferredLabelText="\\floodWithInk"
+        #         #preferredLabelText="ABC"
+        #     ),
+        #     minimumAllowedLabelToZMinOffset=3*bit_holder.millimeter,
+        #     doLabelRetentionLip=True,
+        #     directionsOfEdgesThatWeWillAddALabelRetentionLipTo=(
+        #         bit_holder.xHat,
+        #         # bit_holder.yHat,
+        #         # bit_holder.zHat,
+        #     )
+        # ).create_occurrence()
+
+        bit_holder.BitHolder(
+            segments = [
+                bit_holder.BitHolderSegment(
+                    # labelSculptingStrategy=bit_holder.LabelSculptingStrategy.EMBOSS,
+                    # labelSculptingStrategy=bit_holder.LabelSculptingStrategy.ENGRAVE
+                    bit=bit_holder.Bit(
+                        preferredLabelText="\\floodWithInk"
+                        #preferredLabelText="ABC"
+                    ),
+                    minimumAllowedLabelToZMinOffset=3*bit_holder.millimeter,
+                    doLabelRetentionLip=True,
+                    directionsOfEdgesThatWeWillAddALabelRetentionLipTo=(
+                        bit_holder.xHat,
+                        # bit_holder.yHat,
+                        # bit_holder.zHat,
+                    )
+                ),
+                bit_holder.BitHolderSegment(
+                    # labelSculptingStrategy=bit_holder.LabelSculptingStrategy.EMBOSS,
+                    # labelSculptingStrategy=bit_holder.LabelSculptingStrategy.ENGRAVE
+                    bit=bit_holder.Bit(
+                        preferredLabelText="\\floodWithInk"
+                        #preferredLabelText="ABC"
+                    ),
+                    minimumAllowedLabelToZMinOffset=3*bit_holder.millimeter,
+                    doLabelRetentionLip=True,
+                    directionsOfEdgesThatWeWillAddALabelRetentionLipTo=(
+                        bit_holder.xHat,
+                        # bit_holder.yHat,
+                        # bit_holder.zHat,
+                    )
+                )
+            ]
         ).create_occurrence()
 
     #monkeypatching traceback with the vscode-compatible link formatting
