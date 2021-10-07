@@ -405,7 +405,7 @@ def highlight(
                         )
                 customGraphicsColorEffect : adsk.fusion.CustomGraphicsColorEffect = adsk.fusion.CustomGraphicsAppearanceColorEffect.create(appearance)
             
-            _customGraphicsGroupToReceiveTheCustomGraphics.color=customGraphicsColorEffect
+            # _customGraphicsGroupToReceiveTheCustomGraphics.color=customGraphicsColorEffect #this might be redundant, givinmg that we are setting the color property of customGraphicsBRepBody, below.
             customGraphicsBRepBody : Optional[adsk.fusion.CustomGraphicsBRepBody] = _customGraphicsGroupToReceiveTheCustomGraphics.addBRepBody(bRepBody) 
             customGraphicsBRepBody.color=customGraphicsColorEffect            
         elif isinstance(highlightableThing, adsk.fusion.BRepEdge    ):
@@ -484,31 +484,38 @@ def highlight(
         elif isinstance(highlightableThing, adsk.core.Point3D       ):
             point3D : adsk.core.Point3D = highlightableThing
 
-            coordinates : adsk.fusion.CustomGraphicsCoordinates = adsk.fusion.CustomGraphicsCoordinates.create(point3D.asArray())
-            preferredColor = adsk.core.Color.create(red=255, green=0, blue=0, opacity=255)
-            coordinates.setColor(0,preferredColor)
-            # coordinates.setCoordinate(0,point3D)
-            # customGraphicsPointSet : Optional[adsk.fusion.CustomGraphicsPointSet] = customGraphicsGroupToReceiveTheCustomGraphics.addPointSet(
-            #     coordinates=coordinates,
-            #     indexList=[],
-            #     pointType= adsk.fusion.CustomGraphicsPointTypes.PointCloudCustomGraphicsPointType ,
-            #     pointImage=''
-            # )
-            img = Image.new(mode='RGB',size=(4, 4),color=(preferredColor.red, preferredColor.green, preferredColor.blue))
-            pathOfPointImageFile=tempfile.mktemp('.png')          
-            img.save(pathOfPointImageFile, format='png')
-            
-            #using an image file as the point icon is quite a hack.  It might be
-            # better to do a sphere as brep bodies, and to use some of the scaling features built into
-            # the custom graphics system so as to scale the sphere relative to the screen rather than relative to the model.
-            customGraphicsPointSet : Optional[adsk.fusion.CustomGraphicsPointSet] = _customGraphicsGroupToReceiveTheCustomGraphics.addPointSet(
-                coordinates=coordinates,
-                indexList=[],
-                pointType= adsk.fusion.CustomGraphicsPointTypes.UserDefinedCustomGraphicsPointType ,
-                pointImage=pathOfPointImageFile
-            )
-            customGraphicsPointSet.color = customGraphicsColorEffect
-        
+            ## the hacky, image-based method for point highlighting:
+                # coordinates : adsk.fusion.CustomGraphicsCoordinates = adsk.fusion.CustomGraphicsCoordinates.create(point3D.asArray())
+                # preferredColor = adsk.core.Color.create(red=255, green=0, blue=0, opacity=255)
+                # coordinates.setColor(0,preferredColor)
+                # # coordinates.setCoordinate(0,point3D)
+                # # customGraphicsPointSet : Optional[adsk.fusion.CustomGraphicsPointSet] = customGraphicsGroupToReceiveTheCustomGraphics.addPointSet(
+                # #     coordinates=coordinates,
+                # #     indexList=[],
+                # #     pointType= adsk.fusion.CustomGraphicsPointTypes.PointCloudCustomGraphicsPointType ,
+                # #     pointImage=''
+                # # )
+                # img = Image.new(mode='RGB',size=(4, 4),color=(preferredColor.red, preferredColor.green, preferredColor.blue))
+                # pathOfPointImageFile=tempfile.mktemp('.png')          
+                # img.save(pathOfPointImageFile, format='png')
+                # 
+                # #using an image file as the point icon is quite a hack.  It might be
+                # # better to do a sphere as brep bodies, and to use some of the scaling features built into
+                # # the custom graphics system so as to scale the sphere relative to the screen rather than relative to the model.
+                # customGraphicsPointSet : Optional[adsk.fusion.CustomGraphicsPointSet] = _customGraphicsGroupToReceiveTheCustomGraphics.addPointSet(
+                #     coordinates=coordinates,
+                #     indexList=[],
+                #     pointType= adsk.fusion.CustomGraphicsPointTypes.UserDefinedCustomGraphicsPointType ,
+                #     pointImage=pathOfPointImageFile
+                # )
+                # customGraphicsPointSet.color = customGraphicsColorEffect
+
+
+            temporaryBRepManager : adsk.fusion.TemporaryBRepManager = adsk.fusion.TemporaryBRepManager.get()
+            bRepBody : adsk.fusion.BRepBody = temporaryBRepManager.createSphere(center=point3D, radius=0.5)
+            customGraphicsBRepBody : Optional[adsk.fusion.CustomGraphicsBRepBody] = _customGraphicsGroupToReceiveTheCustomGraphics.addBRepBody(bRepBody) 
+            customGraphicsBRepBody.color=customGraphicsColorEffect
+            customGraphicsBRepBody.viewScale = adsk.fusion.CustomGraphicsViewScale.create(pixelScale=5, anchorPoint=point3D)
         else:
             print("We do not know how to highlight a " + str(type(highlightableThing)))
             continue
