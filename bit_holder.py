@@ -4,6 +4,7 @@ import enum
 import math
 from .braids.fscad.src.fscad import fscad as fscad
 from . import highlight as highlight
+# from .highlight import highlight
 import itertools
 import re
 import adsk.fusion, adsk.core
@@ -29,28 +30,27 @@ import unyt
 from .bit_holder_utility import *
 
 
-# regex substitution rules that were useful when converting the original featurescript code to python: 
-# \bthis\[\]\.get_(\w+)\(\)
-# ==>
-# self.$1
-
-# \bthis\[\]\.get_(\w+) = 
-# ==>
-# @property\n    def $1(self)
-
-# \b(?<containerName>(?<this>this)|(?:\w+))\[\]\.get_(?<propertyName>\w+)\(\)
-# ==>
-# (?{this}self:$+{containerName}).$+{propertyName}
-
-# mean\(
-# ==>
-# np.mean(
+## regex substitution rules that were useful when converting the original featurescript code to python: 
+ # \bthis\[\]\.get_(\w+)\(\)
+ # ==>
+ # self.$1
+ 
+ # \bthis\[\]\.get_(\w+) = 
+ # ==>
+ # @property\n    def $1(self)
+ 
+ # \b(?<containerName>(?<this>this)|(?:\w+))\[\]\.get_(?<propertyName>\w+)\(\)
+ # ==>
+ # (?{this}self:$+{containerName}).$+{propertyName}
+ 
+ # mean\(
+ # ==>
+ # np.mean(
 
 class LabelSculptingStrategy(Enum):
     EMBOSS = enum.auto()
     ENGRAVE = enum.auto()
-
-            
+     
 class MountHolesPositionZStrategy(Enum):
     # mountHolesPositionZSpecifier controls how the z position of the mount holes is determined.
     # the allowable values are 
@@ -62,7 +62,6 @@ class MountHolesPositionZStrategy(Enum):
     grazeBottomOfSaddleBoreLip = enum.auto()
     middle = enum.auto()
     explicit = enum.auto()
-
 
 class Bit :
     """ a bit is essentially a cylinder along with a preferredLabelText property -- for our 
@@ -88,7 +87,6 @@ class Socket (Bit):
         super().__init__(*args, **kwargs)
 
     #TODO: fill in the details
-
 
 class BitHolderSegment (fscad.Component)  :
     def __init__(self, 
@@ -939,7 +937,7 @@ class BitHolderSegment (fscad.Component)  :
                         zDirection = zDirection,
                     )
 
-                print("t.determinant: " + str(t.determinant))
+                # print("t.determinant: " + str(t.determinant))
                 placedLipProfile = lipProfile.copy().transform(t)
                 # placedLipProfile.name = 'placedLipProfile ' + str(i)
                 # placedLipProfile.create_occurrence()
@@ -1055,7 +1053,7 @@ class BitHolder  (fscad.Component) :
         return 0.5 * self.mountHolesGridSpacing - 1.5 * millimeter; 
     
     @property
-    def mountHolePositions(self):
+    def mountHolePositions(self) -> Sequence[adsk.core.Point3D]:
         mountHolePositions = [None]*2      
         
         # compute mountHolesPositionZ
@@ -1094,7 +1092,7 @@ class BitHolder  (fscad.Component) :
             )
 
         mountHolePositions[1] = mountHolePositions[0] + mountHolesInterval * xHat            
-        return  mountHolePositions 
+        return  tuple( map(castToPoint3D, mountHolePositions ))
 
     @property
     def extentX(self):
@@ -1181,6 +1179,11 @@ class BitHolder  (fscad.Component) :
 
         returnValue = (x.brep for x in combinedSegments.bodies)
 
+        highlight.highlight(self.mountHolePositions)
+
+        for mountHolePosition in self.mountHolePositions:
+            
+
         return returnValue
 
 class MountHoleSpec :
@@ -1202,24 +1205,38 @@ class MountHoleSpec :
         self.minimumAllowedClampingThickness : float = minimumAllowedClampingThickness 
         self.clampingDiameter                : float = clampingDiameter                
 
+    def cutIntoComponent(self, component : fscad.Component, 
+        axis: adsk.core.InfiniteLine3D
+    ) -> fscad.Component :
+        # the direction of axis determines the direction along which we "drill"
+        # First, we locate the counterBoreEndPoint by finding the maximum point
+        # on the axis that is contained in any of the bodies of component, and
+        # moving in the negative axis direction by a distance
+        # self.minimumAllowedClampingThickness. We cut a hole of diameter
+        # self.shankClearanceDiameter by extruding a disk of that diameter
+        # starting from counterBoreEndPoint and moving in the positive axis
+        # direction until we have cut through all bodies of the component. Then,
+        # we cut a hole of diameter self.headClearanceDiameter by sweeping a
+        # disk of that diameter starting from counterBoreEndPoint and moving in
+        # the negative axis direction until we have cut through all bodies of
+        # the component. we return a new component.
+
+
 
 class HorizontalAlignment(Enum):
     LEFT = enum.auto()
     CENTER = enum.auto()
     RIGHT = enum.auto()
 
-
 class VerticalAlignment(Enum):
     TOP = enum.auto()
     CENTER = enum.auto()
     BOTTOM = enum.auto()
 
-
 class GalleyAnchor_e(Enum):
     TOP_LEFT    = enum.auto();  TOP_CENTER    = enum.auto();  TOP_RIGHT    = enum.auto();
     CENTER_LEFT = enum.auto();  CENTER        = enum.auto();  CENTER_RIGHT = enum.auto();
     BOTTOM_LEFT = enum.auto();  BOTTOM_CENTER = enum.auto();  BOTTOM_RIGHT = enum.auto();
-
 
 class Galley(fscad.BRepComponent):
     # I don't think I fully appreciate fscad's use of child components,
@@ -1480,7 +1497,6 @@ class Galley(fscad.BRepComponent):
                 # or to emit a warning if actual clipping occurs.
             
         return returnValue
-
 
 class TextRow(fscad.BRepComponent):
     # todo: make all the properties read-only

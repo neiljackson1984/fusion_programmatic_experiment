@@ -631,22 +631,8 @@ def run(context:dict):
                         # bit_holder.yHat,
                         # bit_holder.zHat,
                     )
-                ),
-                bit_holder.BitHolderSegment(
-                    # labelSculptingStrategy=bit_holder.LabelSculptingStrategy.EMBOSS,
-                    # labelSculptingStrategy=bit_holder.LabelSculptingStrategy.ENGRAVE
-                    bit=bit_holder.Bit(
-                        preferredLabelText="\\floodWithInk"
-                        #preferredLabelText="ABC"
-                    ),
-                    minimumAllowedLabelToZMinOffset=3*bit_holder.millimeter,
-                    doLabelRetentionLip=True,
-                    directionsOfEdgesThatWeWillAddALabelRetentionLipTo=(
-                        bit_holder.xHat,
-                        # bit_holder.yHat,
-                        # bit_holder.zHat,
-                    )
                 )
+                for i in range(6)
             ]
         ).create_occurrence()
 

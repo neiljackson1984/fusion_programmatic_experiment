@@ -1,4 +1,4 @@
-from typing import Optional, Sequence, Union
+from typing import Optional, Sequence, Tuple, Union
 from enum import Enum
 import enum
 import math
@@ -580,3 +580,13 @@ def rigidTransform3D(
     returnValue : adsk.core.Matrix3D = adsk.core.Matrix3D.create()
     returnValue.setWithCoordinateSystem(origin, *basisVectors)
     return returnValue
+
+
+def evExtremeSkewerPointsOfBodies(*bodies : adsk.fusion.BrepBody,  axis: adsk.core.InfiniteLine3D) -> Tuple[adsk.core.Point3D]:
+    """ returns a tuple of Point3D representing the minimum and maximum points,
+    respectively, along axis, of the intersection of bodies
+    with the axis.  If the axis does not intersect any of the bodies, then the returned tuple is empty """
+    #strategy: iterate through all faces of all bodies in bodies.  For each, compute the intersection point(s) of that face with axis, 
+    # axis.intersectWithSurface(face.geometry), and then using face.evaluator.isParameterOnFace() to pick out only those intersection points that
+    # are actually on the face.  Then, of all the intersection points, find the minimum and maximum with respect to the direction of axis.
+    
