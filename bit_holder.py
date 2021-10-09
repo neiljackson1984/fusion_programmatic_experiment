@@ -527,21 +527,8 @@ class BitHolderSegment (fscad.Component)  :
         mainPrivateComponent.name = 'mainPrivateComponent'
         #the name is just for debugging
 
-        boreTool = fscad.Cylinder(height=1*meter,radius=self.boreDiameter/2)
-        
-        # to mimic the behavior of OnShape's fCylinder function, which lets you specify the cylinder's start
-        # and end points, I must rotate so as to bring zHat into alignment with self.boreDirection,
-        # and translate so as to move the origin to boreBottomCenter.
-        
-        t : adsk.core.Matrix3D = adsk.core.Matrix3D.create()
-        t.setToRotateTo(
-            adsk.core.Vector3D.create(*zHat),
-            adsk.core.Vector3D.create(*self.boreDirection)
-        )
-        t.translation = adsk.core.Vector3D.create(*self.boreBottomCenter)
-        boreTool.transform(t)
+        boreTool = cylinderByStartEndRadius(startPoint=castToPoint3D(self.boreBottomCenter), endPoint=castToPoint3D(self.boreBottomCenter + 1*meter * self.boreDirection))
         # highlight.highlight(boreTool)
-        
         boxOccurrence = mainPrivateComponent.create_occurrence()
         boxBody = boxOccurrence.bRepBodies.item(0)
         boreToolOccurrence = boreTool.create_occurrence()
@@ -1047,6 +1034,15 @@ class BitHolder  (fscad.Component) :
         # )
         super().__init__(name)
 
+    # def _copy_to(self, copy: 'BitHolder', copy_children: bool):
+                
+    #     copy.segments = list(map( lambda x: x.copyWithModification() , self.segments))
+    #     copy.mountHoleSpec = self.mountHoleSpec
+    #     copy.minimumAllowedExtentY  = self.minimumAllowedExtentY
+    #     copy.mountHolesGridSpacing  = self.mountHolesGridSpacing
+    #     copy.mountHolesPositionZStrategy  = self.mountHolesPositionZStrategy
+    #     copy.explicitMountHolesPositionZ  = self.explicitMountHolesPositionZ  
+
 
     @property        
     def xMinMountHolePositionX(self):
@@ -1177,12 +1173,14 @@ class BitHolder  (fscad.Component) :
             insertionPoint += segment.extentX * xHat
         combinedSegments = fscad.Union(*transformedSegments)
 
-        returnValue = (x.brep for x in combinedSegments.bodies)
+        
 
-        highlight.highlight(self.mountHolePositions)
+        # highlight.highlight(self.mountHolePositions)
 
         for mountHolePosition in self.mountHolePositions:
-            
+            combinedSegments = self.mountHoleSpec.cutIntoComponent(component = combinedSegments, axis = adsk.core.InfiniteLine3D.create(origin = mountHolePosition, direction = castToVector3D(yHat)))
+
+        returnValue = (x.brep for x in combinedSegments.bodies)
 
         return returnValue
 
@@ -1220,6 +1218,32 @@ class MountHoleSpec :
         # disk of that diameter starting from counterBoreEndPoint and moving in
         # the negative axis direction until we have cut through all bodies of
         # the component. we return a new component.
+        offset = axis.direction.copy()
+        offset.normalize()
+        offset.scaleBy( - self.minimumAllowedClampingThickness )
+        extremePoints = evExtremeSkewerPointsOfBodies(*(body.brep for body in component.bodies), axis=axis)
+        counterBoreEndPoint = extremePoints[1].copy()
+        counterBoreEndPoint.translateBy(offset)
+        # highlight.highlight(extremePoints[0], colorEffect='darkgreen')
+        # highlight.highlight(extremePoints[1], colorEffect='darkorange')
+        # highlight.highlight(counterBoreEndPoint, colorEffect='firebrick')
+
+        tool = fscad.Union(
+            cylinderByStartEndRadius(
+                radius = self.shankClearanceDiameter/2 , 
+                startPoint = counterBoreEndPoint, 
+                endPoint = castToPoint3D( castTo3dArray(counterBoreEndPoint) + 1*meter*castTo3dArray(axis.direction) )
+            ),
+            cylinderByStartEndRadius(
+                radius = self.headClearanceDiameter/2 , 
+                startPoint = counterBoreEndPoint, 
+                endPoint = castToPoint3D( castTo3dArray(counterBoreEndPoint) - 1*meter*castTo3dArray(axis.direction) )
+            )
+        )
+        # highlight.highlight(tool, colorEffect='darkgreen')
+        return fscad.Difference(component, tool)
+        # the 1*meter, above, is a major hack that is intended to mean "infinity".  We really ought to evaluate the bounding box of the component and make sure that we have fully penetrated all the way through the component.
+        
 
 
 

@@ -251,6 +251,8 @@ def castToNDArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.
     return returnValue
 
 VectorLike = Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D]
+
+
 def castTo3dArray(x: VectorLike) -> NDArray: 
     #need to figure out how to use the shape-specificatin facility that I think is part of the NDArray type alias.
     a=castToNDArray(x, 3)
@@ -275,12 +277,25 @@ def castToPoint3D(x: VectorLike) -> adsk.core.Point3D:
     else:
         return adsk.core.Point3D.create(*castTo3dArray(x).astype(dtype = float))
 
-
 def castToVector3D(x: VectorLike) -> adsk.core.Vector3D:
     if isinstance(x, adsk.core.Vector3D):
         return x.copy()
     else:
         return adsk.core.Vector3D.create(*castTo3dArray(x).astype(dtype = float))
+
+def arbitraryPerpendicularVector(x : VectorLike) -> adsk.core.Vector3D:
+    """ returns a normalized vector perpendicular to the given vector """
+    needle = castTo3dArray(x)
+    needleHat = normalized(needle)
+    candidateDirection = ( yHat if yHat @ needleHat < 0.9 else zHat )
+    # Note that candidateDirection is normalized.
+    return castToVector3D(
+        normalized(
+            candidateDirection - ( candidateDirection @ needleHat ) * needleHat
+        )
+    )
+   
+
 
 # we can think of adsk.core.Vector3D and adsk.core.Point3D as being special
 # cases of a 4-element sequence of reals.  Vector3D has the last element being 0
@@ -315,6 +330,21 @@ def rectByCorners(corner1 = vector(0,0) * meter, corner2 = vector(1,1) * meter, 
     # is what we have to do to work around Python's lack of
     # automatic type coercion.
 
+def cylinderByStartEndRadius(startPoint : adsk.core.Point3D = adsk.core.Point3D.create(0,0,0), endPoint : adsk.core.Point3D = adsk.core.Point3D.create(0,0,1), radius : float = 1) -> fscad.Cylinder:
+    x = fscad.Cylinder(height=endPoint.distanceTo(startPoint),radius=radius)
+
+    # to mimic the behavior of OnShape's fCylinder function, which lets you specify the cylinder's start
+    # and end points, I must rotate so as to bring zHat into alignment with self.boreDirection,
+    # and translate so as to move the origin to boreBottomCenter.
+
+    t : adsk.core.Matrix3D = adsk.core.Matrix3D.create()
+    t.setToRotateTo(
+        castToVector3D(zHat),
+        startPoint.vectorTo(endPoint)
+    )
+    t.translation = startPoint.asVector()
+    x.transform(t)
+    return x
 
 def getAllSheetBodiesFromSketch(sketch : adsk.fusion.Sketch) -> Sequence[adsk.fusion.BRepBody]:
     """ returns a sequence of BRepBody, containing one member for each member of sketch.profiles and 
@@ -582,11 +612,34 @@ def rigidTransform3D(
     return returnValue
 
 
-def evExtremeSkewerPointsOfBodies(*bodies : adsk.fusion.BrepBody,  axis: adsk.core.InfiniteLine3D) -> Tuple[adsk.core.Point3D]:
+def evExtremeSkewerPointsOfBodies(*bodies : adsk.fusion.BRepBody,  axis: adsk.core.InfiniteLine3D) -> Tuple[adsk.core.Point3D]:
     """ returns a tuple of Point3D representing the minimum and maximum points,
-    respectively, along axis, of the intersection of bodies
-    with the axis.  If the axis does not intersect any of the bodies, then the returned tuple is empty """
-    #strategy: iterate through all faces of all bodies in bodies.  For each, compute the intersection point(s) of that face with axis, 
+    respectively, along axis, of the intersection of bodies with the axis.  If
+    the axis does not intersect any of the bodies, then the returned tuple is
+    empty """
+    # strategy: iterate through all faces of all bodies in bodies.  For each, compute the intersection point(s) of that face with axis, 
     # axis.intersectWithSurface(face.geometry), and then using face.evaluator.isParameterOnFace() to pick out only those intersection points that
     # are actually on the face.  Then, of all the intersection points, find the minimum and maximum with respect to the direction of axis.
-    
+    intersectionPoints : Sequence[adsk.core.Point3D] = []
+    bodyIndex = 0
+    for body in bodies:
+        face : adsk.fusion.BRepFace
+        faceIndex = 0
+        for face in body.faces:
+            candidateIntersectionPoint : adsk.core.Point3D
+            for candidateIntersectionPoint in axis.intersectWithSurface(face.geometry):
+                # print(f"bodyIndex: {bodyIndex}, faceIndex: {faceIndex}, " + 'type(candidateIntersectionPoint): ' + str(type(candidateIntersectionPoint)))
+                if face.evaluator.isParameterOnFace(face.evaluator.getParameterAtPoint(candidateIntersectionPoint)[1]):
+                    intersectionPoints.append(candidateIntersectionPoint)
+                    # print("is on face")
+            faceIndex += 1
+        bodyIndex += 1
+    if len(intersectionPoints) == 0:
+        return tuple()
+    else:
+        intersectionPoints.sort(key= lambda p: p.asVector().dotProduct(axis.direction))
+        return (intersectionPoints[0], intersectionPoints[-1])
+
+
+# def extremeBoundPointsOfBodies(*bodies : adsk.fusion.BRepBody,  direction: adsk.core.Vector3D) -> Tuple[adsk.core.Point3D]:
+#     pass
