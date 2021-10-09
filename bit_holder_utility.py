@@ -29,6 +29,16 @@ from .braids.fscad.src.fscad import fscad as fscad
 from adsk.fusion import BRepEdge
 # "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install unyt
 
+
+import unyt
+# "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install unyt
+
+unyt.millimeter = unyt.milimeter
+# this is a work-around for the problem that unyt misspells the SI
+# prefix milli with only a single l.
+
+fusionInternalUnitOfLength = unyt.centimeter
+
 def app()           -> adsk.core.Application   : return adsk.core.Application.get()
 def ui()            -> adsk.core.UserInterface : return app().userInterface
 def design()        -> adsk.fusion.Design      : return adsk.fusion.Design.cast(app().activeProduct)
@@ -617,9 +627,13 @@ def evExtremeSkewerPointsOfBodies(*bodies : adsk.fusion.BRepBody,  axis: adsk.co
     respectively, along axis, of the intersection of bodies with the axis.  If
     the axis does not intersect any of the bodies, then the returned tuple is
     empty """
-    # strategy: iterate through all faces of all bodies in bodies.  For each, compute the intersection point(s) of that face with axis, 
-    # axis.intersectWithSurface(face.geometry), and then using face.evaluator.isParameterOnFace() to pick out only those intersection points that
-    # are actually on the face.  Then, of all the intersection points, find the minimum and maximum with respect to the direction of axis.
+    # strategy: iterate through all faces of all bodies in bodies.  For each,
+    # compute the intersection point(s) of that face with axis,
+    # axis.intersectWithSurface(face.geometry), and then using
+    # face.evaluator.isParameterOnFace() to pick out only those intersection
+    # points that are actually on the face.  Then, of all the intersection
+    # points, find the minimum and maximum with respect to the direction of
+    # axis.
     intersectionPoints : Sequence[adsk.core.Point3D] = []
     bodyIndex = 0
     for body in bodies:
@@ -639,6 +653,42 @@ def evExtremeSkewerPointsOfBodies(*bodies : adsk.fusion.BRepBody,  axis: adsk.co
     else:
         intersectionPoints.sort(key= lambda p: p.asVector().dotProduct(axis.direction))
         return (intersectionPoints[0], intersectionPoints[-1])
+
+
+def toProperFractionString(x: SupportsFloat, denominator : int) -> str:
+    denominator = abs(denominator)   
+    numerator : int = round(x*denominator)
+    # gcd : int = greatestCommonDivisor(numerator, denominator)
+    gcd : int = np.gcd(numerator, denominator)
+    # print(f"{type(numerator)}, {type(denominator)}, {type(gcd)}")
+    numerator = int( numerator / gcd )
+    denominator = int( denominator / gcd )
+
+    # print(f"{type(numerator)}, {type(denominator)}")
+    returnValue = f"{numerator}/{denominator}"
+
+    # attempt to convert returnValue to one of the special unicode codepoints for fractions:
+    returnValue = {
+        "1/9"  : "\u2151",
+        "1/10" : "\u2152",
+        "1/3"  : "\u2153",
+        "2/3"  : "\u2154",
+        "1/5"  : "\u2155",
+        "2/5"  : "\u2156",
+        "3/5"  : "\u2157",
+        "4/5"  : "\u2158",
+        "1/6"  : "\u2159",
+        "5/6"  : "\u215a",
+        "1/8"  : "\u215b",
+        "3/8"  : "\u215c",
+        "5/8"  : "\u215d",
+        "7/8"  : "\u215e",
+        "1/4"  : "\u00bc",
+        "1/2"  : "\u00bd",
+        "3/4"  : "\u00be",
+    }.get(returnValue, returnValue)
+
+    return returnValue
 
 
 # def extremeBoundPointsOfBodies(*bodies : adsk.fusion.BRepBody,  direction: adsk.core.Vector3D) -> Tuple[adsk.core.Point3D]:

@@ -1,4 +1,4 @@
-from typing import Optional, Sequence, Tuple, Union, Iterable
+from typing import Optional, Sequence, Tuple, Union, Iterable, SupportsFloat
 from enum import Enum
 import enum
 import math
@@ -18,13 +18,9 @@ import scipy
 from math import sin,cos,tan
 
 import numpy as np
-# I am relying on the installation of scipy to also install numpy.
+
 
 from numpy.typing import ArrayLike
-
-
-import unyt
-# "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install unyt
 
 
 from .bit_holder_utility import *
@@ -63,30 +59,78 @@ class MountHolesPositionZStrategy(Enum):
     middle = enum.auto()
     explicit = enum.auto()
 
+class ProtrusionStrategy(Enum):
+    explicitProtrusion = enum.auto()
+    explicitEmbedment = enum.auto()
+
 class Bit :
-    """ a bit is essentially a cylinder along with a preferredLabelText property -- for our 
+    """ a bit is essentially a cylinder along with a labelText property -- for our 
     purposes, these are the only aspects of a bit that we care about."""
 
 
     def __init__(self,
-        outerDiameter        : float = 17 * millimeter,
-        length               : float = 25 * millimeter,
-        preferredLabelText   : str   = "DEFAULT"
+        outerDiameter : float = 17 * millimeter,
+        length        : float = 25 * millimeter,
+        labelText     : str   = "DEFAULT"
     ):
-        self.outerDiameter      : float = outerDiameter
-        self.length             : float = length
-        self.preferredLabelText : str   = preferredLabelText
+        self.outerDiameter  : float = outerDiameter
+        self.length         : float = length
+        self.labelText      : str   = labelText
 
 class Socket (Bit):
     """ Socket is a specialized type of (i.e. inherits from) Bit. the only
     thing that socket does differently is that it overrides the
-    preferredLabelText property, and defines a couple of other properties to
-    help specify preferredLabelText.
+    labelText property, and defines a couple of other properties to
+    help specify labelText.
     """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, 
+        outerDiameter      : float          = 17 * millimeter,
+        length             : float          = 25 * millimeter,
+        # the above arguments are passed unaltered to the constructor of the super class.
 
-    #TODO: fill in the details
+        nominalSize        : float = 3/8 * inch,
+        # the nominal size of the head of the fastener that this socket is intended to drive.
+
+        nominalUnit       : float = 1 * inch,
+        # specifies the system of units (typically, imperial or metric) that this socket
+        # is designed for.  This influences labelText.
+        # in practice, nominalUnit is expected to be either 1 * inch or 1 * millimeter.
+
+        driveSize          : float = 1/2 * inch,
+        # the nominal size of the square nub.  This is used to categorize the sockets.
+
+        explicitLabelText  : Optional[str]  = None
+        # iff it is truthy, explicitLabelText will override the otherwise automatically-computed labelText.
+    ):
+        # super().__init__(
+        #     outerDiameter = outerDiameter,
+        #     length = length
+        # )
+        self.outerDiameter  : float = outerDiameter
+        self.length         : float = length
+
+        self.nominalSize        : float          = nominalSize
+        self.nominalUnit        : unyt.Unit      = nominalUnit
+        self.driveSize          : float          = driveSize
+        self.explicitLabelText  : Optional[str]  = explicitLabelText
+
+    # I am assuming and hoping that the labelText method, declared with
+    # @property decorator, will override the simple labelText property defined
+    # in the constructor of the super class, but we should confirm this.
+    @property
+    def labelText(self) -> str:
+        if self.explicitLabelText:
+            return self.explicitLabelText
+        
+        unitlessSize = self.nominalSize / self.nominalUnit
+        if self.nominalUnit == 1 * inch:
+            return toProperFractionString(unitlessSize, 64) + "\n" + "in"
+        elif self.nominalUnit == 1 * millimeter:
+            unitlessSize = round(unitlessSize, 1)
+            if unitlessSize == int(unitlessSize):
+                unitlessSize = int(unitlessSize)
+            return f"{unitlessSize}" + "\n" + "mm"
+        # this is the ratio of nominalSize to one nominalUnit.
 
 class BitHolderSegment (fscad.Component)  :
     def __init__(self, 
@@ -98,7 +142,10 @@ class BitHolderSegment (fscad.Component)  :
         lecternMarginAboveBore                             : float                   = 3    * millimeter,
         boreDiameterAllowance                              : float                   = 0.8  * millimeter,
         mouthFilletRadius                                  : float                   = 2    * millimeter,
-        bitProtrusion                                      : float                   = 10.6 * millimeter,
+        explicitBitProtrusion                              : float                   = 10.6 * millimeter,
+        explicitBitEmbedment                               : float                   = 12.345 * millimeter,
+        bitProtrusionStrategy                              : ProtrusionStrategy      = ProtrusionStrategy.explicitProtrusion,
+
         labelExtentZ                                       : float                   = 12   * millimeter,
         labelThickness                                     : float                   = 0.9  * millimeter,
         #this is the thickness of the text (regardless of whether the text is engraved or embossed).
@@ -121,15 +168,19 @@ class BitHolderSegment (fscad.Component)  :
     
         name                                               : Optional[str]  = None ,
     ):
-        self.bit                                                 : Bit         = (bit if bit is not None else Bit())
-        self.bitHolder                                           : Optional[BitHolder] = bitHolder
-        self.angleOfElevation                                    : float       = angleOfElevation
-        self.lecternAngle                                        : float       = lecternAngle
-        self.lecternMarginBelowBore                              : float       = lecternMarginBelowBore
-        self.lecternMarginAboveBore                              : float       = lecternMarginAboveBore
-        self.boreDiameterAllowance                               : float       = boreDiameterAllowance
-        self.mouthFilletRadius                                   : float       = mouthFilletRadius
-        self.bitProtrusion                                       : float       = bitProtrusion
+        self.bit                                                 : Bit                  = (bit if bit is not None else Bit())
+        self.bitHolder                                           : Optional[BitHolder]  = bitHolder
+        self.angleOfElevation                                    : float                = angleOfElevation
+        self.lecternAngle                                        : float                = lecternAngle
+        self.lecternMarginBelowBore                              : float                = lecternMarginBelowBore
+        self.lecternMarginAboveBore                              : float                = lecternMarginAboveBore
+        self.boreDiameterAllowance                               : float                = boreDiameterAllowance
+        self.mouthFilletRadius                                   : float                = mouthFilletRadius
+
+        self.explicitBitProtrusion                               : float                = explicitBitProtrusion
+        self.explicitBitEmbedment                                : float                = explicitBitEmbedment
+        self.bitProtrusionStrategy                               : ProtrusionStrategy   = bitProtrusionStrategy
+
         self.labelExtentZ                                        : float       = labelExtentZ
         self.labelThickness                                      : float       = labelThickness
         self.labelZMax                                           : float       = labelZMax
@@ -218,7 +269,11 @@ class BitHolderSegment (fscad.Component)  :
         lecternMarginAboveBore                             : Optional[float]                   = None,
         boreDiameterAllowance                              : Optional[float]                   = None,
         mouthFilletRadius                                  : Optional[float]                   = None,
-        bitProtrusion                                      : Optional[float]                   = None,
+
+        explicitBitProtrusion                              : Optional[float]                   = None,
+        explicitBitEmbedment                               : Optional[float]                   = None,
+        bitProtrusionStrategy                              : Optional[ProtrusionStrategy]      = None,
+
         labelExtentZ                                       : Optional[float]                   = None,
         labelThickness                                     : Optional[float]                   = None,                 
         labelZMax                                          : Optional[float]                   = None,
@@ -245,7 +300,11 @@ class BitHolderSegment (fscad.Component)  :
             lecternMarginAboveBore                             = lecternMarginAboveBore                             or self.lecternMarginAboveBore                             ,
             boreDiameterAllowance                              = boreDiameterAllowance                              or self.boreDiameterAllowance                              ,
             mouthFilletRadius                                  = mouthFilletRadius                                  or self.mouthFilletRadius                                  ,
-            bitProtrusion                                      = bitProtrusion                                      or self.bitProtrusion                                      ,
+            
+            explicitBitProtrusion                              = explicitBitProtrusion                              or self.explicitBitProtrusion                              ,
+            explicitBitEmbedment                               = explicitBitEmbedment                               or self.explicitBitEmbedment                               ,
+            bitProtrusionStrategy                              = bitProtrusionStrategy                              or self.bitProtrusionStrategy                              ,
+            
             labelExtentZ                                       = labelExtentZ                                       or self.labelExtentZ                                       ,
             labelThickness                                     = labelThickness                                     or self.labelThickness                                     ,
             labelZMax                                          = labelZMax                                          or self.labelZMax                                          ,
@@ -339,7 +398,7 @@ class BitHolderSegment (fscad.Component)  :
 
     @property
     def labelText(self):
-        return self.bit.preferredLabelText # "\u0298" is a unicode character that, at least in the Tinos font, consists of a circle, like an 'O', and a central isolated dot.  This character does not extrude correctly (the middle dot is missng)
+        return self.bit.labelText # "\u0298" is a unicode character that, at least in the Tinos font, consists of a circle, like an 'O', and a central isolated dot.  This character does not extrude correctly (the middle dot is missng)
 
     @property
     def labelZMin(self):
@@ -390,6 +449,14 @@ class BitHolderSegment (fscad.Component)  :
         #     // vector(0, -1, tan(self.angleOfElevation))*self.bitProtrusionY
         #     // + self.boreDiameter/2 * (rotationMatrix3d(xHat,-90*degree)@self.boreDirection);
         return self.boreBottomCenter + 1 * meter * self.boreDirection
+
+    @property
+    def bitProtrusion(self) -> float:
+        return (
+            self.explicitBitProtrusion 
+            if self.bitProtrusionStrategy == ProtrusionStrategy.explicitProtrusion
+            else self.bit.length - self.explicitBitEmbedment
+        ) 
 
     @property
     def lecternNormal(self):
@@ -527,7 +594,7 @@ class BitHolderSegment (fscad.Component)  :
         mainPrivateComponent.name = 'mainPrivateComponent'
         #the name is just for debugging
 
-        boreTool = cylinderByStartEndRadius(startPoint=castToPoint3D(self.boreBottomCenter), endPoint=castToPoint3D(self.boreBottomCenter + 1*meter * self.boreDirection))
+        boreTool = cylinderByStartEndRadius(startPoint=castToPoint3D(self.boreBottomCenter), endPoint=castToPoint3D(self.boreBottomCenter + 1*meter * self.boreDirection), radius = self.boreDiameter/2)
         # highlight.highlight(boreTool)
         boxOccurrence = mainPrivateComponent.create_occurrence()
         boxBody = boxOccurrence.bRepBodies.item(0)
@@ -1242,7 +1309,10 @@ class MountHoleSpec :
         )
         # highlight.highlight(tool, colorEffect='darkgreen')
         return fscad.Difference(component, tool)
-        # the 1*meter, above, is a major hack that is intended to mean "infinity".  We really ought to evaluate the bounding box of the component and make sure that we have fully penetrated all the way through the component.
+        # TODO: the 1*meter, above, is a major hack that is intended to mean
+        # "infinity".  We really ought to evaluate the bounding box of the
+        # component and make sure that we have fully penetrated all the way
+        # through the component.  
         
 
 
@@ -1774,7 +1844,49 @@ class TextRow(fscad.BRepComponent):
     def opticalHeight(self) -> float:
         return self._opticalHeight
 
+def cannedBitHolder(name : str) -> BitHolder:
+    if name == "bondhus_hex_drivers_holder":
+        defaultBitParameters = {
+            "driveSize":           999.123456 * inch,
+            "length":              76.5 * millimeter,
+            "outerDiameter":       (1/4) * inch * 1/cos(30*degree), 
+            # circumcscribed circle diameter of regular hexagon having inscribed circle diameter 1/4 inch.
+            "nominalUnit":        1*millimeter
+        }
 
+        defaultBitHolderSegmentParameters = {
+            'labelFontHeight'          : (4.75 * millimeter, 3.2*millimeter),
+            'lecternAngle'             : 70*degree,
+            'angleOfElevation'         : 70*degree,
+            'bitProtrusionStrategy'    : ProtrusionStrategy.explicitEmbedment,
+            'explicitBitEmbedment'     : 18 * millimeter
+        }
+
+        returnValue = BitHolder(
+            name=name,
+            mountHolesPositionZStrategy = MountHolesPositionZStrategy.explicit,
+            explicitMountHolesPositionZ=-10*millimeter,
+            segments = [
+                BitHolderSegment(
+                    **defaultBitHolderSegmentParameters,
+                    bit=Socket(**{**defaultBitParameters, **specificBitParameters}),
+                )
+                for specificBitParameters in [
+                    { 'nominalSize': 2    * millimeter                                                        },
+                    { 'nominalSize': 2.5  * millimeter                                                        },
+                    { 'nominalSize': 3    * millimeter                                                        },
+                    { 'nominalSize': 4    * millimeter                                                        },
+                    { 'nominalSize': 5    * millimeter                                                        },
+                    { 'nominalSize': 6    * millimeter                                                        },
+                    { 'nominalSize': 8    * millimeter,  'outerDiameter' : 8  * millimeter * 1/cos(30*degree) },
+                    { 'nominalSize': 10   * millimeter,  'outerDiameter' : 10 * millimeter * 1/cos(30*degree) },
+                    { 'nominalSize': 12   * millimeter,  'outerDiameter' : 12 * millimeter * 1/cos(30*degree) },
+
+                ]
+            ]
+        )
+    
+    return returnValue
 
 
 #####################
