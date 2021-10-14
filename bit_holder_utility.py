@@ -3,7 +3,7 @@ from enum import Enum
 import enum
 import math
 import functools
-import scipy
+# import scipy
 import itertools
 import warnings
 # the above import of scipy requires the user to have taken action to ensure that scipy is available somewhere on the system path,

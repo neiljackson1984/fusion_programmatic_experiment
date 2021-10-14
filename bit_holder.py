@@ -1,4 +1,4 @@
-from typing import Optional, Sequence, Tuple, Union, Iterable, SupportsFloat
+from typing import Optional, Sequence, Tuple, Union, Iterable, SupportsFloat, Dict, List
 from enum import Enum
 import enum
 import math
@@ -9,7 +9,7 @@ import itertools
 import re
 import adsk.fusion, adsk.core
 
-import scipy
+# import scipy
 # the above import of scipy requires the user to have taken action to ensure that scipy is available somewhere on the system path,
 # for instance by doing "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install scipy
 # I would like to automate the management of dependencies like this.  With a "normal" Python project, pipenv would be the logical way to do it,
@@ -25,6 +25,8 @@ from numpy.typing import ArrayLike
 
 from .bit_holder_utility import *
 
+
+_cannedBitHolders : Dict[str, 'BitHolder'] = {}
 
 ## regex substitution rules that were useful when converting the original featurescript code to python: 
  # \bthis\[\]\.get_(\w+)\(\)
@@ -158,7 +160,6 @@ class BitHolderSegment (fscad.Component)  :
         # used to enforce minimum interval between bits for ease of grabbing very small bits with fingers.
 
         minimumAllowedExtentY                              : float                   = 0    * millimeter,  
-        # extentYOfMountingMeat                : float                   = 0    * millimeter,  
         minimumAllowedLabelToZMinOffset                    : float                   = 0    * millimeter,  
         minimumAllowedBoreToZMinOffset                     : float                   = 2    * millimeter, 
         enableExplicitLabelExtentX                         : bool                    = False,
@@ -189,7 +190,6 @@ class BitHolderSegment (fscad.Component)  :
         self.labelSculptingStrategy                              : float       = labelSculptingStrategy
         self.minimumAllowedExtentX                               : float       = minimumAllowedExtentX
         self.minimumAllowedExtentY                               : float       = minimumAllowedExtentY
-        # self.extentYOfMountingMeat                 : float       = extentYOfMountingMeat
         self.minimumAllowedLabelToZMinOffset                     : float       = minimumAllowedLabelToZMinOffset
         self.minimumAllowedBoreToZMinOffset                      : float       = minimumAllowedBoreToZMinOffset
         self.enableExplicitLabelExtentX                          : bool        = enableExplicitLabelExtentX
@@ -260,6 +260,35 @@ class BitHolderSegment (fscad.Component)  :
 
         super().__init__(name)
 
+    def _copy_to(self, copy: 'BitHolderSegment', copy_children: bool) -> None:
+        copy.bit                                                 =   self.bit                                                 
+        copy.bitHolder                                           =   None                                           
+        copy.angleOfElevation                                    =   self.angleOfElevation                                    
+        copy.lecternAngle                                        =   self.lecternAngle                                        
+        copy.lecternMarginBelowBore                              =   self.lecternMarginBelowBore                              
+        copy.lecternMarginAboveBore                              =   self.lecternMarginAboveBore                              
+        copy.boreDiameterAllowance                               =   self.boreDiameterAllowance                               
+        copy.mouthFilletRadius                                   =   self.mouthFilletRadius                                   
+
+        copy.explicitBitProtrusion                               =   self.explicitBitProtrusion                               
+        copy.explicitBitEmbedment                                =   self.explicitBitEmbedment                                
+        copy.bitProtrusionStrategy                               =   self.bitProtrusionStrategy                               
+
+        copy.labelExtentZ                                        =   self.labelExtentZ                                        
+        copy.labelThickness                                      =   self.labelThickness                                      
+        copy.labelZMax                                           =   self.labelZMax                                           
+        copy.labelFontHeight                                     =   self.labelFontHeight                                     
+        copy.labelFontName                                       =   self.labelFontName                                       
+        copy.labelSculptingStrategy                              =   self.labelSculptingStrategy                              
+        copy.minimumAllowedExtentX                               =   self.minimumAllowedExtentX                               
+        copy.minimumAllowedExtentY                               =   self.minimumAllowedExtentY                               
+        copy.minimumAllowedLabelToZMinOffset                     =   self.minimumAllowedLabelToZMinOffset                     
+        copy.minimumAllowedBoreToZMinOffset                      =   self.minimumAllowedBoreToZMinOffset                      
+        copy.enableExplicitLabelExtentX                          =   self.enableExplicitLabelExtentX                          
+        copy.explicitLabelExtentX                                =   self.explicitLabelExtentX                                
+        copy.doLabelRetentionLip                                 =   self.doLabelRetentionLip                                 
+        copy.directionsOfEdgesThatWeWillAddALabelRetentionLipTo  =   self.directionsOfEdgesThatWeWillAddALabelRetentionLipTo  
+
     def copyWithModification(self,
         bit                                                : Optional[Bit]                     = None,
         bitHolder                                          : Optional['BitHolder']             = None,
@@ -294,6 +323,7 @@ class BitHolderSegment (fscad.Component)  :
         return BitHolderSegment(
             bit                                                = bit                                                or self.bit                                                ,
             bitHolder                                          = bitHolder                                          or self.bitHolder                                          ,
+            # bitHolder                                          = bitHolder                                          or None                                                    ,
             angleOfElevation                                   = angleOfElevation                                   or self.angleOfElevation                                   ,
             lecternAngle                                       = lecternAngle                                       or self.lecternAngle                                       ,
             lecternMarginBelowBore                             = lecternMarginBelowBore                             or self.lecternMarginBelowBore                             ,
@@ -1060,14 +1090,94 @@ class BitHolderSegment (fscad.Component)  :
         
         return returnValue
 
+
+class MountHoleSpec :
+    """ a MountHole (or, perhaps more correctly, specifications for a mount
+    hole) to be contained within a BitHolder.   This construction of the bodies
+    used in the creation of the mount hole is done by the user of this class.
+    """ 
+
+    def __init__(self,
+        shankClearanceDiameter          : float = 3 * millimeter,
+        headClearanceDiameter           : float = 8 * millimeter,
+        headClearanceHeight             : float = 2.7 * millimeter,
+        minimumAllowedClampingThickness : float = 1/4 * inch,
+        clampingDiameter                : float = 5/8 * inch
+    ):
+        self.shankClearanceDiameter          : float = shankClearanceDiameter          
+        self.headClearanceDiameter           : float = headClearanceDiameter           
+        self.headClearanceHeight             : float = headClearanceHeight             
+        self.minimumAllowedClampingThickness : float = minimumAllowedClampingThickness 
+        self.clampingDiameter                : float = clampingDiameter                
+
+    def cutIntoComponent(self, component : fscad.Component, 
+        axis: adsk.core.InfiniteLine3D
+    ) -> fscad.Component :
+        # the direction of axis determines the direction along which we "drill"
+        # First, we locate the counterBoreEndPoint by finding the maximum point
+        # on the axis that is contained in any of the bodies of component, and
+        # moving in the negative axis direction by a distance
+        # self.minimumAllowedClampingThickness. We cut a hole of diameter
+        # self.shankClearanceDiameter by extruding a disk of that diameter
+        # starting from counterBoreEndPoint and moving in the positive axis
+        # direction until we have cut through all bodies of the component. Then,
+        # we cut a hole of diameter self.headClearanceDiameter by sweeping a
+        # disk of that diameter starting from counterBoreEndPoint and moving in
+        # the negative axis direction until we have cut through all bodies of
+        # the component. we return a new component.
+        offset = axis.direction.copy()
+        offset.normalize()
+        offset.scaleBy( - self.minimumAllowedClampingThickness )
+        extremePoints = evExtremeSkewerPointsOfBodies(*(body.brep for body in component.bodies), axis=axis)
+        
+        if extremePoints:
+
+            counterBoreEndPoint = extremePoints[1].copy()
+            counterBoreEndPoint.translateBy(offset)
+            # highlight.highlight(extremePoints[0], colorEffect='darkgreen')
+            # highlight.highlight(extremePoints[1], colorEffect='darkorange')
+            # highlight.highlight(counterBoreEndPoint, colorEffect='firebrick')
+
+            tool = fscad.Union(
+                cylinderByStartEndRadius(
+                    radius = self.shankClearanceDiameter/2 , 
+                    startPoint = counterBoreEndPoint, 
+                    endPoint = castToPoint3D( castTo3dArray(counterBoreEndPoint) + 1*meter*castTo3dArray(axis.direction) )
+                ),
+                cylinderByStartEndRadius(
+                    radius = self.headClearanceDiameter/2 , 
+                    startPoint = counterBoreEndPoint, 
+                    endPoint = castToPoint3D( castTo3dArray(counterBoreEndPoint) - 1*meter*castTo3dArray(axis.direction) )
+                )
+            )
+            # highlight.highlight(tool, colorEffect='darkgreen')
+            return fscad.Difference(component, tool)
+            # TODO: the 1*meter, above, is a major hack that is intended to mean
+            # "infinity".  We really ought to evaluate the bounding box of the
+            # component and make sure that we have fully penetrated all the way
+            # through the component.  
+        else:
+            # in this case, there were no skewer points, which most likely means that axis does 
+            # not intersect the body. 
+            return component
+        
+
+
 class BitHolder  (fscad.Component) :
     """ a BitHolder is a collection of BitHolderSegment objects along with some
     parameters that specify how the bitHolderSegments are to be welded together 
     to make a single BitHolder.     """
 
     def __init__(self,
-            segments                    : Optional[Sequence[BitHolderSegment]] = None                                                    ,
-            mountHoleSpec               : Optional['MountHoleSpec']            = None                                                    ,
+            segments                    : Tuple[BitHolderSegment]              = tuple()                                                  ,
+            mountHoleSpec               : 'MountHoleSpec'                      = MountHoleSpec(
+                    #these clearance diameters are appropriate for a UTS 8-32 pan-head screw.
+                    shankClearanceDiameter            = 4.4958 * millimeter,
+                    headClearanceDiameter             = 8.6    * millimeter,
+                    minimumAllowedClampingThickness   = 3      * millimeter,
+                    clampingDiameter                  = 21     * millimeter,
+                    headClearanceHeight               = 2.7    * millimeter,
+                )                                                    ,
             minimumAllowedExtentY       : float                                = 12 * millimeter                                         ,
             mountHolesGridSpacing       : float                                = 1 * inch                                                ,
             explicitMountHolesPositionZ : float                                = zeroLength                                              ,
@@ -1075,25 +1185,14 @@ class BitHolder  (fscad.Component) :
             name                        : Optional[str]                        = None                                                    ,
         ):
         
-        self.segments : Sequence[BitHolderSegment] = (segments if segments is not None else
-            []
-        )
-        self.mountHoleSpec : MountHoleSpec = (mountHoleSpec if mountHoleSpec is not None else
-            MountHoleSpec(
-                #these clearance diameters are appropriate for a UTS 8-32 pan-head screw.
-                shankClearanceDiameter            = 4.4958 * millimeter,
-                headClearanceDiameter             = 8.6    * millimeter,
-                minimumAllowedClampingThickness   = 3      * millimeter,
-                clampingDiameter                  = 21     * millimeter,
-                headClearanceHeight               = 2.7    * millimeter,
-            )
-        )
-        self.minimumAllowedExtentY : float = minimumAllowedExtentY
-        self.mountHolesGridSpacing : float = mountHolesGridSpacing
+        
+        self.mountHoleSpec               : MountHoleSpec = mountHoleSpec
+        self.minimumAllowedExtentY       : float = minimumAllowedExtentY
+        self.mountHolesGridSpacing       : float = mountHolesGridSpacing
         # the mountHolesInterval will be constrained to be an integer multiple of this length.
         self.mountHolesPositionZStrategy : MountHolesPositionZStrategy = mountHolesPositionZStrategy
         self.explicitMountHolesPositionZ : float = explicitMountHolesPositionZ  
-
+        self.segments                    : Tuple[BitHolderSegment] = segments
         # super().__init__(
         #     *self._build(),
         #     component = None, 
@@ -1101,15 +1200,14 @@ class BitHolder  (fscad.Component) :
         # )
         super().__init__(name)
 
-    # def _copy_to(self, copy: 'BitHolder', copy_children: bool):
-                
-    #     copy.segments = list(map( lambda x: x.copyWithModification() , self.segments))
-    #     copy.mountHoleSpec = self.mountHoleSpec
-    #     copy.minimumAllowedExtentY  = self.minimumAllowedExtentY
-    #     copy.mountHolesGridSpacing  = self.mountHolesGridSpacing
-    #     copy.mountHolesPositionZStrategy  = self.mountHolesPositionZStrategy
-    #     copy.explicitMountHolesPositionZ  = self.explicitMountHolesPositionZ  
-
+    def _copy_to(self, copy: 'BitHolder', copy_children: bool) -> None:
+        print(f"BitHolder::_copy_to() is running for the BitHolder named '{self.name}'.")
+        copy.segments                     = (segment.copy() for segment in self.segments)
+        copy.mountHoleSpec                = self.mountHoleSpec               
+        copy.minimumAllowedExtentY        = self.minimumAllowedExtentY       
+        copy.mountHolesGridSpacing        = self.mountHolesGridSpacing       
+        copy.mountHolesPositionZStrategy  = self.mountHolesPositionZStrategy 
+        copy.explicitMountHolesPositionZ  = self.explicitMountHolesPositionZ 
 
     @property        
     def xMinMountHolePositionX(self):
@@ -1158,7 +1256,7 @@ class BitHolder  (fscad.Component) :
         return  tuple( map(castToPoint3D, mountHolePositions ))
 
     @property
-    def extentX(self):
+    def extentX(self) -> float:
         return sum(
             map(
                 lambda segment: segment.extentX,
@@ -1167,15 +1265,15 @@ class BitHolder  (fscad.Component) :
         )    
     
     @property
-    def xMin(self):
+    def xMin(self) -> float:
         return zeroLength
 
     @property    
-    def xMax(self):
+    def xMax(self) -> float:
         return self.xMin + self.extentX
     
     @property
-    def zMax(self):
+    def zMax(self) -> float:
         return max(
             *map(
                 lambda segment: segment.zMax,
@@ -1184,7 +1282,7 @@ class BitHolder  (fscad.Component) :
         )
 
     @property
-    def zMin(self):
+    def zMin(self) -> float:
         return min(
             *map(
                 lambda segment: segment.zMin,
@@ -1193,11 +1291,11 @@ class BitHolder  (fscad.Component) :
         )
     
     @property
-    def extentZ(self):
+    def extentZ(self) -> float:
         return self.zMax - self.zMin
     
     @property
-    def yMin(self):
+    def yMin(self) -> float:
         return min(
             *map(
                 lambda segment: segment.yMin,
@@ -1206,7 +1304,7 @@ class BitHolder  (fscad.Component) :
         )
 
     @property
-    def yMax(self):
+    def yMax(self) -> float:
         return max(
             *map(
                 lambda segment: segment.yMax,
@@ -1215,22 +1313,40 @@ class BitHolder  (fscad.Component) :
         )
     
     @property
-    def extentY(self):
+    def extentY(self) -> float:
         return self.yMax - self.yMin
 
     @property
-    def segments(self):
+    def segments(self) -> Tuple[BitHolderSegment]:
         return self._segments
     
     @segments.setter
-    def segments(self, newSegments : 'list[BitHolderSegment]'):
-        self._segments = newSegments
+    def segments(self, newSegments : Tuple[BitHolderSegment]):
+        self._segments = tuple(newSegments)
+        # print(f"The BitHolder with name {self.name} has received {len(self._segments)} segments.")
         for segment in self._segments:
             segment.bitHolder = self
-        # this is not quite right/complete in that the user might do x.segments.append(y),
-        # and we would miss it.
+
+    # the fscad.Component::_cached_brep_bodies property and the method
+    # fscad.Component::_get_cached_brep_bodies(), which uses the
+    # _cached_brep_bodies property are geared towards caching the results of
+    # transformations upon a component, NOT caching the (untransformed) bodies
+    # generated by expensive Fusion operations.  The latter type of caching is
+    # not implemented by fscad.Component (although it would be nice if such
+    # behavior were built into fscad.Component, and have both types of caching
+    # use potentially the same underlying cache -- fscad's MemoizeComponent
+    # decorator acheives a similar goal, but at a different level.).  Rather,
+    # fscad.Component leaves the caching of potentially-expensive
+    # body-construction operations up to the subclass. One example, within
+    # fscad, of a subclass of fscad.Component that does the latter type of
+    # caching (i.e. caching the results of potentially-expensive fusion
+    # body-construction operations (typically body construction operations that
+    # cannot be done purely with the TemporyBrepManager, but for which a
+    # temporary fusion component must be created.)) is the fscad.ExtrudeBase class.
 
     def _raw_bodies(self) -> Iterable[adsk.fusion.BRepBody]:
+        print(f"BitHolder::_raw_bodies() is running for the BitHolder named '{self.name}'.")
+        
         returnValue : list[adsk.fusion.BRepBody] = []
         insertionPoint = vector(self.xMin, zeroLength, zeroLength).astype(dtype = float)
         transformedSegments : list[fscad.Component] = []
@@ -1250,70 +1366,6 @@ class BitHolder  (fscad.Component) :
         returnValue = (x.brep for x in combinedSegments.bodies)
 
         return returnValue
-
-class MountHoleSpec :
-    """ a MountHole (or, perhaps more correctly, specifications for a mount
-    hole) to be contained within a BitHolder.   This construction of the bodies
-    used in the creation of the mount hole is done by the user of this class.
-    """ 
-
-    def __init__(self,
-        shankClearanceDiameter          : float = 3 * millimeter,
-        headClearanceDiameter           : float = 8 * millimeter,
-        headClearanceHeight             : float = 2.7 * millimeter,
-        minimumAllowedClampingThickness : float = 1/4 * inch,
-        clampingDiameter                : float = 5/8 * inch
-    ):
-        self.shankClearanceDiameter          : float = shankClearanceDiameter          
-        self.headClearanceDiameter           : float = headClearanceDiameter           
-        self.headClearanceHeight             : float = headClearanceHeight             
-        self.minimumAllowedClampingThickness : float = minimumAllowedClampingThickness 
-        self.clampingDiameter                : float = clampingDiameter                
-
-    def cutIntoComponent(self, component : fscad.Component, 
-        axis: adsk.core.InfiniteLine3D
-    ) -> fscad.Component :
-        # the direction of axis determines the direction along which we "drill"
-        # First, we locate the counterBoreEndPoint by finding the maximum point
-        # on the axis that is contained in any of the bodies of component, and
-        # moving in the negative axis direction by a distance
-        # self.minimumAllowedClampingThickness. We cut a hole of diameter
-        # self.shankClearanceDiameter by extruding a disk of that diameter
-        # starting from counterBoreEndPoint and moving in the positive axis
-        # direction until we have cut through all bodies of the component. Then,
-        # we cut a hole of diameter self.headClearanceDiameter by sweeping a
-        # disk of that diameter starting from counterBoreEndPoint and moving in
-        # the negative axis direction until we have cut through all bodies of
-        # the component. we return a new component.
-        offset = axis.direction.copy()
-        offset.normalize()
-        offset.scaleBy( - self.minimumAllowedClampingThickness )
-        extremePoints = evExtremeSkewerPointsOfBodies(*(body.brep for body in component.bodies), axis=axis)
-        counterBoreEndPoint = extremePoints[1].copy()
-        counterBoreEndPoint.translateBy(offset)
-        # highlight.highlight(extremePoints[0], colorEffect='darkgreen')
-        # highlight.highlight(extremePoints[1], colorEffect='darkorange')
-        # highlight.highlight(counterBoreEndPoint, colorEffect='firebrick')
-
-        tool = fscad.Union(
-            cylinderByStartEndRadius(
-                radius = self.shankClearanceDiameter/2 , 
-                startPoint = counterBoreEndPoint, 
-                endPoint = castToPoint3D( castTo3dArray(counterBoreEndPoint) + 1*meter*castTo3dArray(axis.direction) )
-            ),
-            cylinderByStartEndRadius(
-                radius = self.headClearanceDiameter/2 , 
-                startPoint = counterBoreEndPoint, 
-                endPoint = castToPoint3D( castTo3dArray(counterBoreEndPoint) - 1*meter*castTo3dArray(axis.direction) )
-            )
-        )
-        # highlight.highlight(tool, colorEffect='darkgreen')
-        return fscad.Difference(component, tool)
-        # TODO: the 1*meter, above, is a major hack that is intended to mean
-        # "infinity".  We really ought to evaluate the bounding box of the
-        # component and make sure that we have fully penetrated all the way
-        # through the component.  
-        
 
 
 
@@ -1844,49 +1896,125 @@ class TextRow(fscad.BRepComponent):
     def opticalHeight(self) -> float:
         return self._opticalHeight
 
-def cannedBitHolder(name : str) -> BitHolder:
-    if name == "bondhus_hex_drivers_holder":
-        defaultBitParameters = {
-            "driveSize":           999.123456 * inch,
-            "length":              76.5 * millimeter,
-            "outerDiameter":       (1/4) * inch * 1/cos(30*degree), 
-            # circumcscribed circle diameter of regular hexagon having inscribed circle diameter 1/4 inch.
-            "nominalUnit":        1*millimeter
-        }
+def getCannedBitHolders() -> Dict[str, BitHolder]:
+    global _cannedBitHolders
 
-        defaultBitHolderSegmentParameters = {
-            'labelFontHeight'          : (4.75 * millimeter, 3.2*millimeter),
-            'lecternAngle'             : 70*degree,
-            'angleOfElevation'         : 70*degree,
-            'bitProtrusionStrategy'    : ProtrusionStrategy.explicitEmbedment,
-            'explicitBitEmbedment'     : 18 * millimeter
-        }
+    # construct _cannedBitHolders if it does not already exist
+    if not _cannedBitHolders:
 
-        returnValue = BitHolder(
-            name=name,
-            mountHolesPositionZStrategy = MountHolesPositionZStrategy.explicit,
-            explicitMountHolesPositionZ=-10*millimeter,
-            segments = [
-                BitHolderSegment(
-                    **defaultBitHolderSegmentParameters,
-                    bit=Socket(**{**defaultBitParameters, **specificBitParameters}),
-                )
-                for specificBitParameters in [
-                    { 'nominalSize': 2    * millimeter                                                        },
-                    { 'nominalSize': 2.5  * millimeter                                                        },
-                    { 'nominalSize': 3    * millimeter                                                        },
-                    { 'nominalSize': 4    * millimeter                                                        },
-                    { 'nominalSize': 5    * millimeter                                                        },
-                    { 'nominalSize': 6    * millimeter                                                        },
-                    { 'nominalSize': 8    * millimeter,  'outerDiameter' : 8  * millimeter * 1/cos(30*degree) },
+        cannedBitHolderSpecs = [
+            {
+                'name': "bondhus_hex_drivers_holder",
+                'bitHolderParameters': {
+                    'mountHolesPositionZStrategy': MountHolesPositionZStrategy.explicit,
+                    'explicitMountHolesPositionZ': -10*millimeter,
+                },
+                'bitHolderSegmentParameters': {
+                    'labelFontHeight'          : (4.75 * millimeter, 3.2*millimeter),
+                    'lecternAngle'             : 70*degree,
+                    'angleOfElevation'         : 70*degree,
+                    'bitProtrusionStrategy'    : ProtrusionStrategy.explicitEmbedment,
+                    'explicitBitEmbedment'     : 18 * millimeter
+                },
+                'commonBitParameters': {
+                    'driveSize'       : 999.123456 * inch,
+                    'length'          : 76.5 * millimeter,
+                    'outerDiameter'   : (1/4) * inch * 1/cos(30*degree), 
+                    # circumcscribed circle diameter of regular hexagon having inscribed circle diameter 1/4 inch.
+                    'nominalUnit'     : 1*millimeter
+                },
+                'specificBitParameterses': [
+                    # { 'nominalSize': 2    * millimeter                                                        },
+                    # { 'nominalSize': 2.5  * millimeter                                                        },
+                    # { 'nominalSize': 3    * millimeter                                                        },
+                    # { 'nominalSize': 4    * millimeter                                                        },
+                    # { 'nominalSize': 5    * millimeter                                                        },
+                    # { 'nominalSize': 6    * millimeter                                                        },
+                    # { 'nominalSize': 8    * millimeter,  'outerDiameter' : 8  * millimeter * 1/cos(30*degree) },
                     { 'nominalSize': 10   * millimeter,  'outerDiameter' : 10 * millimeter * 1/cos(30*degree) },
                     { 'nominalSize': 12   * millimeter,  'outerDiameter' : 12 * millimeter * 1/cos(30*degree) },
-
                 ]
-            ]
-        )
-    
-    return returnValue
+            },
 
+
+            {
+                'name': "3/8-inch drive, metric sockets holder",
+                'bitHolderParameters': {
+
+                },
+                'bitHolderSegmentParameters': {
+                    'labelFontHeight'          : 4.75 * millimeter,
+                },
+                'commonBitParameters': {
+                    'driveSize':           3/8 * inch,
+                    'length':              25.96 * millimeter,
+                    'nominalUnit':        1*millimeter
+                },
+                'specificBitParameterses': [
+                    { 'nominalSize': 10   * millimeter,   'outerDiameter': 17.18  * millimeter },
+                    { 'nominalSize': 11   * millimeter,   'outerDiameter': 17.18  * millimeter },
+                    { 'nominalSize': 12   * millimeter,   'outerDiameter': 17.8   * millimeter },
+                    { 'nominalSize': 13   * millimeter,   'outerDiameter': 18.3   * millimeter },
+                    { 'nominalSize': 14   * millimeter,   'outerDiameter': 19.71  * millimeter },
+                    { 'nominalSize': 15   * millimeter,   'outerDiameter': 20.43  * millimeter },
+                    { 'nominalSize': 17   * millimeter,   'outerDiameter': 23.36  * millimeter },
+                    { 'nominalSize': 19   * millimeter,   'outerDiameter': 25.87  * millimeter }
+                ]
+            },
+        ]
+
+        _cannedBitHolders = {
+            bitHolderSpec['name']: BitHolder(
+                name=bitHolderSpec['name'],
+                **bitHolderSpec['bitHolderParameters'],
+                segments = (
+                    BitHolderSegment(
+                        **bitHolderSpec['bitHolderSegmentParameters'],
+                        bit=Socket(**{**bitHolderSpec['commonBitParameters'], **specificBitParameters}),
+                    )
+                    for specificBitParameters in bitHolderSpec['specificBitParameterses']
+                )
+            )
+            for bitHolderSpec in cannedBitHolderSpecs
+        }
+
+
+
+    return _cannedBitHolders
+
+def makeBitHolderArray(*bitHolders : BitHolder, name=None) -> fscad.Component:
+    workingBitHolders : List[BitHolder] = []
+    insertionPoint :adsk.core.Point3D  = adsk.core.Point3D.create(0,0,0)
+    insertionPoint
+    for bitHolder in bitHolders:
+        workingBitHolders.append(
+            bitHolder.copy().translate(
+                *adsk.core.Point3D.create(
+                    bitHolder.mountHolePositions[0].x,
+                    bitHolder.yMax,
+                    bitHolder.mountHolePositions[0].z
+                ).vectorTo(insertionPoint).asArray()
+            )
+        )
+        
+        
+        insertionPoint.translateBy(adsk.core.Vector3D.create(0, 0, - 2 * inch))
+    
+    
+    
+    
+    # return fscad.Union(*workingBitHolders, name=name) 
+    
+    
+    # Whereas fscad.Group calls (or causes to be called) to _raw_bodies() method
+    # of the specified objects both upon instantiation of the fscad.Group()
+    # object and again upon running the Group object's create_occurence()
+    # method, fscad.Union calls the _raw_bodies() method of the specified
+    # components only once at time of instantiation.  Since I have not yet
+    # implemented body caching for BitHolder, every call to a BitHolder's
+    # _raw_bodies() method is expensive.  Therefore, for now, to reduce wait
+    # time, I will use fscad.Union instead of fscad.Group().
+
+    return fscad.Group(visible_children = workingBitHolders, name=name) 
 
 #####################

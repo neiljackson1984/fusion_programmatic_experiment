@@ -381,4 +381,9 @@ https://github.com/JesusFreke/fscad
 
 "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install matplotlib
 "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip freeze > requirements.txt
+"C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip freeze > requirements.txt
+
 python -m pip install -r requirements.txt
+
+
+"C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\1bc48b96e2e48e9445cd9390dcacb966164222c9\Python\python.exe" -m pip install -r requirements.txt

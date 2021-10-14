@@ -655,9 +655,32 @@ def run(context:dict):
                 ]
             )
             
-        myBitHolder = bit_holder.cannedBitHolder('bondhus_hex_drivers_holder')
+        # myBitHolder = bit_holder.getCannedBitHolders()['bondhus_hex_drivers_holder']
+        # myBitHolder.create_occurrence()
 
-        myBitHolder.create_occurrence()
+        # startTime = time.time()
+        # bit_holder.getCannedBitHolders()
+        # endTime = time.time()
+        # print("duration of first bit_holder.getCannedBitHolders(): %f" % (endTime-startTime))
+
+
+        # startTime = time.time()
+        # bit_holder.getCannedBitHolders()
+        # endTime = time.time()
+        # print("duration of second bit_holder.getCannedBitHolders(): %f" % (endTime-startTime))
+
+        startTime = time.time()
+        bitHolderArray = bit_holder.makeBitHolderArray(*list(bit_holder.getCannedBitHolders().values())[0:1]*3)
+        endTime = time.time()
+        print("duration of makeBitHolderArray: %f" % (endTime-startTime))
+
+        startTime = time.time()
+        bitHolderArray.create_occurrence()
+        endTime = time.time()
+        print("duration of bitHolderArray.create_occurrence(): %f" % (endTime-startTime))
+
+
+
 
     #monkeypatching traceback with the vscode-compatible link formatting
 
@@ -669,7 +692,7 @@ def run(context:dict):
     # run_design(design_func=design2, message_box_on_error=False)
     # print(traceback.format_tb(sys.last_traceback))
 
-    print("finished creating new bolts")
+    print(f"finished running {__file__}")
     #     ScriptedComponent.updateAllScriptedComponentsInAFusionDesign(design)
     # prevent this module from being terminated when the script returns
     #     adsk.autoTerminate(False)
