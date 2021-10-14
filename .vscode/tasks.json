@@ -154,8 +154,8 @@
             "args":[
                 "--script", "${file}",
                 "--debug", "0",
-                // "--debugpy_path", "${config:neil.debugpyPath}",
-                "--use_vscode_debugpy", "true",
+                "--debugpy_path", "${config:neil.debugpyPath}",
+                // "--use_vscode_debugpy", "true",
                 "--addin_port", "19812",
                 "--debug_port", "9000"
             ]
@@ -166,8 +166,8 @@
             "args":[
                 "--script", "${file}",
                 "--debug", "1",
-                // "--debugpy_path", "${config:neil.debugpyPath}",
-                "--use_vscode_debugpy", "true",
+                "--debugpy_path", "${config:neil.debugpyPath}",
+                // "--use_vscode_debugpy", "true",
                 "--addin_port", "19812",
                 "--debug_port", "9000"
             ]
@@ -178,8 +178,8 @@
             "args":[
                 "--script", "${workspaceFolder}${pathSeparator}test_scripts${pathSeparator}arbitrary_script_1${pathSeparator}arbitrary_script_1.py",
                 "--debug", "0",
-                // "--debugpy_path", "${config:neil.debugpyPath}",
-                "--use_vscode_debugpy", "true",
+                "--debugpy_path", "${config:neil.debugpyPath}",
+                // "--use_vscode_debugpy", "true",
                 "--addin_port", "19812",
                 "--debug_port", "9000"
             ]
@@ -190,8 +190,8 @@
             "args":[
                 "--script", "${workspaceFolder}${pathSeparator}test_scripts${pathSeparator}arbitrary_script_1${pathSeparator}arbitrary_script_1.py",
                 "--debug", "1",
-                // "--debugpy_path", "${config:neil.debugpyPath}",
-                "--use_vscode_debugpy", "true",
+                "--debugpy_path", "${config:neil.debugpyPath}",
+                // "--use_vscode_debugpy", "true",
                 "--addin_port", "19812",
                 "--debug_port", "9000"
             ]
@@ -204,8 +204,8 @@
             "args":[
                 "--script"                                  , "${workspaceFolder}${pathSeparator}design1.py"   ,                                                 
                 "--debug"                                   , "1"                                              ,      
-              //"--debugpy_path"                            , "${config:neil.debugpyPath}"                     ,                               
-                "--use_vscode_debugpy"                      , "true"                                           ,
+                "--debugpy_path"                            , "${config:neil.debugpyPath}"                     ,                               
+                //"--use_vscode_debugpy"                      , "true"                                           ,
                 "--addin_port"                              , "19812"                                          ,          
                 "--debug_port"                              , "9000"                                           ,         
                 "--prefix_of_submodule_not_to_be_reloaded"  , "braids.fscad"                                   ,                 
@@ -216,12 +216,26 @@
             "type":"shell",
             "command": "${config:python.pythonPath}"
         },
+        {
+            "label":"make_vscode_settings_file",
+            "detail": "",
+            // Programmatically determines the path of the fusion executable and
+            // the path of the debugpy executable (both of which tend to change
+            // as a result of fusion and vscode, respectively, automatically
+            // updating themselves), and inject these paths in the appropriate
+            // place in the vscode settings file.
+            "command": "python", "args":["${workspaceFolder}${pathSeparator}.vscode${pathSeparator}make_vscode_settings_file.py"],
+            "runOptions":{
+                "runOn": "folderOpen"
+            }
+        },
         {   "label":"hello_world",
             "type":"shell",
             // "command": "echo ${config:python.pythonPath}",
             // "command": "echo ${config:python.analysis.symbolsHierarchyDepthLimit}",
             // "command": "echo here it is ${config:python.analysis}",
-            // "command": "echo here it is ${config:neil.debugpyPath}",
+            "command": "echo here it is \"${config:neil.debugpyPath}\" \"${config:neil.pathOfFusionInstallDirectory}\"",
+            // "command": "echo here it is ${config:neil.pathOfFusionInstallDirectory}",
             // "command": "echo here it is ${config:neil.x}",
             // "command": "echo here it is ${config:python.autoComplete.extraPaths}",
             // "command": "echo here it is ${config:python.autoComplete.extraPaths}",
@@ -232,7 +246,8 @@
             // "command": "echo here it is ${execPath}",
             // "command": "echo here it is ${input:debugpy_path}",
             // "command": "echo here it is ${extensions.getExtension(\"python\").extensionPath}",
-            "command": "echo here it is terminal.integrated.shell.windows: ${config:terminal.integrated.shell.windows}",
+            // "command": "echo here it is terminal.integrated.shell.windows: ${config:terminal.integrated.shell.windows}",
+            
 
             "options": {"shell": {"executable": "C:\\cygwin64\\bin\\bash.exe","args": ["-c"]}},
             "presentation": { "panel":  "dedicated"}
