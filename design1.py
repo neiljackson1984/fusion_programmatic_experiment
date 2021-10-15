@@ -670,7 +670,16 @@ def run(context:dict):
         # print("duration of second bit_holder.getCannedBitHolders(): %f" % (endTime-startTime))
 
         startTime = time.time()
-        bitHolderArray = bit_holder.makeBitHolderArray(*list(bit_holder.getCannedBitHolders().values())[0:1]*3)
+        # bitHolderArray = bit_holder.makeBitHolderArray(*list(bit_holder.getCannedBitHolders().values())[0:1]*3)
+        
+        myBitHolder = list(bit_holder.getCannedBitHolders().values())[0]
+        initialSegments = myBitHolder.segments
+        x = initialSegments[0]
+        # y = x.copy()
+
+        # myBitHolder.segments = (initialSegments[0].copy(), initialSegments[0].copy(), initialSegments[1])
+        myBitHolder.segments = (initialSegments[i] for i in (0,1,1,1,0))
+        bitHolderArray = bit_holder.makeBitHolderArray(*[myBitHolder]*3)
         endTime = time.time()
         print("duration of makeBitHolderArray: %f" % (endTime-startTime))
 

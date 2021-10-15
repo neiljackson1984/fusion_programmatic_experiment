@@ -134,7 +134,178 @@ class Socket (Bit):
             return f"{unitlessSize}" + "\n" + "mm"
         # this is the ratio of nominalSize to one nominalUnit.
 
-class BitHolderSegment (fscad.Component)  :
+class MountHoleSpec :
+    """ a MountHole (or, perhaps more correctly, specifications for a mount
+    hole) to be contained within a BitHolder.   This construction of the bodies
+    used in the creation of the mount hole is done by the user of this class.
+    """ 
+
+    def __init__(self,
+        shankClearanceDiameter          : float = 3 * millimeter,
+        headClearanceDiameter           : float = 8 * millimeter,
+        headClearanceHeight             : float = 2.7 * millimeter,
+        minimumAllowedClampingThickness : float = 1/4 * inch,
+        clampingDiameter                : float = 5/8 * inch
+    ):
+        self.shankClearanceDiameter          : float = shankClearanceDiameter          
+        self.headClearanceDiameter           : float = headClearanceDiameter           
+        self.headClearanceHeight             : float = headClearanceHeight             
+        self.minimumAllowedClampingThickness : float = minimumAllowedClampingThickness 
+        self.clampingDiameter                : float = clampingDiameter                
+
+    def cutIntoComponent(self, component : fscad.Component, 
+        axis: adsk.core.InfiniteLine3D
+    ) -> fscad.Component :
+        # the direction of axis determines the direction along which we "drill"
+        # First, we locate the counterBoreEndPoint by finding the maximum point
+        # on the axis that is contained in any of the bodies of component, and
+        # moving in the negative axis direction by a distance
+        # self.minimumAllowedClampingThickness. We cut a hole of diameter
+        # self.shankClearanceDiameter by extruding a disk of that diameter
+        # starting from counterBoreEndPoint and moving in the positive axis
+        # direction until we have cut through all bodies of the component. Then,
+        # we cut a hole of diameter self.headClearanceDiameter by sweeping a
+        # disk of that diameter starting from counterBoreEndPoint and moving in
+        # the negative axis direction until we have cut through all bodies of
+        # the component. we return a new component.
+        offset = axis.direction.copy()
+        offset.normalize()
+        offset.scaleBy( - self.minimumAllowedClampingThickness )
+        extremePoints = evExtremeSkewerPointsOfBodies(*(body.brep for body in component.bodies), axis=axis)
+        
+        if extremePoints:
+
+            counterBoreEndPoint = extremePoints[1].copy()
+            counterBoreEndPoint.translateBy(offset)
+            # highlight.highlight(extremePoints[0], colorEffect='darkgreen')
+            # highlight.highlight(extremePoints[1], colorEffect='darkorange')
+            # highlight.highlight(counterBoreEndPoint, colorEffect='firebrick')
+
+            tool = fscad.Union(
+                cylinderByStartEndRadius(
+                    radius = self.shankClearanceDiameter/2 , 
+                    startPoint = counterBoreEndPoint, 
+                    endPoint = castToPoint3D( castTo3dArray(counterBoreEndPoint) + 1*meter*castTo3dArray(axis.direction) )
+                ),
+                cylinderByStartEndRadius(
+                    radius = self.headClearanceDiameter/2 , 
+                    startPoint = counterBoreEndPoint, 
+                    endPoint = castToPoint3D( castTo3dArray(counterBoreEndPoint) - 1*meter*castTo3dArray(axis.direction) )
+                )
+            )
+            # highlight.highlight(tool, colorEffect='darkgreen')
+            return fscad.Difference(component, tool)
+            # TODO: the 1*meter, above, is a major hack that is intended to mean
+            # "infinity".  We really ought to evaluate the bounding box of the
+            # component and make sure that we have fully penetrated all the way
+            # through the component.  
+        else:
+            # in this case, there were no skewer points, which most likely means that axis does 
+            # not intersect the body. 
+            return component
+
+class MutableComponentWithCachedBodies (fscad.Component):
+    # to do: think about the case of a component with children.
+
+    # what about the situation where we make several copies of a MutableComponentWithCachedBodies before
+    # the initial cachedBodies has been generated.  In this case, when we go to call the _raw_bodies() method
+    # oif each of the copies in turn, each time will run the _make_raw_bodies() method of that MutableComponentWithCachedBodies
+    # even though we could have gotten away only running any one of those MutableComponentWithCachedBodies's _make_raw_bodies() 
+    # method.  We would like to have some kind of subscriber relation between instances of MutableComponentWithCachedBodies.
+
+    _cache : Dict[
+        int, 
+        Tuple[adsk.fusion.BRepBody]
+    ] = {}
+
+    #TODO: reference counting, so that we can throw away anything no longer being referenced.
+
+    def getBodyValidityHash(self) -> int:
+        # return hash(id(self))
+        raise NotImplementedError()
+        # there are two ways to implement this function:
+        # 1) compute a hash of some set of properties of self.
+        # 2) pick (and store) a random number, and change the random number whenever any relevant property changes.
+
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def _raw_bodies(self) -> Tuple[adsk.fusion.BRepBody]:
+        bodyValidityHash = self.getBodyValidityHash()
+        if bodyValidityHash not in self._cache:
+            print(f"cache miss for bodyValidityHash {bodyValidityHash} of type {type(self)}")
+            self._cache[bodyValidityHash] = tuple(self._make_raw_bodies())
+        return self._cache[bodyValidityHash]
+
+    def _make_raw_bodies(self) -> Iterable[adsk.fusion.BRepBody]:
+        raise NotImplementedError()
+    
+    def _copy_to(self, copy: 'MutableComponentWithCachedBodies', copy_children: bool) -> None:
+        pass
+        # this do-nothing _copy_to function is here only so that the _copy_to method of child
+        # classes can blindly call super()._copy_to() without worrying about raising an exception.
+        # (and then the _copy_to() method of the implementin classes can remain the same even
+        # as we, experimentally, change whether those classes inherit from MutableComponentWithCachedBodies directly,
+        # or from a child class of MutableComponentWithCachedBodies that has a useulf _copy_to() method.
+
+    
+    # the fscad.Component::_cached_brep_bodies property and the method
+    # fscad.Component::_get_cached_brep_bodies(), which uses the
+    # _cached_brep_bodies property are geared towards caching the results of
+    # transformations upon a component, NOT caching the (untransformed) bodies
+    # generated by expensive Fusion operations.  The latter type of caching is
+    # not implemented by fscad.Component (although it would be nice if such
+    # behavior were built into fscad.Component, and have both types of caching
+    # use potentially the same underlying cache -- fscad's MemoizeComponent
+    # decorator acheives a similar goal, but at a different level.).  Rather,
+    # fscad.Component leaves the caching of potentially-expensive
+    # body-construction operations up to the subclass. One example, within
+    # fscad, of a subclass of fscad.Component that does the latter type of
+    # caching (i.e. caching the results of potentially-expensive fusion
+    # body-construction operations (typically body construction operations that
+    # cannot be done purely with the TemporyBrepManager, but for which a
+    # temporary fusion component must be created.)) is the fscad.ExtrudeBase class.
+
+class MutableComponentWithCachedBodiesAndArbitraryBodyHash (MutableComponentWithCachedBodies):
+    #TODO: come up with a better name for this class
+    # _nextAvailableHash = [0]
+    # we have to box _nextAvailable Hash to work around the the fact that we cannot, cleanly,
+    # access, within a method body, the class in which that method is defined.  To be sure,
+    # we can look at type(self), but this evaluates to the subclass in the case of derived classes.
+    # (see https://www.python.org/dev/peps/pep-3130/).
+
+    _nextAvailableHash = 0
+
+    def _markCacheAsDirty(self):
+        self._bodyValidityHash : int = MutableComponentWithCachedBodiesAndArbitraryBodyHash._nextAvailableHash
+        MutableComponentWithCachedBodiesAndArbitraryBodyHash._nextAvailableHash += 1
+        if type(self) == BitHolderSegment and self._bodyValidityHash>= 26:
+            x=1+1
+        # self._nextAvailableHash += 1
+        # this creates a new instance variable rather than modifying the class variable
+
+        # type(self)._nextAvailableHash += 1
+        # this creates a new class variable on the class of self (Which is a subclass of MutableComponentWithCachedBodiesAndArbitraryBodyHash)
+
+
+        # type(self)._nextAvailableHash = 1 + type(self)._nextAvailableHash
+
+            
+    def __init__(self, *args, **kwargs):
+        self._markCacheAsDirty()
+        super().__init__(*args, **kwargs)
+
+    def getBodyValidityHash(self) -> int:
+        return self._bodyValidityHash
+
+    def _copy_to(self, copy: 'MutableComponentWithCachedBodiesAndArbitraryBodyHash', copy_children: bool) -> None:
+        copy._bodyValidityHash = self._bodyValidityHash 
+        super()._copy_to(copy = copy, copy_children = copy_children)
+
+class BitHolderSegment (MutableComponentWithCachedBodiesAndArbitraryBodyHash)  :
+    #todo: deal with the event of changes happening to the self.bitHolder object in ways that would invalidate cached bodies.
+    
     def __init__(self, 
         bit                                                : Optional[Bit]           = None,
         bitHolder                                          : Optional['BitHolder']   = None,
@@ -257,10 +428,11 @@ class BitHolderSegment (fscad.Component)  :
         #     component = None, 
         #     name = name
         # )
-
+        # print(f"BitHolderSegment::__init__() is running for a BitHolderSegment having self.bit.labelText being {repr(self.bit.labelText)}")
         super().__init__(name)
 
     def _copy_to(self, copy: 'BitHolderSegment', copy_children: bool) -> None:
+        # print(f"BitHolderSegment::_copy_to() is running for the BitHolderSegment having self.bit.labelText being {repr(self.bit.labelText)}.")
         copy.bit                                                 =   self.bit                                                 
         copy.bitHolder                                           =   None                                           
         copy.angleOfElevation                                    =   self.angleOfElevation                                    
@@ -288,6 +460,7 @@ class BitHolderSegment (fscad.Component)  :
         copy.explicitLabelExtentX                                =   self.explicitLabelExtentX                                
         copy.doLabelRetentionLip                                 =   self.doLabelRetentionLip                                 
         copy.directionsOfEdgesThatWeWillAddALabelRetentionLipTo  =   self.directionsOfEdgesThatWeWillAddALabelRetentionLipTo  
+        super()._copy_to(copy = copy, copy_children = copy_children)
 
     def copyWithModification(self,
         bit                                                : Optional[Bit]                     = None,
@@ -320,6 +493,7 @@ class BitHolderSegment (fscad.Component)  :
         name                                               : Optional[str]                     = None,
     ) -> 'BitHolderSegment':
         """ creates a new BitHolderSegment that has the same parameters as self, except for the specified new parameter values """
+        print(f"BitHolderSegment::copyWithModification() is running for a BitHolderSegment having self.bit.labelText being {repr(self.bit.labelText)}")
         return BitHolderSegment(
             bit                                                = bit                                                or self.bit                                                ,
             bitHolder                                          = bitHolder                                          or self.bitHolder                                          ,
@@ -578,7 +752,8 @@ class BitHolderSegment (fscad.Component)  :
     def bottomSaddlePointOfMouthFillet(self): #//see neil-4936          
         return self.bottomPointOfMouthFilletSweepPath + self.mouthFilletRadius * zHat
 
-    def _raw_bodies(self) -> Iterable[adsk.fusion.BRepBody]:
+    def _make_raw_bodies(self) -> Iterable[adsk.fusion.BRepBody]:
+        # print(f"BitHolderSegment::_make_raw_bodies() is running for a BitHolderSegment having self.bit.labelText being {repr(self.bit.labelText)}")
         returnValue : list[adsk.fusion.BRepBody] = []
         colorCycleForHighlighting = highlight.getColorCycle()
         
@@ -1090,80 +1265,7 @@ class BitHolderSegment (fscad.Component)  :
         
         return returnValue
 
-
-class MountHoleSpec :
-    """ a MountHole (or, perhaps more correctly, specifications for a mount
-    hole) to be contained within a BitHolder.   This construction of the bodies
-    used in the creation of the mount hole is done by the user of this class.
-    """ 
-
-    def __init__(self,
-        shankClearanceDiameter          : float = 3 * millimeter,
-        headClearanceDiameter           : float = 8 * millimeter,
-        headClearanceHeight             : float = 2.7 * millimeter,
-        minimumAllowedClampingThickness : float = 1/4 * inch,
-        clampingDiameter                : float = 5/8 * inch
-    ):
-        self.shankClearanceDiameter          : float = shankClearanceDiameter          
-        self.headClearanceDiameter           : float = headClearanceDiameter           
-        self.headClearanceHeight             : float = headClearanceHeight             
-        self.minimumAllowedClampingThickness : float = minimumAllowedClampingThickness 
-        self.clampingDiameter                : float = clampingDiameter                
-
-    def cutIntoComponent(self, component : fscad.Component, 
-        axis: adsk.core.InfiniteLine3D
-    ) -> fscad.Component :
-        # the direction of axis determines the direction along which we "drill"
-        # First, we locate the counterBoreEndPoint by finding the maximum point
-        # on the axis that is contained in any of the bodies of component, and
-        # moving in the negative axis direction by a distance
-        # self.minimumAllowedClampingThickness. We cut a hole of diameter
-        # self.shankClearanceDiameter by extruding a disk of that diameter
-        # starting from counterBoreEndPoint and moving in the positive axis
-        # direction until we have cut through all bodies of the component. Then,
-        # we cut a hole of diameter self.headClearanceDiameter by sweeping a
-        # disk of that diameter starting from counterBoreEndPoint and moving in
-        # the negative axis direction until we have cut through all bodies of
-        # the component. we return a new component.
-        offset = axis.direction.copy()
-        offset.normalize()
-        offset.scaleBy( - self.minimumAllowedClampingThickness )
-        extremePoints = evExtremeSkewerPointsOfBodies(*(body.brep for body in component.bodies), axis=axis)
-        
-        if extremePoints:
-
-            counterBoreEndPoint = extremePoints[1].copy()
-            counterBoreEndPoint.translateBy(offset)
-            # highlight.highlight(extremePoints[0], colorEffect='darkgreen')
-            # highlight.highlight(extremePoints[1], colorEffect='darkorange')
-            # highlight.highlight(counterBoreEndPoint, colorEffect='firebrick')
-
-            tool = fscad.Union(
-                cylinderByStartEndRadius(
-                    radius = self.shankClearanceDiameter/2 , 
-                    startPoint = counterBoreEndPoint, 
-                    endPoint = castToPoint3D( castTo3dArray(counterBoreEndPoint) + 1*meter*castTo3dArray(axis.direction) )
-                ),
-                cylinderByStartEndRadius(
-                    radius = self.headClearanceDiameter/2 , 
-                    startPoint = counterBoreEndPoint, 
-                    endPoint = castToPoint3D( castTo3dArray(counterBoreEndPoint) - 1*meter*castTo3dArray(axis.direction) )
-                )
-            )
-            # highlight.highlight(tool, colorEffect='darkgreen')
-            return fscad.Difference(component, tool)
-            # TODO: the 1*meter, above, is a major hack that is intended to mean
-            # "infinity".  We really ought to evaluate the bounding box of the
-            # component and make sure that we have fully penetrated all the way
-            # through the component.  
-        else:
-            # in this case, there were no skewer points, which most likely means that axis does 
-            # not intersect the body. 
-            return component
-        
-
-
-class BitHolder  (fscad.Component) :
+class BitHolder  (MutableComponentWithCachedBodiesAndArbitraryBodyHash) :
     """ a BitHolder is a collection of BitHolderSegment objects along with some
     parameters that specify how the bitHolderSegments are to be welded together 
     to make a single BitHolder.     """
@@ -1198,16 +1300,52 @@ class BitHolder  (fscad.Component) :
         #     component = None, 
         #     name = name
         # )
+        
         super().__init__(name)
 
     def _copy_to(self, copy: 'BitHolder', copy_children: bool) -> None:
-        print(f"BitHolder::_copy_to() is running for the BitHolder named '{self.name}'.")
-        copy.segments                     = (segment.copy() for segment in self.segments)
+        # print(f"BitHolder::_copy_to() is running for the BitHolder named '{self.name}'.")
+        
+        # copy._segments                     = tuple(segment.copy() for segment in self.segments)
+        # it is perfectly valid to have repeated elements (i.e. repeated references to the same object) in  
+        # BitHolder.segments .  When we set the segments collection for the copied BitHolder, we should preserve 
+        # the pattern of identity duplications.
+        originalSegmentIdToOriginalSegment = { 
+            id(originalSegment): originalSegment 
+            for originalSegment in self.segments 
+        }
+        originalSegmentIdToNewSegment = { 
+            originalSegmentId: originalSegment.copy() 
+            for originalSegmentId, originalSegment in originalSegmentIdToOriginalSegment.items()
+        }
+        copy._segments = tuple(
+            originalSegmentIdToNewSegment[id(originalSegment)] for originalSegment in self.segments
+        )
+
+
+
+        for segment in copy._segments: segment.bitHolder = copy
+        # we must do the assignment of bitHolder for the copied segments in such a way that we do not cause 
+        # the _markCacheAsDirty() method of the copied segments to be called (because any cached bodies that those segments 
+        # have will still be valid, since we are making a copy of the entire bitholder.  
+        #note: we don't do copy.segments = ... (i.e. rely on the segments setter to assign to _segments), because
+        #  that setter invokes self._markCacheAsDirty(), which we do not want to do when making a copy.
         copy.mountHoleSpec                = self.mountHoleSpec               
         copy.minimumAllowedExtentY        = self.minimumAllowedExtentY       
         copy.mountHolesGridSpacing        = self.mountHolesGridSpacing       
         copy.mountHolesPositionZStrategy  = self.mountHolesPositionZStrategy 
         copy.explicitMountHolesPositionZ  = self.explicitMountHolesPositionZ 
+        super()._copy_to(copy = copy, copy_children = copy_children)
+
+    # def getBodyValidityHash(self) -> str:
+    #     return (
+    #         id(self.mountHoleSpec) ,
+    #         self.minimumAllowedExtentY  ,    
+    #         self.mountHolesGridSpacing ,    
+    #         self.mountHolesPositionZStrategy ,
+    #         self.explicitMountHolesPositionZ ,
+    #         self.segments           ,    
+    #     ).__hash__()    
 
     @property        
     def xMinMountHolePositionX(self):
@@ -1321,38 +1459,27 @@ class BitHolder  (fscad.Component) :
         return self._segments
     
     @segments.setter
-    def segments(self, newSegments : Tuple[BitHolderSegment]):
+    def segments(self, newSegments : Iterable[BitHolderSegment]):
         self._segments = tuple(newSegments)
         # print(f"The BitHolder with name {self.name} has received {len(self._segments)} segments.")
         for segment in self._segments:
             segment.bitHolder = self
+        self._markCacheAsDirty()
 
-    # the fscad.Component::_cached_brep_bodies property and the method
-    # fscad.Component::_get_cached_brep_bodies(), which uses the
-    # _cached_brep_bodies property are geared towards caching the results of
-    # transformations upon a component, NOT caching the (untransformed) bodies
-    # generated by expensive Fusion operations.  The latter type of caching is
-    # not implemented by fscad.Component (although it would be nice if such
-    # behavior were built into fscad.Component, and have both types of caching
-    # use potentially the same underlying cache -- fscad's MemoizeComponent
-    # decorator acheives a similar goal, but at a different level.).  Rather,
-    # fscad.Component leaves the caching of potentially-expensive
-    # body-construction operations up to the subclass. One example, within
-    # fscad, of a subclass of fscad.Component that does the latter type of
-    # caching (i.e. caching the results of potentially-expensive fusion
-    # body-construction operations (typically body construction operations that
-    # cannot be done purely with the TemporyBrepManager, but for which a
-    # temporary fusion component must be created.)) is the fscad.ExtrudeBase class.
-
-    def _raw_bodies(self) -> Iterable[adsk.fusion.BRepBody]:
-        print(f"BitHolder::_raw_bodies() is running for the BitHolder named '{self.name}'.")
+    def _make_raw_bodies(self) -> Iterable[adsk.fusion.BRepBody]:
+        # print(f"BitHolder::_make_raw_bodies() is running for the BitHolder named '{self.name}'.")
         
         returnValue : list[adsk.fusion.BRepBody] = []
         insertionPoint = vector(self.xMin, zeroLength, zeroLength).astype(dtype = float)
         transformedSegments : list[fscad.Component] = []
         segment: BitHolderSegment
         for segment in self.segments:
-            transformedSegments.append(segment.copyWithModification().translate(*(insertionPoint - segment.xMin * xHat)))
+            # transformedSegments.append(segment.copyWithModification().translate(*(insertionPoint - segment.xMin * xHat)))
+            # translatedSegment = segment.translate(*(insertionPoint - segment.xMin * xHat))
+            temporarySegment = segment.copy()
+            temporarySegment.bitHolder = self
+            translatedSegment = temporarySegment.translate(*(insertionPoint - segment.xMin * xHat))
+            transformedSegments.append(translatedSegment)
             insertionPoint += segment.extentX * xHat
         combinedSegments = fscad.Union(*transformedSegments)
 
@@ -1366,8 +1493,6 @@ class BitHolder  (fscad.Component) :
         returnValue = (x.brep for x in combinedSegments.bodies)
 
         return returnValue
-
-
 
 class HorizontalAlignment(Enum):
     LEFT = enum.auto()
@@ -1904,7 +2029,7 @@ def getCannedBitHolders() -> Dict[str, BitHolder]:
 
         cannedBitHolderSpecs = [
             {
-                'name': "bondhus_hex_drivers_holder",
+                'name': "TEST1",
                 'bitHolderParameters': {
                     'mountHolesPositionZStrategy': MountHolesPositionZStrategy.explicit,
                     'explicitMountHolesPositionZ': -10*millimeter,
@@ -1929,12 +2054,47 @@ def getCannedBitHolders() -> Dict[str, BitHolder]:
                     # { 'nominalSize': 3    * millimeter                                                        },
                     # { 'nominalSize': 4    * millimeter                                                        },
                     # { 'nominalSize': 5    * millimeter                                                        },
-                    # { 'nominalSize': 6    * millimeter                                                        },
-                    # { 'nominalSize': 8    * millimeter,  'outerDiameter' : 8  * millimeter * 1/cos(30*degree) },
+                    { 'nominalSize': 6    * millimeter                                                        },
+                    { 'nominalSize': 8    * millimeter,  'outerDiameter' : 8  * millimeter * 1/cos(30*degree) },
                     { 'nominalSize': 10   * millimeter,  'outerDiameter' : 10 * millimeter * 1/cos(30*degree) },
                     { 'nominalSize': 12   * millimeter,  'outerDiameter' : 12 * millimeter * 1/cos(30*degree) },
                 ]
             },
+
+
+            {
+                'name': "bondhus_hex_drivers_holder",
+                'bitHolderParameters': {
+                    'mountHolesPositionZStrategy': MountHolesPositionZStrategy.explicit,
+                    'explicitMountHolesPositionZ': -10*millimeter,
+                },
+                'bitHolderSegmentParameters': {
+                    'labelFontHeight'          : (4.75 * millimeter, 3.2*millimeter),
+                    'lecternAngle'             : 70*degree,
+                    'angleOfElevation'         : 70*degree,
+                    'bitProtrusionStrategy'    : ProtrusionStrategy.explicitEmbedment,
+                    'explicitBitEmbedment'     : 18 * millimeter
+                },
+                'commonBitParameters': {
+                    'driveSize'       : 999.123456 * inch,
+                    'length'          : 76.5 * millimeter,
+                    'outerDiameter'   : (1/4) * inch * 1/cos(30*degree), 
+                    # circumcscribed circle diameter of regular hexagon having inscribed circle diameter 1/4 inch.
+                    'nominalUnit'     : 1*millimeter
+                },
+                'specificBitParameterses': [
+                    { 'nominalSize': 2    * millimeter                                                        },
+                    { 'nominalSize': 2.5  * millimeter                                                        },
+                    { 'nominalSize': 3    * millimeter                                                        },
+                    { 'nominalSize': 4    * millimeter                                                        },
+                    { 'nominalSize': 5    * millimeter                                                        },
+                    { 'nominalSize': 6    * millimeter                                                        },
+                    { 'nominalSize': 8    * millimeter,  'outerDiameter' : 8  * millimeter * 1/cos(30*degree) },
+                    { 'nominalSize': 10   * millimeter,  'outerDiameter' : 10 * millimeter * 1/cos(30*degree) },
+                    { 'nominalSize': 12   * millimeter,  'outerDiameter' : 12 * millimeter * 1/cos(30*degree) },
+                ]
+            },
+
 
 
             {
