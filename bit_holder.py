@@ -1,4 +1,4 @@
-from typing import Optional, Sequence, Tuple, Union, Iterable, SupportsFloat, Dict, List
+from typing import Optional, Sequence, Tuple, Union, Iterable, SupportsFloat, Dict, List, Any, Callable 
 from enum import Enum
 import enum
 import math
@@ -369,56 +369,7 @@ class BitHolderSegment (MutableComponentWithCachedBodiesAndArbitraryBodyHash)  :
         self.directionsOfEdgesThatWeWillAddALabelRetentionLipTo  : Sequence[NDArray]    = directionsOfEdgesThatWeWillAddALabelRetentionLipTo
         
            
-        
-        # doLabelRetentionLip only makes sense in the case where we are using the
-        # "floodWithInk" label text mechanism to generate a rectangular pocket
-        # (intended to hold a printed paper card).  
-        # In that case, we can sweep a "retention lip" profile around (some of)
-        # the edges of the pocket that the edges of the paper card can be tucked
-        # under to hold the card in place.
-    
-        # self.labelRetentionLipProfile = [
-        #     np.array((zeroLength, zeroLength)),
-        #     np.array((0.2*millimeter, zeroLength)),
-        #     np.array((zeroLength, -0.07*millimeter))
-        # ]
-    
 
-        # we will not add a lip to all edges.  Rather, we will add a lip only to
-        # edges that are parallel (possibly within some tolerance) (or
-        # anti-parallel) to any of the specified directions.  (this is geared toward
-        # the cases where edges are straight lines.)
-    
-    
-        # //test case:
-        # // self.labelRetentionLipProfile = [
-        # //     np.array((zeroLength, 0.1*millimeter)),
-        # //     np.array((0.2*millimeter, 0.1*millimeter)),
-        # //     np.array((0.2*millimeter, 0.3*millimeter)),
-        # //     np.array((0.4*millimeter, 0.3*millimeter)),
-        # //     np.array((0.2*millimeter, zeroLength)),
-        # //     np.array((zeroLength, -0.07*millimeter))
-        # // ];
-        a = 0.4*millimeter
-        b = 0.4*millimeter
-        c = 0.03*millimeter
-
-        #just for debugging, scale way down:
-        # a*=0.1
-        # b*=0.1
-        # c*=0.1
-
-        self.labelRetentionLipProfile = [
-            np.array((zeroLength, zeroLength)),
-            np.array((a, zeroLength)),
-            np.array((a, -b + c)),
-            np.array((zeroLength, -b))
-        ]
-        # This is a list of 2dPointVector describing the polygonal cross-section of
-        # the labelRetentionLip.  The positive Y direction points out of the pocket.
-        # The origin is on the upper edge of the side-wall of the pocket.  
-        # the X direction is perpendicular to that edge.  positive X points "off the
-        # edge of the cliff".
 
         # as a side effect of the above, 
         # self.bitHolder will be set to dummyBitHolder.
@@ -751,6 +702,61 @@ class BitHolderSegment (MutableComponentWithCachedBodiesAndArbitraryBodyHash)  :
     @property
     def bottomSaddlePointOfMouthFillet(self): #//see neil-4936          
         return self.bottomPointOfMouthFilletSweepPath + self.mouthFilletRadius * zHat
+
+    @property
+    def labelRetentionLipProfile(self) -> Sequence[ndarray]:
+
+                
+        # doLabelRetentionLip only makes sense in the case where we are using the
+        # "floodWithInk" label text mechanism to generate a rectangular pocket
+        # (intended to hold a printed paper card).  
+        # In that case, we can sweep a "retention lip" profile around (some of)
+        # the edges of the pocket that the edges of the paper card can be tucked
+        # under to hold the card in place.
+    
+        # self.labelRetentionLipProfile = [
+        #     np.array((zeroLength, zeroLength)),
+        #     np.array((0.2*millimeter, zeroLength)),
+        #     np.array((zeroLength, -0.07*millimeter))
+        # ]
+    
+
+        # we will not add a lip to all edges.  Rather, we will add a lip only to
+        # edges that are parallel (possibly within some tolerance) (or
+        # anti-parallel) to any of the specified directions.  (this is geared toward
+        # the cases where edges are straight lines.)
+    
+    
+        # //test case:
+        # // self.labelRetentionLipProfile = [
+        # //     np.array((zeroLength, 0.1*millimeter)),
+        # //     np.array((0.2*millimeter, 0.1*millimeter)),
+        # //     np.array((0.2*millimeter, 0.3*millimeter)),
+        # //     np.array((0.4*millimeter, 0.3*millimeter)),
+        # //     np.array((0.2*millimeter, zeroLength)),
+        # //     np.array((zeroLength, -0.07*millimeter))
+        # // ];
+        a = 0.4*millimeter
+        b = 0.4*millimeter
+        c = 0.03*millimeter
+
+        #just for debugging, scale way down:
+        # a*=0.1
+        # b*=0.1
+        # c*=0.1
+
+        return [
+            np.array((zeroLength, zeroLength)),
+            np.array((a, zeroLength)),
+            np.array((a, -b + c)),
+            np.array((zeroLength, -b))
+        ]
+        # This is a list of 2dPointVector describing the polygonal cross-section of
+        # the labelRetentionLip.  The positive Y direction points out of the pocket.
+        # The origin is on the upper edge of the side-wall of the pocket.  
+        # the X direction is perpendicular to that edge.  positive X points "off the
+        # edge of the cliff".
+
 
     def _make_raw_bodies(self) -> Iterable[adsk.fusion.BRepBody]:
         # print(f"BitHolderSegment::_make_raw_bodies() is running for a BitHolderSegment having self.bit.labelText being {repr(self.bit.labelText)}")
@@ -1467,7 +1473,7 @@ class BitHolder  (MutableComponentWithCachedBodiesAndArbitraryBodyHash) :
         self._markCacheAsDirty()
 
     def _make_raw_bodies(self) -> Iterable[adsk.fusion.BRepBody]:
-        # print(f"BitHolder::_make_raw_bodies() is running for the BitHolder named '{self.name}'.")
+        print(f"BitHolder::_make_raw_bodies() is running for the BitHolder named '{self.name}'.")
         
         returnValue : list[adsk.fusion.BRepBody] = []
         insertionPoint = vector(self.xMin, zeroLength, zeroLength).astype(dtype = float)
@@ -2027,13 +2033,84 @@ def getCannedBitHolders() -> Dict[str, BitHolder]:
     # construct _cannedBitHolders if it does not already exist
     if not _cannedBitHolders:
 
+        defaultBoreDepthForQuarterInchHexShankBits  = 11 * millimeter
+        deepBoreDepthForQuarterInchHexShankBits     = 23 * millimeter
+        defaultBitParametersForQuarterInchHexShankBits = {
+            'outerDiameter':(1/4) * inch * 1/cos(30*degree),
+            # circumcscribed circle diameter of regular hexagon having inscribed circle diameter 1/4 inch.
+            'explicitLabelText':  "\\floodWithInk"
+        }
+        defaultBitHolderSegmentParametersForQuarterInchHexShankBits =  {
+            'boreDiameterAllowance'            :  0.4*millimeter,
+            'lecternAngle'                     :  60*degree,
+            'angleOfElevation'                 :  60*degree,
+            'labelFontHeight'                  :  [2.8*millimeter, 2.8*millimeter],
+            'labelThickness'                   :  0.9*millimeter,
+            'minimumAllowedLabelToZMinOffset'  :  2 * millimeter,
+            'minimumAllowedBoreToZMinOffset'   :  2 * millimeter,
+            'labelZMax'                        :  -3 * millimeter,
+            'enableExplicitLabelExtentX'       :  True,
+            'explicitLabelExtentX'             :  9.1 * millimeter,
+            'labelExtentZ'                     :  12.1 * millimeter,
+            'labelSculptingStrategy'           :  LabelSculptingStrategy.ENGRAVE,
+            'doLabelRetentionLip'              :  True,
+            'bitProtrusionStrategy'            :  ProtrusionStrategy.explicitEmbedment,
+            'explicitBitEmbedment'             :  defaultBoreDepthForQuarterInchHexShankBits
+        }
+        defaultBitHolderParametersForQuarterInchHexShankBits = {
+            'mountHolesPositionZStrategy': MountHolesPositionZStrategy.explicit,
+            'explicitMountHolesPositionZ': -10*millimeter
+        }
+        countOfSegments = 20
+        def bitHolderFixUp1(bitHolder: BitHolder) -> BitHolder:
+            bitHolder.segments = (
+                segment.copyWithModification(
+                    minimumAllowedExtentX=max(
+                        segment.minimumAllowedExtentX, 
+                        segment.bit.nominalSize + 1.1*millimeter
+                    )
+                )
+                for segment in bitHolder.segments
+            )
+            return bitHolder
+
+
         cannedBitHolderSpecs = [
-            {
-                'name': "TEST1",
-                'bitHolderParameters': {
-                    'mountHolesPositionZStrategy': MountHolesPositionZStrategy.explicit,
-                    'explicitMountHolesPositionZ': -10*millimeter,
-                },
+            # {   'name': "TEST1",
+            #     'bitHolderParameters': {
+            #         'mountHolesPositionZStrategy': MountHolesPositionZStrategy.explicit,
+            #         'explicitMountHolesPositionZ': -10*millimeter,
+            #     },
+            #     'bitHolderSegmentParameters': {
+            #         'labelFontHeight'          : (4.75 * millimeter, 3.2*millimeter),
+            #         'lecternAngle'             : 70*degree,
+            #         'angleOfElevation'         : 70*degree,
+            #         'bitProtrusionStrategy'    : ProtrusionStrategy.explicitEmbedment,
+            #         'explicitBitEmbedment'     : 18 * millimeter
+            #     },
+            #     'commonBitParameters': {
+            #         'driveSize'       : 999.123456 * inch,
+            #         'length'          : 76.5 * millimeter,
+            #         'outerDiameter'   : (1/4) * inch * 1/cos(30*degree), 
+            #         # circumcscribed circle diameter of regular hexagon having inscribed circle diameter 1/4 inch.
+            #         'nominalUnit'     : 1*millimeter
+            #     },
+            #     'specificBitParameterses': [
+            #         # { 'nominalSize': 2    * millimeter                                                        },
+            #         # { 'nominalSize': 2.5  * millimeter                                                        },
+            #         # { 'nominalSize': 3    * millimeter                                                        },
+            #         # { 'nominalSize': 4    * millimeter                                                        },
+            #         # { 'nominalSize': 5    * millimeter                                                        },
+            #         { 'nominalSize': 6    * millimeter                                                        },
+            #         { 'nominalSize': 8    * millimeter,  'outerDiameter' : 8  * millimeter * 1/cos(30*degree) },
+            #         { 'nominalSize': 10   * millimeter,  'outerDiameter' : 10 * millimeter * 1/cos(30*degree) },
+            #         { 'nominalSize': 12   * millimeter,  'outerDiameter' : 12 * millimeter * 1/cos(30*degree) },
+            #     ]
+            # },
+
+
+            {   'name': "bondhus_hex_drivers_holder",
+                'bitHolderParameters': defaultBitHolderParametersForQuarterInchHexShankBits,
                 'bitHolderSegmentParameters': {
                     'labelFontHeight'          : (4.75 * millimeter, 3.2*millimeter),
                     'lecternAngle'             : 70*degree,
@@ -2041,46 +2118,12 @@ def getCannedBitHolders() -> Dict[str, BitHolder]:
                     'bitProtrusionStrategy'    : ProtrusionStrategy.explicitEmbedment,
                     'explicitBitEmbedment'     : 18 * millimeter
                 },
+                'bitHolderFixUp': None,
                 'commonBitParameters': {
-                    'driveSize'       : 999.123456 * inch,
-                    'length'          : 76.5 * millimeter,
-                    'outerDiameter'   : (1/4) * inch * 1/cos(30*degree), 
-                    # circumcscribed circle diameter of regular hexagon having inscribed circle diameter 1/4 inch.
-                    'nominalUnit'     : 1*millimeter
-                },
-                'specificBitParameterses': [
-                    # { 'nominalSize': 2    * millimeter                                                        },
-                    # { 'nominalSize': 2.5  * millimeter                                                        },
-                    # { 'nominalSize': 3    * millimeter                                                        },
-                    # { 'nominalSize': 4    * millimeter                                                        },
-                    # { 'nominalSize': 5    * millimeter                                                        },
-                    { 'nominalSize': 6    * millimeter                                                        },
-                    { 'nominalSize': 8    * millimeter,  'outerDiameter' : 8  * millimeter * 1/cos(30*degree) },
-                    { 'nominalSize': 10   * millimeter,  'outerDiameter' : 10 * millimeter * 1/cos(30*degree) },
-                    { 'nominalSize': 12   * millimeter,  'outerDiameter' : 12 * millimeter * 1/cos(30*degree) },
-                ]
-            },
-
-
-            {
-                'name': "bondhus_hex_drivers_holder",
-                'bitHolderParameters': {
-                    'mountHolesPositionZStrategy': MountHolesPositionZStrategy.explicit,
-                    'explicitMountHolesPositionZ': -10*millimeter,
-                },
-                'bitHolderSegmentParameters': {
-                    'labelFontHeight'          : (4.75 * millimeter, 3.2*millimeter),
-                    'lecternAngle'             : 70*degree,
-                    'angleOfElevation'         : 70*degree,
-                    'bitProtrusionStrategy'    : ProtrusionStrategy.explicitEmbedment,
-                    'explicitBitEmbedment'     : 18 * millimeter
-                },
-                'commonBitParameters': {
-                    'driveSize'       : 999.123456 * inch,
-                    'length'          : 76.5 * millimeter,
-                    'outerDiameter'   : (1/4) * inch * 1/cos(30*degree), 
-                    # circumcscribed circle diameter of regular hexagon having inscribed circle diameter 1/4 inch.
-                    'nominalUnit'     : 1*millimeter
+                    **defaultBitParametersForQuarterInchHexShankBits,
+                    'length'            : 76.5 * millimeter,
+                    'nominalUnit'       : 1*millimeter,
+                    'explicitLabelText' : None,
                 },
                 'specificBitParameterses': [
                     { 'nominalSize': 2    * millimeter                                                        },
@@ -2095,48 +2138,207 @@ def getCannedBitHolders() -> Dict[str, BitHolder]:
                 ]
             },
 
-
-
-            {
-                'name': "3/8-inch drive, metric sockets holder",
+            {   'name': "3/8-inch drive, metric sockets holder",
                 'bitHolderParameters': {
 
                 },
                 'bitHolderSegmentParameters': {
-                    'labelFontHeight'          : 4.75 * millimeter,
+                    'labelFontHeight' : 4.75 * millimeter,
                 },
+                'bitHolderFixUp': None,
                 'commonBitParameters': {
-                    'driveSize':           3/8 * inch,
-                    'length':              25.96 * millimeter,
-                    'nominalUnit':        1*millimeter
+                    'driveSize'   : 3/8 * inch,
+                    'length'      : 25.96 * millimeter,
+                    'nominalUnit' : 1*millimeter
                 },
                 'specificBitParameterses': [
-                    { 'nominalSize': 10   * millimeter,   'outerDiameter': 17.18  * millimeter },
-                    { 'nominalSize': 11   * millimeter,   'outerDiameter': 17.18  * millimeter },
-                    { 'nominalSize': 12   * millimeter,   'outerDiameter': 17.8   * millimeter },
-                    { 'nominalSize': 13   * millimeter,   'outerDiameter': 18.3   * millimeter },
-                    { 'nominalSize': 14   * millimeter,   'outerDiameter': 19.71  * millimeter },
-                    { 'nominalSize': 15   * millimeter,   'outerDiameter': 20.43  * millimeter },
-                    { 'nominalSize': 17   * millimeter,   'outerDiameter': 23.36  * millimeter },
-                    { 'nominalSize': 19   * millimeter,   'outerDiameter': 25.87  * millimeter }
+                    { 'nominalSize': 10   * millimeter,   'outerDiameter': 17.18  * millimeter                                },
+                    { 'nominalSize': 11   * millimeter,   'outerDiameter': 17.18  * millimeter                                },
+                    { 'nominalSize': 12   * millimeter,   'outerDiameter': 17.8   * millimeter                                },
+                    { 'nominalSize': 13   * millimeter,   'outerDiameter': 18.3   * millimeter                                },
+                    { 'nominalSize': 14   * millimeter,   'outerDiameter': 19.71  * millimeter                                },
+                    { 'nominalSize': 15   * millimeter,   'outerDiameter': 20.43  * millimeter                                },
+                    { 'nominalSize': 17   * millimeter,   'outerDiameter': 23.36  * millimeter,  'length': 29.24 * millimeter },
+                    { 'nominalSize': 19   * millimeter,   'outerDiameter': 25.87  * millimeter,  'length': 29.24 * millimeter }
                 ]
+            },
+
+            {   'name': "3/8-inch drive, imperial sockets holder",
+                'bitHolderParameters': {
+
+                },
+                'bitHolderSegmentParameters': {
+                    'labelFontHeight' : 4.75 * millimeter,
+                },
+                'bitHolderFixUp': None,
+                'commonBitParameters': {
+                    'driveSize'   : 3/8 * inch,
+                    'length'      : 25.96 * millimeter,
+                    'nominalUnit' : 1*inch
+                },
+                'specificBitParameterses': [
+                    { 'nominalSize': 3/8   * inch,   'outerDiameter': 17.1    * millimeter                                },
+                    { 'nominalSize': 7/16  * inch,   'outerDiameter': 16.83   * millimeter                                },
+                    { 'nominalSize': 1/2   * inch,   'outerDiameter': 18.23   * millimeter                                },
+                    { 'nominalSize': 9/16  * inch,   'outerDiameter': 19.72   * millimeter                                },
+                    { 'nominalSize': 5/8   * inch,   'outerDiameter': 22.04   * millimeter, 'length': 29.24 * millimeter  },
+                    { 'nominalSize': 11/16 * inch,   'outerDiameter': 24.29   * millimeter, 'length': 29.24 * millimeter  },
+                    { 'nominalSize': 3/4   * inch,   'outerDiameter': 25.9    * millimeter, 'length': 29.24 * millimeter  },
+                    { 'nominalSize': 13/16 * inch,   'outerDiameter': 27.97   * millimeter, 'length': 29.24 * millimeter  }
+                ]
+            },
+
+            {   'name': "1/4-inch drive, metric sockets holder",
+                'bitHolderParameters': {
+
+                },
+                'bitHolderSegmentParameters': {
+                    'labelFontHeight' : 4.75 * millimeter,
+                },
+                'bitHolderFixUp': None,
+                'commonBitParameters': {
+                    'driveSize'   : 1/4 * inch,
+                    'length'      : 24.9 * millimeter,
+                    'nominalUnit' : 1*millimeter
+                },
+                'specificBitParameterses': [
+                    { 'nominalSize': 4    * millimeter,   'outerDiameter': 12    * millimeter  },
+                    { 'nominalSize': 5    * millimeter,   'outerDiameter': 12    * millimeter  },
+                    { 'nominalSize': 6    * millimeter,   'outerDiameter': 12    * millimeter  },
+                    { 'nominalSize': 7    * millimeter,   'outerDiameter': 12    * millimeter  },
+                    { 'nominalSize': 8    * millimeter,   'outerDiameter': 12    * millimeter  },
+                    { 'nominalSize': 9    * millimeter,   'outerDiameter': 13.07 * millimeter  },
+                    { 'nominalSize': 10   * millimeter,   'outerDiameter': 14.57 * millimeter  },
+                    { 'nominalSize': 11   * millimeter,   'outerDiameter': 16.01 * millimeter  },
+                    { 'nominalSize': 12   * millimeter,   'outerDiameter': 16.78 * millimeter  },
+                ]
+            },
+
+            {   'name': "1/4-inch drive, imperial sockets holder",
+                'bitHolderParameters': {
+
+                },
+                'bitHolderSegmentParameters': {
+                    'labelFontHeight' : 4.75 * millimeter,
+                },
+                'bitHolderFixUp': None,
+                'commonBitParameters': {
+                    'driveSize'   : 1/4 * inch,
+                    'length'      : 24.9 * millimeter,
+                    'nominalUnit' : 1*inch
+                },
+                'specificBitParameterses': [
+                    { 'nominalSize': 5/32  * inch, 'outerDiameter': 12    * millimeter  },
+                    { 'nominalSize': 3/16  * inch, 'outerDiameter': 12    * millimeter  },
+                    { 'nominalSize': 7/32  * inch, 'outerDiameter': 12    * millimeter  },
+                    { 'nominalSize': 1/4   * inch, 'outerDiameter': 12    * millimeter  },
+                    { 'nominalSize': 9/32  * inch, 'outerDiameter': 12    * millimeter  },
+                    { 'nominalSize': 5/16  * inch, 'outerDiameter': 12    * millimeter  },
+                    { 'nominalSize': 11/32 * inch, 'outerDiameter': 13.13 * millimeter  },
+                    { 'nominalSize': 3/8   * inch, 'outerDiameter': 14.60 * millimeter  },
+                    { 'nominalSize': 7/16  * inch, 'outerDiameter': 16.17 * millimeter  },
+                    { 'nominalSize': 1/2   * inch, 'outerDiameter': 17.78 * millimeter  },
+                ]
+            },
+
+            {   'name': "1/4-inch hex shank drill bits holder",
+                'bitHolderParameters': defaultBitHolderParametersForQuarterInchHexShankBits,
+                'bitHolderSegmentParameters': {
+                    **defaultBitHolderSegmentParametersForQuarterInchHexShankBits,
+                    'lecternAngle'         : 85 * degree,
+                    'angleOfElevation'     : 85 * degree,
+                    'explicitBitEmbedment' : deepBoreDepthForQuarterInchHexShankBits,
+                },
+                'bitHolderFixUp': bitHolderFixUp1,
+                'commonBitParameters': {
+                    **defaultBitParametersForQuarterInchHexShankBits,
+                    'nominalUnit'   : 1*inch,
+                },
+                'specificBitParameterses': [
+                    { 'nominalSize':   4/64 * inch },
+                    { 'nominalSize':   5/64 * inch },
+                    { 'nominalSize':   6/64 * inch },
+                    { 'nominalSize':   7/64 * inch },
+                    { 'nominalSize':   8/64 * inch },
+                    { 'nominalSize':   9/64 * inch },
+                    { 'nominalSize':  10/64 * inch },
+                    { 'nominalSize':  11/64 * inch },
+                    { 'nominalSize':  12/64 * inch },
+                    { 'nominalSize':  13/64 * inch },
+                    { 'nominalSize':  14/64 * inch },
+                    { 'nominalSize':  15/64 * inch },
+                    { 'nominalSize':  16/64 * inch },
+                    { 'nominalSize':  20/64 * inch },
+                    { 'nominalSize':  24/64 * inch },
+                    { 'nominalSize':  28/64 * inch },
+                    { 'nominalSize':  32/64 * inch },    
+                ]
+            },
+
+            {   'name': "1/4-inch hex shank driver bits holder",
+                'bitHolderParameters': defaultBitHolderParametersForQuarterInchHexShankBits,
+                'bitHolderSegmentParameters': defaultBitHolderSegmentParametersForQuarterInchHexShankBits,
+                'bitHolderFixUp': None,
+                'commonBitParameters': defaultBitParametersForQuarterInchHexShankBits,
+                'specificBitParameterses': [ {} ]*countOfSegments
+            },
+
+            {   'name': "1/4-inch hex shank long driver bits holder",
+                'bitHolderParameters': defaultBitHolderParametersForQuarterInchHexShankBits,
+                'bitHolderSegmentParameters': {
+                    **defaultBitHolderSegmentParametersForQuarterInchHexShankBits,
+                    'explicitBitEmbedment' : deepBoreDepthForQuarterInchHexShankBits,
+                },
+                'bitHolderFixUp': None,
+                'commonBitParameters': defaultBitParametersForQuarterInchHexShankBits,
+                'specificBitParameterses': [ {} ]*countOfSegments
             },
         ]
 
-        _cannedBitHolders = {
-            bitHolderSpec['name']: BitHolder(
-                name=bitHolderSpec['name'],
-                **bitHolderSpec['bitHolderParameters'],
+
+        # _cannedBitHolders = {
+        #     bitHolderSpec['name']: BitHolder(
+        #         name=bitHolderSpec['name'],
+        #         **bitHolderSpec['bitHolderParameters'],
+        #         segments = (
+        #             BitHolderSegment(
+        #                 **bitHolderSpec['bitHolderSegmentParameters'],
+        #                 bit=bitHolderSpec['bitClass'](**{**bitHolderSpec['commonBitParameters'], **specificBitParameters}),
+        #             )
+        #             for specificBitParameters in bitHolderSpec['specificBitParameterses']
+        #         )
+        #     )
+        #     for bitHolderSpec in cannedBitHolderSpecs
+        # }
+
+        
+        def bitHolderFromSpec(
+            name : str = 'George',
+            bitHolderParameters : Dict[str, Any] = {},
+            bitHolderSegmentParameters : Dict[str, Any] = {},
+            bitClass = Socket,
+            commonBitParameters : Dict[str, Any] = {},
+            specificBitParameterses : List[Dict[str, Any]] = [{}],
+            bitHolderFixUp : Optional[Callable[[BitHolder], BitHolder ] ] = None,
+        ) -> BitHolder:
+            returnValue = BitHolder(
+                name=name,
                 segments = (
                     BitHolderSegment(
-                        **bitHolderSpec['bitHolderSegmentParameters'],
-                        bit=Socket(**{**bitHolderSpec['commonBitParameters'], **specificBitParameters}),
+                        bit=bitClass(**{**commonBitParameters, **specificBitParameters}),
+                        # the double splatting prevents the "got multiple values for keyword argument ..." error.
+                        # we might also consider double splatting for the arguments to BitHolder().
+                        **bitHolderSegmentParameters
                     )
-                    for specificBitParameters in bitHolderSpec['specificBitParameterses']
-                )
+                    for specificBitParameters in specificBitParameterses
+                ),
+                **bitHolderParameters
             )
-            for bitHolderSpec in cannedBitHolderSpecs
-        }
+            if bitHolderFixUp is not None:
+                returnValue = bitHolderFixUp(returnValue)
+            return returnValue
+
+        _cannedBitHolders = {x['name']: bitHolderFromSpec(**x) for x in cannedBitHolderSpecs } 
 
 
 
