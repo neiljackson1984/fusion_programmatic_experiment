@@ -2062,7 +2062,13 @@ def getCannedBitHolders() -> Dict[str, BitHolder]:
             'explicitMountHolesPositionZ': -10*millimeter
         }
         countOfSegments = 20
-        def bitHolderFixUp1(bitHolder: BitHolder) -> BitHolder:
+        def bitHolderFixUpToEnforceMinimumWidthForDrillBits(bitHolder: BitHolder) -> BitHolder:
+            # this "fix-up" function modifies the specified BitHolder to enforce the rule
+            # that the extentX of the bitHolder ought to be at least large enough to accomodate the 
+            # nominalSize of the bit.  This is useful for casees when the "outerDiameter" of the bit (i.e.
+            # the outer diameter of the cylindrical part of the bit that sticks into the cup in the bit holder) is 
+            # smaller than the diameter of some other part of the bit.
+            
             bitHolder.segments = (
                 segment.copyWithModification(
                     minimumAllowedExtentX=max(
@@ -2249,7 +2255,7 @@ def getCannedBitHolders() -> Dict[str, BitHolder]:
                     'angleOfElevation'     : 85 * degree,
                     'explicitBitEmbedment' : deepBoreDepthForQuarterInchHexShankBits,
                 },
-                'bitHolderFixUp': bitHolderFixUp1,
+                'bitHolderFixUp': bitHolderFixUpToEnforceMinimumWidthForDrillBits,
                 'commonBitParameters': {
                     **defaultBitParametersForQuarterInchHexShankBits,
                     'nominalUnit'   : 1*inch,
@@ -2321,22 +2327,42 @@ def getCannedBitHolders() -> Dict[str, BitHolder]:
             specificBitParameterses : List[Dict[str, Any]] = [{}],
             bitHolderFixUp : Optional[Callable[[BitHolder], BitHolder ] ] = None,
         ) -> BitHolder:
-            returnValue = BitHolder(
-                name=name,
-                segments = (
-                    BitHolderSegment(
+
+            # create a unique BitHolderSegment only for each unique specificBitParameters
+            # uniqueSpecificBitParameterses = set(specificBitParameterses)
+            # oops, dicts are not hashable
+            # uniqueSpecificBitParameterses = [k for k in itertools.groupby(sorted(specificBitParameterses))]
+            # oops, dicts can't be compared with a less-than operator, therefore a list of dicts cannot be sorted (At least not by the sorted() function)
+
+            uniqueSpecificBitParameterses = []
+            for x in specificBitParameterses:
+                if x not in uniqueSpecificBitParameterses:
+                    uniqueSpecificBitParameterses.append(x)
+
+
+
+            uniqueBitHolderSegments = [
+                BitHolderSegment(
                         bit=bitClass(**{**commonBitParameters, **specificBitParameters}),
                         # the double splatting prevents the "got multiple values for keyword argument ..." error.
                         # we might also consider double splatting for the arguments to BitHolder().
                         **bitHolderSegmentParameters
                     )
+                for specificBitParameters in uniqueSpecificBitParameterses
+            ]
+            # we are trusting that uniqueBitHolderSegments[i] is the BitHolderSegment corresponding to the bitParameters uniqueSpecificBitParameterses[i].
+
+            bitHolder = BitHolder(
+                name=name,
+                segments = (
+                    uniqueBitHolderSegments[uniqueSpecificBitParameterses.index(specificBitParameters)]
                     for specificBitParameters in specificBitParameterses
                 ),
                 **bitHolderParameters
             )
             if bitHolderFixUp is not None:
-                returnValue = bitHolderFixUp(returnValue)
-            return returnValue
+                bitHolder = bitHolderFixUp(bitHolder)
+            return bitHolder
 
         _cannedBitHolders = {x['name']: bitHolderFromSpec(**x) for x in cannedBitHolderSpecs } 
 

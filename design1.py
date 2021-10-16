@@ -61,27 +61,7 @@ def renderEntityToken(entityToken: str) -> str:
     return entityToken
 
 def run(context:dict):
-    
-    if False:
-        design = adsk.fusion.Design.cast(app().activeProduct)
-        design.designType = adsk.fusion.DesignTypes.DirectDesignType
-        rootComponent = design.rootComponent
-        ScriptedComponent.updateAllScriptedComponentsInAFusionDesign(design)
-        # print("ScriptedComponent.__subclasses__(): " + str(ScriptedComponent.__subclasses__()))
-
-        pp=pprint.PrettyPrinter(indent=4, width=80, depth=2, compact=False); 
-        # pp.pprint(
-        #     inspect.getmembers(ScriptedComponent.__subclasses__()[0])
-        # )
-        # print(ScriptedComponent.__subclasses__()[0].__qualname__)
-        # print(ScriptedComponent.__subclasses__()[0].__name__)
-
-
-        if len(ScriptedComponent.getAllScriptedComponentsInAFusionDesign(design)) < 3:
-            thisBolt = Bolt.create(design.rootComponent)
-            # thisBolt.length += 1.0 * len(ScriptedComponent.getAllScriptedComponentsInAFusionDesign(design))
-        return
-
+ 
     def design1():
         base_polygon = fscad.RegularPolygon(6, 1, is_outer_radius=False)
         box = fscad.Extrude(base_polygon, 2)
@@ -684,18 +664,53 @@ def run(context:dict):
         # endTime = time.time()
         # print("duration of makeBitHolderArray: %f" % (endTime-startTime))
 
-
         startTime = time.time()
-        bitHolderArray = bit_holder.makeBitHolderArray(*bit_holder.getCannedBitHolders().values())
+        # bitHolderArray = bit_holder.makeBitHolderArray(*bit_holder.getCannedBitHolders().values())
+        bitHolderArray = bit_holder.makeBitHolderArray(
+            *(v for k,v in sorted(bit_holder.getCannedBitHolders().items()))
+        )
         endTime = time.time()
         print("duration of makeBitHolderArray: %f" % (endTime-startTime))
 
 
+
+
+
+        pathOfStepFileToImport=pathlib.Path(__file__).parent.joinpath('all_bit_holders_from_onshape.step').resolve()
+        allBitHoldersFromOnshape = bit_holder.import_step_file(pathOfStepFileToImport.as_posix(), pathOfStepFileToImport.stem)
+
+
+
+        # a = bitHolderArray
+        # b = allBitHoldersFromOnshape
+
+        # # onlyInA = fscad.Difference(a, b)
+        # # onlyInB = fscad.Difference(b, a)
+        # intersection = fscad.Intersection(a,b)
+
+        # # onlyInA.name = 'a_only'
+        # # onlyInB.name = 'b_only'
+        # intersection.name = 'a_and_b'
+
+
         startTime = time.time()
         bitHolderArray.create_occurrence()
+        allBitHoldersFromOnshape.create_occurrence()
+        # onlyInA.create_occurrence()
+        # onlyInB.create_occurrence()
+        # intersection.create_occurrence()
+
         endTime = time.time()
         print("duration of bitHolderArray.create_occurrence(): %f" % (endTime-startTime))
 
+
+
+
+        # stepImportOptions = app().importManager.createSTEPImportOptions(pathOfStepFileToImport.as_posix())
+        # newOccurence = rootComponent().occurrences.addNewComponent(adsk.core.Matrix3D.create())
+        # newOccurence.component.name = pathOfStepFileToImport.stem
+        # result = app().importManager.importToTarget2(importOptions=stepImportOptions, target=newOccurence.component)
+        # result = app().importManager.importToTarget2(importOptions=stepImportOptions, target=rootComponent())
 
 
 

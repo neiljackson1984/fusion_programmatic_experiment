@@ -693,3 +693,30 @@ def toProperFractionString(x: SupportsFloat, denominator : int) -> str:
 
 # def extremeBoundPointsOfBodies(*bodies : adsk.fusion.BRepBody,  direction: adsk.core.Vector3D) -> Tuple[adsk.core.Point3D]:
 #     pass
+
+
+def import_step_file(pathOfFileToImport : str, name : str ="import") -> fscad.Component:
+    """Imports the given step file as a new Component
+
+    Args:
+        pathOfFileToImport: The path of the step file to be imported
+        name: The name of the component
+
+    Returns: A new Component containing the contents of the imported file.
+    """
+    # import_options = app().importManager.createFusionArchiveImportOptions(filename)
+    import_options = app().importManager.createSTEPImportOptions(pathOfFileToImport)
+    document = app().importManager.importToNewDocument(import_options)
+    imported_root = document.products[0].rootComponent
+
+    bodies = []
+
+    for body in imported_root.bRepBodies:
+        bodies.append(fscad.brep().copy(body))
+    for occurrence in imported_root.allOccurrences:
+        for body in occurrence.bRepBodies:
+            bodies.append(fscad.brep().copy(body))
+
+    document.close(saveChanges=False)
+
+    return fscad.BRepComponent(*bodies, name=name)
