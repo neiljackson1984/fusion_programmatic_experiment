@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:svg="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg" version="1.1" id="svg3295" height="40" width="40">
+  <defs id="defs3297"/>
+  <g id="layer1">
+    <path transform="matrix(0.95,0,0,0.95,1,1)" d="M 40,20 A 20,20 0 1 1 0,20 A 20,20 0 1 1 40,20 z" id="path3307" style="opacity:1;fill:none;fill-opacity:1;stroke:#000000;stroke-width:2.10526299;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"/>
+    <rect y="17" x="5" height="6" width="30" id="rect3309" style="opacity:1;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.1;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"/>
+    <rect transform="matrix(0,1,-1,0,0,0)" style="opacity:1;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.1;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" id="rect3331" width="30" height="6" x="5" y="-23"/>
+    <path id="path3457" d="M 19.999999,27.947168 L 12.052832,19.999999 L 19.999999,12.052831 L 27.947167,19.999999 L 19.999999,27.947168" style="opacity:1;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"/>
+    <path id="path3479" d="M 10,10 L 30,30" style="opacity:1;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:1.5;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"/>
+    <path id="path3481" d="M 30,10 L 10,30" style="opacity:1;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:1.5;stroke-linecap:square;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"/>
+  </g>
+</svg>

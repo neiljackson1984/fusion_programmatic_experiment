@@ -1,0 +1,38 @@
+%Here is how tex computes the glue g between the boxes within a vbox: (in normal usage, the boxes within a vbox are lines of text)
+% let w = ((natural size of baselineskip) - depth of the preceeding hbox - height of the next hbox) plus (stretchability of \baselineskip) minus (shrinkability of \baselineskip)
+% If (natural size of w) >= \lineskiplimit, then set g=w;
+% else, set g=\lineskip;
+% If \lineskiplimit is the greater (or equal) of the two, then we set the interline glue to \glue.
+% 
+%I want to manually insert glue between lines.  This means, I want Tex to always arrive at g=(0pt plus 0pt minus 0pt).
+% In order to force this to happen, I set \lineskip=(0pt plus 0pt minus 0pt) and I set 
+% \lineskiplimit and \baselineskip such that, for all (depth of preceeding hbox plus height of next hbox) values in the list of hboxes, we have 
+%((natural size of \baselineskip) - (depth+height)) < \lineskiplimit.  
+% In other words, we want to set  \lineskiplimit and \baselineskip so that
+% ((natural size of \baselineskip) - \lineskiplimit) < (depth+height), for all (depth+height) values in the list.
+% WE will do this by having (natural size of \baselineskip) - \lineskiplimit << 0
+% i.e.  (natural size of \baselineskip) << \lineskiplimit.
+% in practice, we will achieve this by setting \baselineskip=0pt plus 0pt minus 0pt
+% and setting \lineskiplimit to some outrageously large, positive value, say  \lineskiplimit=100in;
+\baselineskip=0pt plus 0pt minus 0pt%
+\lineskiplimit=100in%
+\lineskip=0pt plus 0pt minus 0pt%
+
+
+\def\independentLayer#1%
+{%
+    \hbox to 0pt%
+    {% 
+        \vbox to \vsize {#1}%	
+        \hss%
+    }\relax%
+}
+
+
+\independentLayer{%
+    \hbox to 0pt {%
+        \vbox{\vbox{\noindent aax\relax}\vbox{\noindent f}}%
+        bgc%
+    }%
+    \hbox{\hfil({123})\hfil}%
+}%
