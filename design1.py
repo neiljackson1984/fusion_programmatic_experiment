@@ -664,46 +664,54 @@ def run(context:dict):
         # endTime = time.time()
         # print("duration of makeBitHolderArray: %f" % (endTime-startTime))
 
-        startTime = time.time()
-        # bitHolderArray = bit_holder.makeBitHolderArray(*bit_holder.getCannedBitHolders().values())
-        bitHolderArray = bit_holder.makeBitHolderArray(
-            *(v for k,v in sorted(bit_holder.getCannedBitHolders().items()))
-        )
-        endTime = time.time()
-        print("duration of makeBitHolderArray: %f" % (endTime-startTime))
+        # startTime = time.time()
+        # # bitHolderArray = bit_holder.makeBitHolderArray(*bit_holder.getCannedBitHolders().values())
+        # bitHolderArray = bit_holder.makeBitHolderArray(
+        #     *(v for k,v in sorted(bit_holder.getCannedBitHolders().items()))
+        # )
+        # endTime = time.time()
+        # print("duration of makeBitHolderArray: %f" % (endTime-startTime))
 
 
 
 
 
-        pathOfStepFileToImport=pathlib.Path(__file__).parent.joinpath('all_bit_holders_from_onshape.step').resolve()
-        allBitHoldersFromOnshape = bit_holder.import_step_file(pathOfStepFileToImport.as_posix(), pathOfStepFileToImport.stem)
+        # pathOfStepFileToImport=pathlib.Path(__file__).parent.joinpath('all_bit_holders_from_onshape.step').resolve()
+        # allBitHoldersFromOnshape = bit_holder.import_step_file(pathOfStepFileToImport.as_posix(), pathOfStepFileToImport.stem)
 
 
 
+
+        # # # onlyInA = fscad.Difference(a, b)
+        # # # onlyInB = fscad.Difference(b, a)
+        # # intersection = fscad.Intersection(a,b)
+
+        # # # onlyInA.name = 'a_only'
+        # # # onlyInB.name = 'b_only'
+        # # intersection.name = 'a_and_b'
+
+
+        # startTime = time.time()
+        # bitHolderArray.create_occurrence()
+        # allBitHoldersFromOnshape.create_occurrence()
+        
         # a = bitHolderArray
         # b = allBitHoldersFromOnshape
-
-        # # onlyInA = fscad.Difference(a, b)
-        # # onlyInB = fscad.Difference(b, a)
-        # intersection = fscad.Intersection(a,b)
-
-        # # onlyInA.name = 'a_only'
-        # # onlyInB.name = 'b_only'
-        # intersection.name = 'a_and_b'
-
-
-        startTime = time.time()
-        bitHolderArray.create_occurrence()
-        allBitHoldersFromOnshape.create_occurrence()
-        # onlyInA.create_occurrence()
-        # onlyInB.create_occurrence()
+        # union = fscad.Union(bitHolderArray, allBitHoldersFromOnshape, name='union')
+        # onlyA = fscad.Difference(union, b, name='onlyA')
+        # onlyA.create_occurrence()
+        # onlyB = fscad.Difference(union, a, name= 'onlyB')
+        # onlyB.create_occurrence()
+        # intersection = fscad.Difference(union, onlyA, onlyB, name='intersection')
         # intersection.create_occurrence()
+        # # onlyInA.create_occurrence()
+        # # onlyInB.create_occurrence()
+        # # intersection.create_occurrence()
 
-        endTime = time.time()
-        print("duration of bitHolderArray.create_occurrence(): %f" % (endTime-startTime))
+        # endTime = time.time()
+        # print("duration of bitHolderArray.create_occurrence(): %f" % (endTime-startTime))
 
-
+        bit_holder.getCannedBitHolders()['1/4-inch hex shank driver bits holder'].create_occurrence()
 
 
         # stepImportOptions = app().importManager.createSTEPImportOptions(pathOfStepFileToImport.as_posix())
