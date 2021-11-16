@@ -156,7 +156,7 @@
             \noAutomaticInterlineGlue%
             \vskip 0.5mm%
             \hbox to \hsize{\hfil\includesvg[width=5mm,height=5mm]{#1}\hfil}%
-            \vskip 2.5mm%
+            \vskip 1.8mm%
             \hbox to \hsize{\hfil{\driverCodeFont{#2}}\hfil}%
             \vfil%
             % \hbox to \hsize{\secondaryUnitFont\hfil({#4})\hfil}%
