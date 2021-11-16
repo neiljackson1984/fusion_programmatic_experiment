@@ -8,24 +8,24 @@
 
 
 {
-    "neil.debugpyPath": "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.10.1336267007/pythonFiles/lib/python",
-    "neil.pathOfFusionInstallDirectory": "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/1bc48b96e2e48e9445cd9390dcacb966164222c9",
+    "neil.debugpyPath": "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.11.1422169775/pythonFiles/lib/python",
+    "neil.pathOfFusionInstallDirectory": "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/96174d2c4918a1a613b00371fd422e0f30e1d187",
     "python.autoComplete.extraPaths": [
         "C:/Users/Admin/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs",
-        "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.10.1336267007/pythonFiles/lib/python",
-        "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.10.1336267007/pythonFiles/lib/python/debugpy/_vendored/pydevd",
-        "./fusion_script_runner_addin",
-        "./lib",
+        "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.11.1422169775/pythonFiles/lib/python",
+        "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.11.1422169775/pythonFiles/lib/python/debugpy/_vendored/pydevd",
+        "./braids/fusion_script_runner_addin",
+        "./braids/fusion_script_runner_addin/lib",
         "./braids/fscad/src/fscad",
         "./braids/fscad/src",
         "."
     ],
-    "python.pythonPath": "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/1bc48b96e2e48e9445cd9390dcacb966164222c9/Python/python.exe",
+    "python.pythonPath": "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/96174d2c4918a1a613b00371fd422e0f30e1d187/Python/python.exe",
     "python.linting.pylintEnabled": false,
     "python.analysis.extraPaths": [
         "C:/Users/Admin/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs",
-        "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.10.1336267007/pythonFiles/lib/python",
-        "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.10.1336267007/pythonFiles/lib/python/debugpy/_vendored/pydevd",
+        "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.11.1422169775/pythonFiles/lib/python",
+        "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.11.1422169775/pythonFiles/lib/python/debugpy/_vendored/pydevd",
         "./fusion_script_runner_addin",
         "./lib",
         "./braids/fscad/src/fscad",

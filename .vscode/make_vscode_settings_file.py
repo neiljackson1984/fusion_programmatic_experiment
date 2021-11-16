@@ -94,8 +94,8 @@ vscodeSettings = {
 		# "${config:neil.debugpyPath}/debugpy/_vendored/pydevd",
 		f"{debugpyPath}",
 		f"{debugpyPath}/debugpy/_vendored/pydevd",
-		"./fusion_script_runner_addin",
-		"./lib",
+		"./braids/fusion_script_runner_addin",
+		"./braids/fusion_script_runner_addin/lib",
 		"./braids/fscad/src/fscad",
 		"./braids/fscad/src",
 		"."
