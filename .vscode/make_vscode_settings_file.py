@@ -74,45 +74,42 @@ print(f"Now generating (and overwriting) {pathOfVscodeSettingsFile}")
 
 
 
-debugpyPath = pathlib.Path(locatePythonToolFolder()).as_posix()
-pathOfFusionInstallDirectory = pathlib.Path(getPathOfFusionExecutable()).parent.resolve().as_posix()
-
+debugpyPath = pathlib.Path(locatePythonToolFolder()).resolve()
+pathOfFusionExecutable = pathlib.Path(getPathOfFusionExecutable()).resolve()
+pathOfFusionInstallDirectory = pathOfFusionExecutable.parent.resolve()
+pathOfFusionScriptRunnerAddin = pathlib.Path(pathOfVscodeSettingsFile).parent.joinpath('braids').joinpath('fusion_script_runner_addin').resolve()
+pathOfPythonScriptToRunScriptInFusion = pathOfFusionScriptRunnerAddin.joinpath('run_script_in_fusion.py').resolve()
 
 
 print(f"debugpyPath: {debugpyPath}")
+print(f"pathOfFusionExecutable: {pathOfFusionExecutable}")
 print(f"pathOfFusionInstallDirectory: {pathOfFusionInstallDirectory}")
+print(f"pathOfFusionScriptRunnerAddin: {pathOfFusionScriptRunnerAddin}")
+print(f"pathOfPythonScriptToRunScriptInFusion: {pathOfPythonScriptToRunScriptInFusion}")
 
-vscodeSettings = {
-    "neil.debugpyPath": debugpyPath,
-    "neil.pathOfFusionInstallDirectory": pathOfFusionInstallDirectory,
-
-    "python.autoComplete.extraPaths":	[
+preferredPythonAutocompleteAndAnalysisExtraPaths = [
 		"C:/Users/Admin/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs",
-		
 		# it does not seem to work to define one setting value in terms of another, unfortunately.
 		# "${config:neil.debugpyPath}",
 		# "${config:neil.debugpyPath}/debugpy/_vendored/pydevd",
-		f"{debugpyPath}",
-		f"{debugpyPath}/debugpy/_vendored/pydevd",
-		"./braids/fusion_script_runner_addin",
-		"./braids/fusion_script_runner_addin/lib",
+		f"{debugpyPath.as_posix()}",
+		f"{debugpyPath.as_posix()}/debugpy/_vendored/pydevd",
+		f"{pathOfFusionScriptRunnerAddin.as_posix()}",
+		f"{pathOfFusionScriptRunnerAddin.as_posix()}/lib",
 		"./braids/fscad/src/fscad",
 		"./braids/fscad/src",
 		"."
-	],
+	]
+
+vscodeSettings = {
+    "neil.debugpyPath": debugpyPath.as_posix(),
+    "neil.pathOfFusionExecutable": pathOfFusionExecutable.as_posix(),
+    "neil.pathOfFusionInstallDirectory": pathOfFusionInstallDirectory.as_posix(),
+    "neil.pathOfPythonScriptToRunScriptInFusion": pathOfPythonScriptToRunScriptInFusion.as_posix(),
 	"python.pythonPath":	f"{pathOfFusionInstallDirectory}/Python/python.exe",
 	"python.linting.pylintEnabled": False,
-	"python.analysis.extraPaths": [
-		"C:/Users/Admin/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs",
-		f"{debugpyPath}",
-		f"{debugpyPath}/debugpy/_vendored/pydevd",
-		"./fusion_script_runner_addin",
-		"./lib",
-		"./braids/fscad/src/fscad",
-		"./braids/fscad/src",
-		"C:/work/lalboard",
-		"."
-	],
+	"python.analysis.extraPaths": preferredPythonAutocompleteAndAnalysisExtraPaths,
+    "python.autoComplete.extraPaths": preferredPythonAutocompleteAndAnalysisExtraPaths	,
 	"VsCodeTaskButtons.tasks": [ 
 			{"label":"restart_fusion" , "task":"restart_fusion"}
 	],

@@ -9,28 +9,29 @@
 
 {
     "neil.debugpyPath": "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.11.1422169775/pythonFiles/lib/python",
+    "neil.pathOfFusionExecutable": "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/96174d2c4918a1a613b00371fd422e0f30e1d187/Fusion360.exe",
     "neil.pathOfFusionInstallDirectory": "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/96174d2c4918a1a613b00371fd422e0f30e1d187",
-    "python.autoComplete.extraPaths": [
-        "C:/Users/Admin/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs",
-        "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.11.1422169775/pythonFiles/lib/python",
-        "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.11.1422169775/pythonFiles/lib/python/debugpy/_vendored/pydevd",
-        "./braids/fusion_script_runner_addin",
-        "./braids/fusion_script_runner_addin/lib",
-        "./braids/fscad/src/fscad",
-        "./braids/fscad/src",
-        "."
-    ],
-    "python.pythonPath": "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/96174d2c4918a1a613b00371fd422e0f30e1d187/Python/python.exe",
+    "neil.pathOfPythonScriptToRunScriptInFusion": "C:/work/fusion_programmatic_experiment/.vscode/braids/fusion_script_runner_addin/run_script_in_fusion.py",
+    "python.pythonPath": "C:\\Users\\Admin\\AppData\\Local\\Autodesk\\webdeploy\\production\\96174d2c4918a1a613b00371fd422e0f30e1d187/Python/python.exe",
     "python.linting.pylintEnabled": false,
     "python.analysis.extraPaths": [
         "C:/Users/Admin/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs",
         "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.11.1422169775/pythonFiles/lib/python",
         "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.11.1422169775/pythonFiles/lib/python/debugpy/_vendored/pydevd",
-        "./fusion_script_runner_addin",
-        "./lib",
+        "C:/work/fusion_programmatic_experiment/.vscode/braids/fusion_script_runner_addin",
+        "C:/work/fusion_programmatic_experiment/.vscode/braids/fusion_script_runner_addin/lib",
         "./braids/fscad/src/fscad",
         "./braids/fscad/src",
-        "C:/work/lalboard",
+        "."
+    ],
+    "python.autoComplete.extraPaths": [
+        "C:/Users/Admin/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs",
+        "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.11.1422169775/pythonFiles/lib/python",
+        "C:/Users/Admin/.vscode/extensions/ms-python.python-2021.11.1422169775/pythonFiles/lib/python/debugpy/_vendored/pydevd",
+        "C:/work/fusion_programmatic_experiment/.vscode/braids/fusion_script_runner_addin",
+        "C:/work/fusion_programmatic_experiment/.vscode/braids/fusion_script_runner_addin/lib",
+        "./braids/fscad/src/fscad",
+        "./braids/fscad/src",
         "."
     ],
     "VsCodeTaskButtons.tasks": [
