@@ -1,4 +1,5 @@
 # This script attempts to find the path of the vscode's python plug-in's debugpy package.
+# This script is useful to automate the debugging process for Fusion Python scripts.
 
 import sys
 import os
