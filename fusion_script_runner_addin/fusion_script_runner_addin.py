@@ -37,7 +37,8 @@ import shutil
 
 import datetime
 import pathlib
-sys.path.append(str(pathlib.Path(__file__).parent.parent.joinpath('lib').resolve()))
+# sys.path.append(str(pathlib.Path(__file__).parent.parent.joinpath('lib').resolve()))
+sys.path.append(str(pathlib.Path(__file__).joinpath('lib').resolve()))
 from simple_fusion_custom_command import SimpleFusionCustomCommand
 import fusion_main_thread_runner
 
