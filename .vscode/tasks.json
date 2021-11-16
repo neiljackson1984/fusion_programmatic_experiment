@@ -61,6 +61,19 @@
                 "close": true
             }
         },
+        
+        {   "label":"install_dependencies_in_fusion_bundled_python_environment",
+            "detail":"This is to be run manually, in liue of a better way to automatically manage dependencies.",
+            "type": "shell",
+            "command": "\"${config:neil.pathOfPythonExecutableBundledWithFusion}\"",
+            "args":[
+                "-m",  "pip",  "install",
+                "-r", "${config:neil.pathOfFusionScriptRunnerAddin}${pathSeparator}requirements.txt",
+                "-r", "${workspaceFolder}${pathSeparator}requirements.txt",
+            ]
+
+        },
+        
         {   "label":"run_fusion",
             "type":"shell",
             // "command": "\"${config:neil.pathOfFusionExecutable}\" --nologo",
@@ -102,6 +115,39 @@
                 }
             }
         },
+        
+        
+        {   "label":"ensure_that_fusion_script_runner_addin_is_installed",
+            "type":"shell",
+            "command": "echo PLEASE IMPLEMENT ME.",
+            // One potential way to install the add-in is to modify the file
+            //
+            //      "$APPDATA\Autodesk\Autodesk Fusion 360\T2TVKUYMZWD8\JSLoadedScriptsinfo"
+            //
+            //  The 'T2T...' portion of the preceeding path appears to be random
+            // and is probably specific to either the Autodesk user that is
+            // logged in to Fusion or to the version of fusion.
+            "presentation": {
+                "reveal": "silent",
+                "panel":  "dedicated",
+                "close": true
+            },
+        },
+
+        
+        {   "label":"run_fusion_and_ensure_that_fusion_script_runner_addin_is_installed",
+            "dependsOn": [
+                "ensure_that_fusion_script_runner_addin_is_installed",
+                "run_fusion"
+            ],
+            "dependsOrder": "sequence",
+            "isBackground": true
+        },
+
+
+        
+        
+        
         // {   "label":"ensure_that_fusion_is_running",
 
         // }
@@ -122,7 +168,7 @@
             }
         },
         {   "label":"restart_fusion",
-            "dependsOn":["kill_fusion", "run_fusion"],
+            "dependsOn":["kill_fusion", "run_fusion_and_ensure_that_fusion_script_runner_addin_is_installed"],
             "dependsOrder": "sequence"
         },
         {   "label":"restart_fusion_with_debugpy_log_dir_defined",
@@ -199,7 +245,7 @@
         {   "label":"run_design1_with_debugging",
             "type":"shell",
             "command": "${config:python.pythonPath} \"${config:neil.pathOfPythonScriptToRunScriptInFusion}\"",
-            "dependsOn": ["run_fusion"] ,
+            "dependsOn": ["run_fusion_and_ensure_that_fusion_script_runner_addin_is_installed"] ,
             // "dependsOrder": "parallel",
             "args":[
                 "--script"                                  , "${workspaceFolder}${pathSeparator}design1.py"   ,                                                 

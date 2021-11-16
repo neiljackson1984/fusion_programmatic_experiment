@@ -77,15 +77,16 @@ print(f"Now generating (and overwriting) {pathOfVscodeSettingsFile}")
 debugpyPath = pathlib.Path(locatePythonToolFolder()).resolve()
 pathOfFusionExecutable = pathlib.Path(getPathOfFusionExecutable()).resolve()
 pathOfFusionInstallDirectory = pathOfFusionExecutable.parent.resolve()
-pathOfFusionScriptRunnerAddin = pathlib.Path(pathOfVscodeSettingsFile).parent.joinpath('braids').joinpath('fusion_script_runner_addin').resolve()
+pathOfFusionScriptRunnerAddin = pathlib.Path(pathOfVscodeSettingsFile).parent.parent.joinpath('braids').joinpath('fusion_script_runner_addin').resolve()
 pathOfPythonScriptToRunScriptInFusion = pathOfFusionScriptRunnerAddin.joinpath('run_script_in_fusion.py').resolve()
-
+pathOfPythonExecutableBundledWithFusion = pathOfFusionInstallDirectory.joinpath('Python').joinpath('python.exe').resolve()
 
 print(f"debugpyPath: {debugpyPath}")
 print(f"pathOfFusionExecutable: {pathOfFusionExecutable}")
 print(f"pathOfFusionInstallDirectory: {pathOfFusionInstallDirectory}")
 print(f"pathOfFusionScriptRunnerAddin: {pathOfFusionScriptRunnerAddin}")
 print(f"pathOfPythonScriptToRunScriptInFusion: {pathOfPythonScriptToRunScriptInFusion}")
+print(f"pathOfPythonExecutableBundledWithFusion: {pathOfPythonExecutableBundledWithFusion}")
 
 preferredPythonAutocompleteAndAnalysisExtraPaths = [
 		"C:/Users/Admin/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs",
@@ -106,7 +107,9 @@ vscodeSettings = {
     "neil.pathOfFusionExecutable": pathOfFusionExecutable.as_posix(),
     "neil.pathOfFusionInstallDirectory": pathOfFusionInstallDirectory.as_posix(),
     "neil.pathOfPythonScriptToRunScriptInFusion": pathOfPythonScriptToRunScriptInFusion.as_posix(),
-	"python.pythonPath":	f"{pathOfFusionInstallDirectory}/Python/python.exe",
+    "neil.pathOfPythonExecutableBundledWithFusion": pathOfPythonExecutableBundledWithFusion.as_posix(),
+    "neil.pathOfFusionScriptRunnerAddin": pathOfFusionScriptRunnerAddin.as_posix(),
+	"python.pythonPath":	f"{pathOfPythonExecutableBundledWithFusion.as_posix()}",
 	"python.linting.pylintEnabled": False,
 	"python.analysis.extraPaths": preferredPythonAutocompleteAndAnalysisExtraPaths,
     "python.autoComplete.extraPaths": preferredPythonAutocompleteAndAnalysisExtraPaths	,
