@@ -5,6 +5,11 @@
       "url": "https://github.com/JesusFreke/fscad",
       "branch": "master",
       "revision": "0f79ec27f9141b8735e2f66efdb7dc705fd1a574"
+    },
+    "braids/fusion_script_runner_addin": {
+      "url": "https://github.com/neiljackson1984/fusion_script_runner_addin.git",
+      "branch": "master",
+      "revision": "f042c00f9ebd0dc8f4040c1b363489eea4e540cc"
     }
   }
 }
