@@ -16,6 +16,8 @@ import time
 import pathlib
 import itertools
 
+from .bit_holder_utility import *
+
 def app()           -> adsk.core.Application   : return adsk.core.Application.get()
 def ui()            -> adsk.core.UserInterface : return app().userInterface
 def design()        -> adsk.fusion.Design      : return adsk.fusion.Design.cast(app().activeProduct)
@@ -64,7 +66,50 @@ def run(context:dict):
  
     def design1():
         
-        bit_holder.getCannedBitHolders()['1/4-inch hex shank driver bits holder'].create_occurrence()
+        # bit_holder.getCannedBitHolders()['1/4-inch hex shank driver bits holder'].create_occurrence()
+        tempOccurrence = fscad._create_component(
+            parent_component = fscad.root(), 
+            name="temp"
+        )
+        sketch = tempOccurrence.component.sketches.add(tempOccurrence.component.xYConstructionPlane, tempOccurrence)
+        sketch.importSVG(pathlib.Path(__file__).parent.joinpath('eXotic logo 1 2.svg').as_posix(),0 ,0, 1)
+
+        # we want to obtain two (sets of) flat sheet bodies:
+        # 1.  The plinth footprint.
+        # 2.  The embossed design.
+        
+
+        allSheetBodiesFromSketchGroupedByRank = getAllSheetBodiesFromSketchGroupedByRank(sketch)
+        rankZeroSheetBodies = allSheetBodiesFromSketchGroupedByRank[0]
+        oddRankSheetBodies = tuple(
+            sheetBody
+            for r in range(len(allSheetBodiesFromSketchGroupedByRank))
+            for sheetBody in allSheetBodiesFromSketchGroupedByRank[r]
+            if r % 2 == 1
+        )
+        supportSheetBodies = tuple(
+            fscadBody.brep 
+            for rankZeroSheetBody in rankZeroSheetBodies
+            for fscadBody in fscad.Hull(fscad.BRepComponent(rankZeroSheetBody)).bodies
+        )
+        # The supportSheetBodies is just the union of all sheet bodies.
+        # The above method is probably an enormously wasteful way to compute it, 
+        # but oh well.
+
+        # we want to construct sheet bodie(s) based on the outer loop(s) of rankZeroSheetBodies
+
+        for rank in range(len(allSheetBodiesFromSketchGroupedByRank)):
+            fscad.BRepComponent(*allSheetBodiesFromSketchGroupedByRank[rank], name=f"rank {rank} sheet bodies").create_occurrence()
+
+        fscad.BRepComponent(*rankZeroSheetBodies, name=f"rankZeroSheetBodies").create_occurrence()
+        fscad.BRepComponent(*oddRankSheetBodies, name=f"oddRankSheetBodies").create_occurrence()
+        fscad.BRepComponent(*supportSheetBodies, name=f"supportSheetBodies").create_occurrence()
+        # getAllSheetBodiesFromSketch() (due to Fusion's underlying sketch region logic) gives
+        # us a set of non-overlapping sheets.  We want to categorize these sheets by rank, so that 
+        # we can say that the outer edge of the rank 0 sheets is the boundary of the plinth footprint,
+        # and all sheets having ((rank >0) and (rank is odd)) are the "ink" sheets.
+
+        
 
 
     #monkeypatching traceback with vscode-compatible link formatting
