@@ -107,9 +107,24 @@ def run(context:dict):
         # getAllSheetBodiesFromSketch() (due to Fusion's underlying sketch region logic) gives
         # us a set of non-overlapping sheets.  We want to categorize these sheets by rank, so that 
         # we can say that the outer edge of the rank 0 sheets is the boundary of the plinth footprint,
-        # and all sheets having ((rank >0) and (rank is odd)) are the "ink" sheets.
+        # and all sheets having ((rank >0) and (rank is odd)) are the "ink" sheets (the ink on the page).
 
         
+        destinationSurface : adsk.core.Surface = adsk.core.Cylinder.create(
+            origin=adsk.core.Point3D.create(0,0,7*inch),
+            axis=castToVector3D(yHat),
+            radius = 7*inch
+        )
+
+        
+        fscad.BRepComponent(
+            *changeSurfaceOfSheetBodies(
+                sheetBodies=rankZeroSheetBodies,
+                destinationSurface=destinationSurface
+            ), 
+            name=f"rankZero-with-changed-surface"
+        ).create_occurrence()
+       
 
 
     #monkeypatching traceback with vscode-compatible link formatting

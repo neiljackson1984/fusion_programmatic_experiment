@@ -1,4 +1,4 @@
-from typing import Optional, Sequence, Tuple, Union
+from typing import Iterable, Optional, Sequence, Tuple, Union
 from enum import Enum
 import enum
 import math
@@ -901,3 +901,122 @@ def import_step_file(pathOfFileToImport : str, name : str ="import") -> fscad.Co
     document.close(saveChanges=False)
 
     return fscad.BRepComponent(*bodies, name=name)
+
+
+def changeSurfaceOfSheetBody(sheetBody : adsk.fusion.BRepBody, destinationSurface : adsk.core.Surface) -> adsk.fusion.BRepBody:
+    """
+        sheetBody is assumed to consist of one or more faces all having the same underlying surface.
+        We return a new sheet body wherein the surface has been replaced with destinationSurface (but all the curves and vertices
+        are the same in the parameter space of the surface.
+    """
+    bRepBodyDefinition : adsk.fusion.BRepBodyDefinition = adsk.fusion.BRepBodyDefinition.create()
+    
+    
+
+
+    vertexDefinitions : Sequence[adsk.fusion.BRepVertexDefinition] = []
+    vertex : adsk.fusion.BRepVertex
+    for vertex in sheetBody.vertices:
+        # compute/construct transformedPosition
+        transformedPosition : adsk.core.Point3D
+        
+        # identify a face, a loop, a coEdge, and an edge such that vertex is
+        # used by edge, which is used by coEdge, which belongs to loop,
+        # which belongs to face.
+        face : adsk.fusion.BRepFace
+        loop : adsk.fusion.BRepLoop
+        coEdge : adsk.fusion.BRepCoEdge
+        edge : adsk.fusion.BRepEdge
+
+        edge = vertex.edges[0]
+        coEdge = edge.coEdges[0]
+        brepLoop = coEdge.loop
+        face = brepLoop.face
+        
+        result : bool
+        parameter : adsk.core.Point2D
+        result, parameter = face.evaluator.getParameterAtPoint(vertex.geometry)
+        result, transformedPosition = destinationSurface.evaluator.getPointAtParameter(parameter)
+        vertexDefinitions.append(bRepBodyDefinition.createVertexDefinition(position=transformedPosition))
+
+    edgeDefinitions : Sequence[adsk.fusion.BRepEdgeDefinition] = []
+    edge : adsk.fusion.BRepEdge
+    for edge in sheetBody.edges:
+        coEdge : adsk.fusion.BRepCoEdge
+        coEdge = edge.coEdges[0]
+        coEdge.geometry
+        # result : Sequence[adsk.core.Curve3D] 
+        result : adsk.core.ObjectCollection = destinationSurface.evaluator.getModelCurveFromParametricCurve(coEdge.geometry)
+        # god help us if result does not contain exactly one curve3D object.
+        transformedCurve3D : adsk.core.Curve3D = result[0]
+        edgeDefinitions.append(
+            bRepBodyDefinition.createEdgeDefinitionByCurve(
+                startVertex = vertexDefinitions[_vertex_index_within_body(edge.startVertex)],
+                endVertex = vertexDefinitions[_vertex_index_within_body(edge.endVertex)],
+                modelSpaceCurve = transformedCurve3D,
+            )
+        )
+
+
+    lump : adsk.fusion.BRepLump
+    indexOfLumpWithinBody = 0
+    for lump in sheetBody.lumps:
+        lumpDefinition : adsk.fusion.BRepLumpDefinition = bRepBodyDefinition.lumpDefinitions.add()
+        shell : adsk.fusion.BRepShell
+        indexOfShellWithinLump = 0
+        for shell in lump.shells:
+            shellDefinition : adsk.fusion.BRepShellDefinition = lumpDefinition.shellDefinitions.add()
+            face : adsk.fusion.BRepFace
+            indexOfFaceWithinShell = 0
+            for face in shell.faces:
+                faceDefinition : adsk.fusion.BRepFaceDefinition = shellDefinition.faceDefinitions.add(
+                    surfaceGeometry = destinationSurface, 
+                    isParamReversed = face.isParamReversed
+                )
+                loop : adsk.fusion.BRepLoop
+                indexOfLoopWithinFace = 0
+                for loop in face.loops:
+                    loopDefinition : adsk.fusion.BRepLoopDefinition = faceDefinition.loopDefinitions.add()
+                    coEdge : adsk.fusion.BRepCoEdge
+                    indexOfCoedgeWithinLoop = 0
+                    for coEdge in loop.coEdges:
+                        coEdgeDefinition : adsk.fusion.BRepCoEdgeDefinition = loopDefinition.bRepCoEdgeDefinitions.add(
+                            edgeDefinition=edgeDefinitions[_edge_index_within_body(edge)],
+                            isOpposedToEdge=coEdge.isOpposedToEdge
+                        )
+                        indexOfCoedgeWithinLoop += 1
+                    indexOfLoopWithinFace += 1
+                indexOfFaceWithinShell += 1
+            indexOfShellWithinLump += 1
+        indexOfLumpWithinBody += 1
+
+    morphedSheetBody : adsk.fusion.BRepBody = bRepBodyDefinition.createBody()
+    print(
+        "bRepBodyDefinition.outcomeInfo: " 
+        + "\n".join( 
+            x
+            for x in bRepBodyDefinition.outcomeInfo
+        )
+    )
+    import .highlight as highlight
+    highlight.highlight(adsk.core.Point3D(0,0,1), colorEffect = (0,0,1))
+    highlight.highlight(vertexDefinition.position for vertexDefinition in vertexDefinitions)
+
+    return morphedSheetBody
+
+def changeSurfaceOfSheetBodies(sheetBodies : Iterable[adsk.fusion.BRepBody], destinationSurface : adsk.core.Surface) -> Sequence[adsk.fusion.BRepBody]:
+    returnValue : Sequence[adsk.fusion.BRepBody] = []
+    sheetBody : adsk.fusion.BRepBody
+    for sheetBody in sheetBodies:
+        returnValue.append(changeSurfaceOfSheetBody(sheetBody, destinationSurface))
+    return returnValue
+
+def _edge_index_within_body(edge : adsk.fusion.BRepEdge) -> int:
+    return fscad._edge_index(edge)
+
+def _vertex_index_within_body(vertex: adsk.fusion.BRepVertex) -> int:
+    for i, candidate_vertex in enumerate(vertex.body.vertices):
+        if candidate_vertex == vertex:
+            return i
+    assert False
+#=================================
