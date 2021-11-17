@@ -2,7 +2,7 @@ import os, sys
 import adsk.core, adsk.fusion, traceback
 import inspect
 import pprint
-from typing import Optional, Sequence, Union
+from typing import Any, Dict, Optional, Sequence, Union
 # from . import scripted_component
 from . import bit_holder
 # from .scripted_component import ScriptedComponent
@@ -22,6 +22,7 @@ def app()           -> adsk.core.Application   : return adsk.core.Application.ge
 def ui()            -> adsk.core.UserInterface : return app().userInterface
 def design()        -> adsk.fusion.Design      : return adsk.fusion.Design.cast(app().activeProduct)
 def rootComponent() -> adsk.fusion.Component   : return design().rootComponent
+
 
 
 def renderEntityToken(entityToken: str) -> str:
@@ -62,6 +63,29 @@ def renderEntityToken(entityToken: str) -> str:
     # )
     return entityToken
 
+def makeHighlightParams(name: Optional[str] = None) -> Dict[str,Any]:
+    """
+    this produces a dict containing the optional params for the highlight()
+    function  (intended to be double-star splatted into the arguments list) 
+    that will cause the hihglight function to produce a new named
+    component just tom contain the hihglights -- the benfit of having a set of
+    highlights in a component is that we can then toggle the visibility of the
+    hihghlights in the ui by togglinng the visibility of the occurence of the
+    componet.
+    """
+    componentToReceiveTheCustomGraphics = (
+        rootComponent()
+        .occurrences
+        .addNewComponent(adsk.core.Matrix3D.create())
+        .component
+    )
+    componentToReceiveTheCustomGraphics.name = (name if name is not None else "anonymous_highlight")
+    return {
+        'colorEffect':  next(globalColorCycle),
+        'customGraphicsGroupToReceiveTheCustomGraphics' : componentToReceiveTheCustomGraphics.customGraphicsGroups.add()
+    }
+
+
 def run(context:dict):
  
     def design1():
@@ -72,12 +96,14 @@ def run(context:dict):
             name="temp"
         )
         sketch = tempOccurrence.component.sketches.add(tempOccurrence.component.xYConstructionPlane, tempOccurrence)
-        sketch.importSVG(pathlib.Path(__file__).parent.joinpath('eXotic logo 1 2.svg').as_posix(),0 ,0, 1)
+        # sketch.importSVG(pathlib.Path(__file__).parent.joinpath('eXotic logo 1 2.svg').as_posix(),0 ,0, 1)
+        sketch.importSVG(pathlib.Path(__file__).parent.joinpath('test_logo.svg').as_posix(),0 ,0, 1)
 
         # we want to obtain two (sets of) flat sheet bodies:
         # 1.  The plinth footprint.
         # 2.  The embossed design.
         
+
 
         allSheetBodiesFromSketchGroupedByRank = getAllSheetBodiesFromSketchGroupedByRank(sketch)
         rankZeroSheetBodies = allSheetBodiesFromSketchGroupedByRank[0]
@@ -98,32 +124,94 @@ def run(context:dict):
 
         # we want to construct sheet bodie(s) based on the outer loop(s) of rankZeroSheetBodies
 
-        for rank in range(len(allSheetBodiesFromSketchGroupedByRank)):
-            fscad.BRepComponent(*allSheetBodiesFromSketchGroupedByRank[rank], name=f"rank {rank} sheet bodies").create_occurrence()
+        # for rank in range(len(allSheetBodiesFromSketchGroupedByRank)):
+        #     fscad.BRepComponent(*allSheetBodiesFromSketchGroupedByRank[rank], name=f"rank {rank} sheet bodies").create_occurrence()
 
-        fscad.BRepComponent(*rankZeroSheetBodies, name=f"rankZeroSheetBodies").create_occurrence()
-        fscad.BRepComponent(*oddRankSheetBodies, name=f"oddRankSheetBodies").create_occurrence()
-        fscad.BRepComponent(*supportSheetBodies, name=f"supportSheetBodies").create_occurrence()
+        supportFscadComponent = fscad.BRepComponent(*supportSheetBodies, name=f"support")
+        oddRankFscadComponent = fscad.BRepComponent(*oddRankSheetBodies, name=f"oddRank")
+        
+        
+
+        # fscad.BRepComponent(*oddRankSheetBodies, name=f"oddRankSheetBodies").create_occurrence()
+        # fscad.BRepComponent(*supportSheetBodies, name=f"supportSheetBodies").create_occurrence()
         # getAllSheetBodiesFromSketch() (due to Fusion's underlying sketch region logic) gives
         # us a set of non-overlapping sheets.  We want to categorize these sheets by rank, so that 
         # we can say that the outer edge of the rank 0 sheets is the boundary of the plinth footprint,
         # and all sheets having ((rank >0) and (rank is odd)) are the "ink" sheets (the ink on the page).
-
         
-        destinationSurface : adsk.core.Surface = adsk.core.Cylinder.create(
-            origin=adsk.core.Point3D.create(0,0,7*inch),
-            axis=castToVector3D(yHat),
-            radius = 7*inch
+        supportFscadComponent.create_occurrence()
+        oddRankFscadComponent.create_occurrence()
+
+
+        cylinderRadius = 7*inch       
+        cylinderOrigin = adsk.core.Point3D.create(0,0,cylinderRadius)       
+        cylinderAxisDirection = castToVector3D(xHat)     
+        cylinderLength = 20*inch
+        
+        
+        
+        # destinationSurface : adsk.core.Surface = adsk.core.Cylinder.create(
+        #     origin=cylinderOrigin,
+        #     axis=cylinderAxisDirection,
+        #     radius = cylinderRadius
+        # )
+        # # destinationSurface.evaluator.getParamAnomaly(): [True, (0.0, 0.0), (6.283185307179586, -3.141592653589793), (), (), (True, False)]
+        # # uRange: (0.0, 0.0)
+        # # vRange: (-3.141592653589793, 3.141592653589793)
+
+
+        cylinderForWrapping = cylinderByStartEndRadius(
+            startPoint = castToPoint3D(castTo3dArray(cylinderOrigin) - castTo3dArray(cylinderAxisDirection) * cylinderLength/2),
+            endPoint = castToPoint3D(castTo3dArray(cylinderOrigin) + castTo3dArray(cylinderAxisDirection) * cylinderLength/2),
+            radius=cylinderRadius
+        )
+        cylinderForWrapping.name = "cylinder for wrapping"
+        
+        cylinderForWrapping.create_occurrence()
+        destinationSurface = cylinderForWrapping.side.brep.geometry
+
+        highlight(
+            # tuple(destinationSurface.evaluator.getIsoCurve(0,isUDirection=True)),
+            adsk.core.Circle3D.createByCenter(
+                center = cylinderOrigin,
+                normal = cylinderAxisDirection,
+                radius = cylinderRadius
+            ),
+            **makeHighlightParams("cylinder preview")
+        )
+        print(f"destinationSurface.evaluator.getParamAnomaly(): {destinationSurface.evaluator.getParamAnomaly()}")
+        # fscad._create_construction_point(rootComponent(), )
+
+        pRange : adsk.core.BoundingBox2D = destinationSurface.evaluator.parametricRange()
+        
+        uRange = (pRange.minPoint.x, pRange.maxPoint.x)
+        vRange = (pRange.minPoint.y, pRange.maxPoint.y)
+
+        print(f"uRange: {uRange}\nvRange: {vRange}")
+        #
+        # uRange: (0.0, 0.0)
+        # vRange: (-3.141592653589793, 3.141592653589793)
+        #
+
+
+        xRange = (supportFscadComponent.min().x, supportFscadComponent.max().x)
+        yRange = (supportFscadComponent.min().y, supportFscadComponent.max().y)
+
+        morphedSheetBodies = wrapSheetBodiesAroundCylinder(
+            sheetBodies=rankZeroSheetBodies,
+            destinationSurface=destinationSurface
+        )
+
+
+
+        wrappedSupportFscadComponent = fscad.BRepComponent(
+            *morphedSheetBodies, 
+            name=f"wrapped support"
         )
 
         
-        fscad.BRepComponent(
-            *changeSurfaceOfSheetBodies(
-                sheetBodies=rankZeroSheetBodies,
-                destinationSurface=destinationSurface
-            ), 
-            name=f"rankZero-with-changed-surface"
-        ).create_occurrence()
+        
+        wrappedSupportFscadComponent.create_occurrence()
        
 
 

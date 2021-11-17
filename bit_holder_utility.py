@@ -29,6 +29,8 @@ from .braids.fscad.src.fscad import fscad as fscad
 from adsk.fusion import BRepEdge, ProfileLoop
 # "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install unyt
 
+from .design1 import makeHighlightParams
+#this is a temporary hack during debugging
 
 import unyt
 # "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install unyt
@@ -902,8 +904,8 @@ def import_step_file(pathOfFileToImport : str, name : str ="import") -> fscad.Co
 
     return fscad.BRepComponent(*bodies, name=name)
 
-
-def changeSurfaceOfSheetBody(sheetBody : adsk.fusion.BRepBody, destinationSurface : adsk.core.Surface) -> adsk.fusion.BRepBody:
+from .highlight import *
+def changeSurfaceOfSheetBody(sheetBody : adsk.fusion.BRepBody, destinationSurface : adsk.core.Surface) -> Optional[adsk.fusion.BRepBody]:
     """
         sheetBody is assumed to consist of one or more faces all having the same underlying surface.
         We return a new sheet body wherein the surface has been replaced with destinationSurface (but all the curves and vertices
@@ -947,6 +949,7 @@ def changeSurfaceOfSheetBody(sheetBody : adsk.fusion.BRepBody, destinationSurfac
         coEdge.geometry
         # result : Sequence[adsk.core.Curve3D] 
         result : adsk.core.ObjectCollection = destinationSurface.evaluator.getModelCurveFromParametricCurve(coEdge.geometry)
+        assert result.count == 1 and isinstance(result[0], adsk.core.Curve3D)
         # god help us if result does not contain exactly one curve3D object.
         transformedCurve3D : adsk.core.Curve3D = result[0]
         edgeDefinitions.append(
@@ -998,9 +1001,19 @@ def changeSurfaceOfSheetBody(sheetBody : adsk.fusion.BRepBody, destinationSurfac
             for x in bRepBodyDefinition.outcomeInfo
         )
     )
-    import .highlight as highlight
-    highlight.highlight(adsk.core.Point3D(0,0,1), colorEffect = (0,0,1))
-    highlight.highlight(vertexDefinition.position for vertexDefinition in vertexDefinitions)
+
+    # for vertexDefinitionIndex, vertexDefinition in enumerate( vertexDefinitions ) :
+    #     highlight(
+    #         vertexDefinition.position,
+    #         **makeHighlightParams(f"vertex definition {vertexDefinitionIndex}")
+    #     )
+
+
+    # for edgeDefinitionIndex, edgeDefinition in enumerate( edgeDefinitions ) :
+    #     highlight(
+    #         edgeDefinition.modelSpaceCurve,
+    #         **makeHighlightParams(f"edge definition {edgeDefinitionIndex}")
+    #     )
 
     return morphedSheetBody
 
@@ -1008,7 +1021,9 @@ def changeSurfaceOfSheetBodies(sheetBodies : Iterable[adsk.fusion.BRepBody], des
     returnValue : Sequence[adsk.fusion.BRepBody] = []
     sheetBody : adsk.fusion.BRepBody
     for sheetBody in sheetBodies:
-        returnValue.append(changeSurfaceOfSheetBody(sheetBody, destinationSurface))
+        morphedSheetBody = changeSurfaceOfSheetBody(sheetBody, destinationSurface)
+        if morphedSheetBody is not None:
+            returnValue.append()
     return returnValue
 
 def _edge_index_within_body(edge : adsk.fusion.BRepEdge) -> int:
@@ -1020,3 +1035,52 @@ def _vertex_index_within_body(vertex: adsk.fusion.BRepVertex) -> int:
             return i
     assert False
 #=================================
+
+
+def wrapSheetBodiesAroundCylinder(sheetBodies : Iterable[adsk.fusion.BRepBody], destinationSurface : adsk.core.Cylinder) -> Sequence[adsk.fusion.BRepBody]:
+    # this is very nearly the same as changeSurfaceOfSheetBodies, except that we
+    # re-parameterize the bounded direction so that the result is as if the
+    # range of the cylinder's bounded parameter were 2*Pi*radius, rather than
+    # 2*Pi (which it seems, and which we assume, is always the range of the
+    # bounded parameter of a cylinder.
+
+    # we assume that all cylinders always exhibit the following behavior (i.e.
+    # the u direction is unbounded in both directions and the p direction is
+    # periodic with the principal interval being (-Pi, Pi) pRange :
+    # adsk.core.BoundingBox2D = destinationSurface.evaluator.parametricRange()
+    # uRange = (pRange.minPoint.x, pRange.maxPoint.x) vRange =
+    # (pRange.minPoint.y, pRange.maxPoint.y) print(f"uRange: {uRange}\nvRange:
+    # {vRange}")
+    # #
+    # # uRange: (0.0, 0.0)
+    # # vRange: (-3.141592653589793, 3.141592653589793)
+    # #
+    # skewScalingTransform : adsk.core.Matrix3D = adsk.core.Matrix3D.create()
+    
+    # for sheetBody in sheetBodies: result : result = fscad.brep().transform(
+    #     body=fscad.brep().copy(sheetBody), transform=
+    #     )
+    # Based on the fact that the only method provided by fscad to achieve
+    # non-uniform scaling relies on fusion features rather than the built-in
+    # fusion function to transform by matrix3d, and also based on comments in
+    # fscad to this effect, I am assuming that non-uniform scaling cannot
+    # reliably be achieved by a simple transform by a Matrix3D.  (But it could
+    # be that fscad wants to allow non-uniform scaling even when the transform
+    # would be nonsingular (collapsing one of the dimensions to zero).  It may
+    # be that simple transforming by Matrix3D works as long as the MAtrix3D is
+    # singular.  At any rate, for now, I will do my nonuniform scaling in the
+    # canoncial fscad way: by means of the fscad "Scale" class.
+
+    return changeSurfaceOfSheetBodies(
+        sheetBodies=(           
+            fscadBody.brep
+            for fscadBody in fscad.Scale(
+                fscad.BRepComponent(*sheetBodies),
+                sy= 1/destinationSurface.radius
+            ).bodies
+        ),
+        destinationSurface=destinationSurface
+    )
+
+
+#==============================
