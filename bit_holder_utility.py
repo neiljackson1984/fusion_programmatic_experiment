@@ -1014,6 +1014,7 @@ def changeSurfaceOfSheetBody(
     """
     destinationSurface : adsk.core.Surface = destinationFace.geometry
     destinationSurfaceEvaluator : adsk.core.SurfaceEvaluator = destinationFace.evaluator
+    # destinationSurfaceEvaluator : adsk.core.SurfaceEvaluator = destinationSurface.evaluator
 
     bRepBodyDefinition : adsk.fusion.BRepBodyDefinition = adsk.fusion.BRepBodyDefinition.create()
     
@@ -1088,13 +1089,12 @@ def changeSurfaceOfSheetBody(
         result : adsk.core.ObjectCollection = destinationSurfaceEvaluator.getModelCurveFromParametricCurve(   primedParameterCurve   )
         if not (result.count == 1 and isinstance(result[0], adsk.core.Curve3D)):
             print(f"oops, result.count is {result.count} and isinstance(result[0], adsk.core.Curve3D) is {isinstance(result[0], adsk.core.Curve3D)}")
+            assert False
         assert result.count == 1 and isinstance(result[0], adsk.core.Curve3D)
-
-
-
-
         # god help us if result does not contain exactly one curve3D object.
         transformedCurve3D : adsk.core.Curve3D = result[0]
+
+        print(f"edge {_edge_index_within_body(edge)}: isParamReversed: {edge.isParamReversed}.  isTolerant: {edge.isTolerant}")
         edgeDefinitions.append(
             bRepBodyDefinition.createEdgeDefinitionByCurve(
                 startVertex = vertexDefinitions[_vertex_index_within_body(edge.startVertex)],
@@ -1127,7 +1127,9 @@ def changeSurfaceOfSheetBody(
                     indexOfCoedgeWithinLoop = 0
                     for coEdge in loop.coEdges:
                         coEdgeDefinition : adsk.fusion.BRepCoEdgeDefinition = loopDefinition.bRepCoEdgeDefinitions.add(
-                            edgeDefinition=edgeDefinitions[_edge_index_within_body(edge)],
+                            # edgeDefinition=edgeDefinitions[_edge_index_within_body(edge)],
+                            ###  OOPS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  god damn it.  There went half a day, at least.
+                            edgeDefinition=edgeDefinitions[_edge_index_within_body(coEdge.edge)],
                             isOpposedToEdge=coEdge.isOpposedToEdge
                         )
                         indexOfCoedgeWithinLoop += 1
@@ -1136,7 +1138,7 @@ def changeSurfaceOfSheetBody(
             indexOfShellWithinLump += 1
         indexOfLumpWithinBody += 1
 
-    bRepBodyDefinition.doFullHealing = True
+    bRepBodyDefinition.doFullHealing = False
     morphedSheetBody : adsk.fusion.BRepBody = bRepBodyDefinition.createBody()
     
     print(
@@ -1178,7 +1180,7 @@ def changeSurfaceOfSheetBodies(
     for sheetBody in sheetBodies:
         morphedSheetBody = changeSurfaceOfSheetBody(sheetBody, destinationFace)
         if morphedSheetBody is not None:
-            returnValue.append()
+            returnValue.append(morphedSheetBody)
     return returnValue
 
 def _edge_index_within_body(edge : adsk.fusion.BRepEdge) -> int:

@@ -312,7 +312,7 @@ def run(context:dict):
 
 
 
-        cylinderRadius = 7*inch       
+        cylinderRadius = 3*centimeter
         cylinderOrigin = adsk.core.Point3D.create(0,0,cylinderRadius + 1*centimeter)       
         cylinderAxisDirection = castToVector3D(xHat)     
         cylinderLength = cylinderRadius * 10
@@ -377,7 +377,7 @@ def run(context:dict):
 
         wrappedSupportFscadComponent = fscad.BRepComponent(
             *morphedSheetBodies, 
-            name=f"wrapped support"
+            name=f"wrapped rankZeroSheetBodies"
         )
 
         
