@@ -13,6 +13,7 @@ import warnings
 
 
 import numpy as np
+from numpy.core.numerictypes import ScalarType
 # I am relying on the installation of scipy to also install numpy.
 
 from numpy.typing import ArrayLike, NDArray
@@ -38,6 +39,19 @@ import unyt
 unyt.millimeter = unyt.milimeter
 # this is a work-around for the problem that unyt misspells the SI
 # prefix milli with only a single l.
+
+# there is some cognitive dissonance going on to deal simultaneously with the
+# "3D.." and "2D..."  terms that appear in the fusion API and the "1D", "2D",
+# ... language used by numpy. numpy uses "D"-notation to describe tensor rank
+# (sometimes, at least, it seems), whereas the Fusion API uses "2D" and "3D" to
+# refer to a 2-dimensional space and 3-dimensional space (but of course Fusion
+# (correctly) does things projectively to be able to treat all rigid transforms
+# as matrices (and for rational NURBS (to put the 'R' in 'NURBS'), I think).  So
+# fusion's '...2D...' and '...3D...' objects are really working with
+# 3-dimensional projective and 4-dimensional projective vector spaces,
+# respectively.  The wording is not very clean.
+#
+
 
 fusionInternalUnitOfLength = unyt.centimeter
 
@@ -235,7 +249,7 @@ def partitionEdgeSequenceIntoPaths(edges: Sequence[adsk.fusion.BRepEdge]) -> Seq
 
 
 
-def castToNDArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D], n: Optional[int] = None) -> NDArray:
+def castToNDArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D, adsk.core.Matrix3D, adsk.core.Matrix2D], n: Optional[int] = None) -> NDArray:
     #TODO: handle various ranks of NDArray rather than blindly assuming that we have been given a rank-1 array.
     if isinstance(x, np.ndarray):
         returnValue = x
@@ -247,6 +261,23 @@ def castToNDArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.
         returnValue =  np.array(x.asArray())
     elif isinstance(x, adsk.core.Vector2D):
         returnValue =  np.array(x.asArray())
+    elif isinstance(x, adsk.core.Matrix3D):
+        returnValue =  np.array(
+            (
+                x.asArray()[0:4],
+                x.asArray()[4:8],
+                x.asArray()[8:12],
+                x.asArray()[12:16],
+            )
+        )
+    elif isinstance(x, adsk.core.Matrix2D):
+        returnValue =  np.array(
+            (
+                x.asArray()[0:3],
+                x.asArray()[3:6],
+                x.asArray()[6:9],
+            )
+        )
     else:
         returnValue =  np.array(x)
 
@@ -264,6 +295,8 @@ def castToNDArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.
 
 VectorLike = Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D]
 
+def castTo2dArray(x: VectorLike) -> NDArray: 
+    return castToNDArray(x,2)
 
 def castTo3dArray(x: VectorLike) -> NDArray: 
     #need to figure out how to use the shape-specificatin facility that I think is part of the NDArray type alias.
@@ -294,6 +327,55 @@ def castToVector3D(x: VectorLike) -> adsk.core.Vector3D:
         return x.copy()
     else:
         return adsk.core.Vector3D.create(*castTo3dArray(x).astype(dtype = float))
+
+# def castToMatrix3D(x: Union[adsk.core.Matrix2D,adsk.core.Matrix3D, np.ndarray[(3,3), np.dtype[ScalarType]] , np.ndarray[(4,4), np.dtype[ScalarType]] ]) -> adsk.core.Matrix3D:
+# I do not understand the numpy type hinting system (nor do I have a complet grasp on the type hinting system generally)
+def castToMatrix3D(x: Union[adsk.core.Matrix2D,adsk.core.Matrix3D, np.ndarray ]) -> adsk.core.Matrix3D:
+    m = castToNDArray(x)
+    assert m.shape == (3,3) or m.shape == (4,4)
+    # t : np.ndarray[(4,4), np.dtype[ScalarType]] 
+    # I do not understand the numpy type hinting system (nor do I have a complet grasp on the type hinting system generally)
+    t : np.ndarray
+
+    if m.shape == (4,4):
+        t = m
+    elif m.shape == (3,3):
+        t = np.array(
+            (   
+                (  m[0][0]  ,  m[0][1]  ,  0.0    ,  m[0][2]   ),
+                (  m[1][0]  ,  m[1][1]  ,  0.0    ,  m[1][2]   ),
+                (  0.0      ,  0.0      ,  0.0    ,  0.0       ),
+                (  m[2][0]  ,  m[2][1]  ,  0.0    ,  m[2][2]   ),
+            )
+        )
+    else:
+        raise TypeError() 
+
+    matrix3D : adsk.core.Matrix3D = adsk.core.Matrix3D.create()
+    result = matrix3D.setWithArray(tuple(t.flatten())); assert result
+    return matrix3D
+
+
+def castToMatrix2D(x: Union[adsk.core.Matrix2D,adsk.core.Matrix3D]) -> adsk.core.Matrix2D:
+    # todo: make castToMatrix2D() be able to accept ndarray in the same manner as castToMatrix3D.
+    if isinstance(x, adsk.core.Matrix2D):
+        return x.copy()
+    elif isinstance(x, adsk.core.Matrix3D):
+        matrix3D = x
+        matrix2D : adsk.core.Matrix3D = adsk.core.Matrix2D.create()
+        result = matrix2D.setWithArray(
+            (
+                matrix3D.getCell(0, 0)  ,  matrix3D.getCell(0, 1)            ,  matrix3D.getCell(0, 3)   ,
+                matrix3D.getCell(1, 0)  ,  matrix3D.getCell(1, 1)            ,  matrix3D.getCell(1, 3)   ,
+
+                matrix3D.getCell(3, 0)  ,  matrix3D.getCell(3, 1)            ,  matrix3D.getCell(3, 3)   ,
+            )
+        )
+        assert result
+        return matrix2D
+    else:
+        raise TypeError() 
+
 
 def arbitraryPerpendicularVector(x : VectorLike) -> adsk.core.Vector3D:
     """ returns a normalized vector perpendicular to the given vector """
@@ -905,12 +987,34 @@ def import_step_file(pathOfFileToImport : str, name : str ="import") -> fscad.Co
     return fscad.BRepComponent(*bodies, name=name)
 
 from .highlight import *
-def changeSurfaceOfSheetBody(sheetBody : adsk.fusion.BRepBody, destinationSurface : adsk.core.Surface) -> Optional[adsk.fusion.BRepBody]:
+def changeSurfaceOfSheetBody(
+    sheetBody : adsk.fusion.BRepBody, 
+    # destinationSurface : adsk.core.Surface, 
+    destinationFace : adsk.fusion.BRepFace 
+    # we are doing destiantion face instead of destination surface in order to
+    # be able to have a bounded surface evaluator
+    # (adsk.fusion.BRepFace::evaluator is a bounded evaluator whereas
+    # adsk.core.Surface::evaluator can be unbounded.) we assume sheetBody lies
+    # on the xy plane, and we are pretending that the parameter space of the
+    # sheetBody's face(s) is the xy plane rather than the weird scaled,
+    # translated transform that fusion seems to use internally (and
+    # counterintuitvely) for planes (I think that internall in Fusion, a plane
+    # (and probably any surface), carries along a transform, but that the API
+    # DOES NOT EXPOSE this transform (at least not directly), which means we
+    # have to go to great lengths to re-compute the hidden transform (that's
+    # what planeParameterSpaceToModelSpaceTransform() is all about) that the API
+    # really ought to expose in the first place.
+
+) -> Optional[adsk.fusion.BRepBody]:
     """
-        sheetBody is assumed to consist of one or more faces all having the same underlying surface.
-        We return a new sheet body wherein the surface has been replaced with destinationSurface (but all the curves and vertices
+        sheetBody is assumed to consist of one or more faces all having the same
+        underlying surface. We return a new sheet body wherein the surface has
+        been replaced with destinationSurface (but all the curves and vertices
         are the same in the parameter space of the surface.
     """
+    destinationSurface : adsk.core.Surface = destinationFace.geometry
+    destinationSurfaceEvaluator : adsk.core.SurfaceEvaluator = destinationFace.evaluator
+
     bRepBodyDefinition : adsk.fusion.BRepBodyDefinition = adsk.fusion.BRepBodyDefinition.create()
     
     
@@ -935,10 +1039,25 @@ def changeSurfaceOfSheetBody(sheetBody : adsk.fusion.BRepBody, destinationSurfac
         brepLoop = coEdge.loop
         face = brepLoop.face
         
+        # pToM = planeParameterSpaceToModelSpaceTransform(face.geometry)
+        pToM = planeParameterSpaceToModelSpaceTransform(face)
+        # it is vitally important that we pass face and not face.geometry to
+        # planeParameterSpaceToModelSpaceTransform() because, as is discussed in
+        # the comments in  planeParameterSpaceToModelSpaceTransform(), we cannot
+        # generally trust that face.evaluator() will represent the same
+        # transform as face.geometry.evalutor()
+
+        #We are now, and in the use of pToM below, very definitely assuming that
+        # the surface lies on the xy plane.
         result : bool
         parameter : adsk.core.Point2D
-        result, parameter = face.evaluator.getParameterAtPoint(vertex.geometry)
-        result, transformedPosition = destinationSurface.evaluator.getPointAtParameter(parameter)
+        # result, parameter = face.geometry.evaluator.getParameterAtPoint(vertex.geometry)
+        result, parameter = face.evaluator.getParameterAtPoint(vertex.geometry); assert result
+        #actually, I think face.evaluator and     face.geometry.evaluator will work equally well for doing the parametrAtPoint() operation.
+        parameterPrime = parameter.copy(); result = parameterPrime.transformBy(castToMatrix2D(pToM)); assert result
+        # parameterPrime is what parameter would be if Fusion parameterized planes "correctly" (i.e. no scaling).
+
+        result, transformedPosition = destinationSurfaceEvaluator.getPointAtParameter(parameterPrime); assert result
         vertexDefinitions.append(bRepBodyDefinition.createVertexDefinition(position=transformedPosition))
 
     edgeDefinitions : Sequence[adsk.fusion.BRepEdgeDefinition] = []
@@ -948,8 +1067,32 @@ def changeSurfaceOfSheetBody(sheetBody : adsk.fusion.BRepBody, destinationSurfac
         coEdge = edge.coEdges[0]
         coEdge.geometry
         # result : Sequence[adsk.core.Curve3D] 
-        result : adsk.core.ObjectCollection = destinationSurface.evaluator.getModelCurveFromParametricCurve(coEdge.geometry)
+        # pToM = planeParameterSpaceToModelSpaceTransform(coEdge.loop.face.geometry)
+        pToM = planeParameterSpaceToModelSpaceTransform(coEdge.loop.face)
+        # it is vitally important that we pass face and not face.geometry to
+        # planeParameterSpaceToModelSpaceTransform() because, as is discussed in
+        # the comments in  planeParameterSpaceToModelSpaceTransform(), we cannot
+        # generally trust that face.evaluator() will represent the same
+        # transform as face.geometry.evalutor()
+
+        parameterCurve : adsk.core.Curve2D = coEdge.geometry
+        # primedParameterCurve = parameterCurve.copy()
+        # oops, Curve2D does not have a copy() method, nor any other obvious way to clone it,
+        # and yet Curve2D's transform() method is mutating.  Damn you, Fusion.
+        primedParameterCurve : adsk.core.Curve2D = coEdge.geometry
+        assert primedParameterCurve is not parameterCurve
+        # hopefully we get a fresh anonymous Curve2D every time we call coEdge.geometry
+        result = primedParameterCurve.transformBy(castToMatrix2D(pToM)); assert result
+        
+        
+        result : adsk.core.ObjectCollection = destinationSurfaceEvaluator.getModelCurveFromParametricCurve(   primedParameterCurve   )
+        if not (result.count == 1 and isinstance(result[0], adsk.core.Curve3D)):
+            print(f"oops, result.count is {result.count} and isinstance(result[0], adsk.core.Curve3D) is {isinstance(result[0], adsk.core.Curve3D)}")
         assert result.count == 1 and isinstance(result[0], adsk.core.Curve3D)
+
+
+
+
         # god help us if result does not contain exactly one curve3D object.
         transformedCurve3D : adsk.core.Curve3D = result[0]
         edgeDefinitions.append(
@@ -993,7 +1136,9 @@ def changeSurfaceOfSheetBody(sheetBody : adsk.fusion.BRepBody, destinationSurfac
             indexOfShellWithinLump += 1
         indexOfLumpWithinBody += 1
 
+    bRepBodyDefinition.doFullHealing = True
     morphedSheetBody : adsk.fusion.BRepBody = bRepBodyDefinition.createBody()
+    
     print(
         "bRepBodyDefinition.outcomeInfo: " 
         + "\n".join( 
@@ -1002,26 +1147,36 @@ def changeSurfaceOfSheetBody(sheetBody : adsk.fusion.BRepBody, destinationSurfac
         )
     )
 
-    # for vertexDefinitionIndex, vertexDefinition in enumerate( vertexDefinitions ) :
-    #     highlight(
-    #         vertexDefinition.position,
-    #         **makeHighlightParams(f"vertex definition {vertexDefinitionIndex}")
-    #     )
+    for vertexDefinitionIndex, vertexDefinition in enumerate( vertexDefinitions ) :
+        highlight(
+            vertexDefinition.position,
+            **makeHighlightParams(f"vertex definition {vertexDefinitionIndex}")
+        )
 
 
-    # for edgeDefinitionIndex, edgeDefinition in enumerate( edgeDefinitions ) :
-    #     highlight(
-    #         edgeDefinition.modelSpaceCurve,
-    #         **makeHighlightParams(f"edge definition {edgeDefinitionIndex}")
-    #     )
+    for edgeDefinitionIndex, edgeDefinition in enumerate( edgeDefinitions ) :
+        highlight(
+            edgeDefinition.modelSpaceCurve,
+            **makeHighlightParams(f"edge definition {edgeDefinitionIndex}")
+        )
+
+    if morphedSheetBody is None:
+        print("oops. morphedSheetBody creation failed.")
+    assert morphedSheetBody is not None
 
     return morphedSheetBody
 
-def changeSurfaceOfSheetBodies(sheetBodies : Iterable[adsk.fusion.BRepBody], destinationSurface : adsk.core.Surface) -> Sequence[adsk.fusion.BRepBody]:
+def changeSurfaceOfSheetBodies(
+    sheetBodies : Iterable[adsk.fusion.BRepBody], 
+    # destinationSurface : adsk.core.Surface,
+    destinationFace : adsk.fusion.BRepFace 
+    # we are doing destiantion face instead of destination surface -- see
+    # comment in changeSurfaceOfSheetBody() 
+) -> Sequence[adsk.fusion.BRepBody]:
     returnValue : Sequence[adsk.fusion.BRepBody] = []
     sheetBody : adsk.fusion.BRepBody
     for sheetBody in sheetBodies:
-        morphedSheetBody = changeSurfaceOfSheetBody(sheetBody, destinationSurface)
+        morphedSheetBody = changeSurfaceOfSheetBody(sheetBody, destinationFace)
         if morphedSheetBody is not None:
             returnValue.append()
     return returnValue
@@ -1037,12 +1192,17 @@ def _vertex_index_within_body(vertex: adsk.fusion.BRepVertex) -> int:
 #=================================
 
 
-def wrapSheetBodiesAroundCylinder(sheetBodies : Iterable[adsk.fusion.BRepBody], destinationSurface : adsk.core.Cylinder) -> Sequence[adsk.fusion.BRepBody]:
+def wrapSheetBodiesAroundCylinder(
+    sheetBodies : Iterable[adsk.fusion.BRepBody], 
+    destinationFace : adsk.fusion.BRepFace 
+    # we are doing destiantion face instead of destination surface -- see
+    # comment in changeSurfaceOfSheetBody() 
+) -> Sequence[adsk.fusion.BRepBody]:
     # this is very nearly the same as changeSurfaceOfSheetBodies, except that we
     # re-parameterize the bounded direction so that the result is as if the
     # range of the cylinder's bounded parameter were 2*Pi*radius, rather than
     # 2*Pi (which it seems, and which we assume, is always the range of the
-    # bounded parameter of a cylinder.
+    # bounded parameter of a cylinder
 
     # we assume that all cylinders always exhibit the following behavior (i.e.
     # the u direction is unbounded in both directions and the p direction is
@@ -1057,6 +1217,9 @@ def wrapSheetBodiesAroundCylinder(sheetBodies : Iterable[adsk.fusion.BRepBody], 
     # #
     # skewScalingTransform : adsk.core.Matrix3D = adsk.core.Matrix3D.create()
     
+    # for a bounded evaluator, the u parameter means radians (yes, that's right, the parameter
+    # that controls the position along the axis of the cylinder is ALSO in radians.
+
     # for sheetBody in sheetBodies: result : result = fscad.brep().transform(
     #     body=fscad.brep().copy(sheetBody), transform=
     #     )
@@ -1070,17 +1233,117 @@ def wrapSheetBodiesAroundCylinder(sheetBodies : Iterable[adsk.fusion.BRepBody], 
     # be that simple transforming by Matrix3D works as long as the MAtrix3D is
     # singular.  At any rate, for now, I will do my nonuniform scaling in the
     # canoncial fscad way: by means of the fscad "Scale" class.
+    
+    destinationSurface : adsk.core.Surface = destinationFace.geometry
+    assert destinationFace.geometry.surfaceType == adsk.core.SurfaceTypes.CylinderSurfaceType
+
+
+    unscaledSheetBodiesFscadComponent = fscad.BRepComponent(*sheetBodies)
+
+    # scaledSheetBodiesFscadComponent = unscaledSheetBodiesFscadComponent.copy().scale(
+    #         sx = 1/destinationSurface.radius,
+    #         sy = 1/destinationSurface.radius,
+    #         sz = 1/destinationSurface.radius,
+    #     )
+
+    scaledSheetBodiesFscadComponent = fscad.Scale(
+            unscaledSheetBodiesFscadComponent,
+            sx = 1/destinationSurface.radius,
+            sy = 1/destinationSurface.radius,
+            sz = 1/destinationSurface.radius,
+        )
+
+    scaledSheetBodiesFscadComponent.name = "scaled sheet bodies"
+
+    scaledSheetBodies = (           
+            fscadBody.brep
+            for fscadBody in scaledSheetBodiesFscadComponent.bodies
+        )
+
+    scaledSheetBodiesFscadComponent.create_occurrence()
+    # fscad.BRepComponent(*scaledSheetBodies, name="double-checking scaled sheet bodies.").create_occurrence()
+
+
+    print(
+        f"scaledSheetBodiesFscadComponent has "
+        + f"xRange {(scaledSheetBodiesFscadComponent.min().x,scaledSheetBodiesFscadComponent.max().x)} "
+        + f"and yRange {(scaledSheetBodiesFscadComponent.min().y,scaledSheetBodiesFscadComponent.max().y)}"
+    )
 
     return changeSurfaceOfSheetBodies(
-        sheetBodies=(           
-            fscadBody.brep
-            for fscadBody in fscad.Scale(
-                fscad.BRepComponent(*sheetBodies),
-                sy= 1/destinationSurface.radius
-            ).bodies
-        ),
-        destinationSurface=destinationSurface
+        sheetBodies=scaledSheetBodies,
+        destinationFace=destinationFace
     )
 
 
+
+
 #==============================
+
+# def planeParameterSpaceToModelSpaceTransform(plane : adsk.core.Plane) -> adsk.core.Matrix3D:
+def planeParameterSpaceToModelSpaceTransform(arg : Union[adsk.core.Plane, adsk.core.SurfaceEvaluator, adsk.fusion.BRepFace] ) -> adsk.core.Matrix3D:
+    
+    planarSurfaceEvaluator : adsk.core.SurfaceEvaluator
+    if isinstance(arg, adsk.core.Plane):
+        planarSurfaceEvaluator = arg.evaluator
+    elif isinstance(arg, adsk.core.SurfaceEvaluator):
+        planarSurfaceEvaluator = arg
+    elif isinstance(arg, adsk.fusion.BRepFace) and isinstance(arg.geometry, adsk.core.Plane):
+        planarSurfaceEvaluator = arg.evaluator
+    else:
+        raise TypeError(f" type(arg): {type(arg)}.   " + ( f"type(arg.geometry): {type(arg.geometry)}  "  if isinstance(arg, adsk.fusion.BRepFace) else "") )
+
+
+    t : adsk.core.Matrix3D
+
+    #in the following description, I imagine that all vectors are three-dimensional vectors (the 
+    # Point2D and Vector2D objects are implicitly turned into 3D vectors by adding 0 as the third coordinate doing castTo3dArray()
+    # and we think of 3d vectors of having a 4th parameter that (for our purposes here), is 0 for direction-like and 1 for position-like.
+    # we want t to satisfy the following conditions:
+    
+    result, value = planarSurfaceEvaluator.getPointAtParameter(adsk.core.Point2D.create(0,0)); assert result
+    root = castTo4dArray(value)
+    # what a convoluted way of dealing with what is essentially an exception! --
+    # have we no nullable objects? (we do have them) have we no first-class
+    # Exceptions? (we do have them).  For Christ's sake, a function whose name
+    # starts with "getPoint..." has no business returning anything other than a
+    # point.
+    #
+    #  the above definition of root should be equivalent to doing root =
+    # castTo4dArray(plane.origin)
+    
+    result, value = planarSurfaceEvaluator.getPointAtParameter(adsk.core.Point2D.create(1,0)); assert result
+    a    = castTo4dArray(value)
+
+    result, value = planarSurfaceEvaluator.getPointAtParameter(adsk.core.Point2D.create(0,1)); assert result
+    b    = castTo4dArray(value)
+
+
+
+    # t @ (1,0,0,0) == plane.evaluator.getPointAtParameter(1,0) - plane.origin == a - root
+    # t @ (0,1,0,0) == plane.evaluator.getPointAtParameter(0,1) - plane.origin == b - root
+    # t @ (0,0,1,0) == plane.evaluator.getPointAtParameter(0,1) - plane.origin == (a - root) X (b - root)  (where the cross product is done as if these were 3-dimensional directions (which they are)) (I am not concerned with scaling)
+    # t @ (0,0,0,1) == plane.origin                                            == root
+    #  And I think it is safe to assume that plane.origin is always equal to plane.evaluator.getPointAtParameter(0,0)
+    
+    # the reason that we need to take the surfaceEvaluator as opposed to a surface (from which we could get surface.evaluator) is
+    # that, as I have discovered in my tests, at least in the case of planes,
+    # the planeParameterSpaceToModelSpaceTransform generated by (probably internally, carried around as a property)
+    # face.evaluator is NOT the same GENERALLY as face.geometry.evluator (I have observed scale differences).
+    # The intended use for this planeParameterSpaceToModelSpaceTransform() function is to facilitate 
+    # redefining a face with a different underlying surface (i.e. all parameter space geometry remains unaltered -- only the surface changes).
+    # but the parameter space in which, for instance, coEdge.geometry (a 2d curve in the parameter space of the face) lives is that 
+    # defined by face.evaluator (NOT necessarily the same as that defined by face.geometry.evaluator).
+
+    column0 = a - root
+    column1 = b - root
+    column2 = castTo4dArray(np.cross(castTo3dArray(column0), castTo3dArray(column1)))
+    column3 = root
+    t = np.column_stack((column0, column1, column2, column3))
+
+    # print(f"t: \n{t}")
+
+    return castToMatrix3D(t)
+
+
+

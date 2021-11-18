@@ -256,7 +256,10 @@
                 "--debug_port"                              , "9000"                                           ,         
                 "--prefix_of_submodule_not_to_be_reloaded"  , "braids.fscad"                                   ,                 
             ],
-            "presentation": {"reveal" : "silent" }
+            "presentation": {
+                "reveal" : "silent" ,
+                "panel": "shared"
+            }
         },
         {   "label":"python_interactive",
             "type":"shell",
