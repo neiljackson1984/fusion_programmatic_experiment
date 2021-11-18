@@ -31,7 +31,6 @@ from adsk.fusion import BRepEdge, ProfileLoop
 # "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install unyt
 
 from .design1 import makeHighlightParams
-#this is a temporary hack during debugging
 
 import unyt
 # "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install unyt
@@ -247,9 +246,9 @@ def partitionEdgeSequenceIntoPaths(edges: Sequence[adsk.fusion.BRepEdge]) -> Seq
     )
 
 
+VectorLike = Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D, Sequence[number]]
 
-
-def castToNDArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D, adsk.core.Matrix3D, adsk.core.Matrix2D], n: Optional[int] = None) -> NDArray:
+def castToNDArray(x: Union[VectorLike, adsk.core.Matrix3D, adsk.core.Matrix2D], n: Optional[int] = None) -> NDArray:
     #TODO: handle various ranks of NDArray rather than blindly assuming that we have been given a rank-1 array.
     if isinstance(x, np.ndarray):
         returnValue = x
@@ -293,7 +292,7 @@ def castToNDArray(x: Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.
         # but it has the advantage of being a fairly short line of code.
     return returnValue
 
-VectorLike = Union[ndarray, adsk.core.Point3D, adsk.core.Vector3D, adsk.core.Point2D, adsk.core.Vector2D]
+
 
 def castTo2dArray(x: VectorLike) -> NDArray: 
     return castToNDArray(x,2)
@@ -1094,7 +1093,7 @@ def changeSurfaceOfSheetBody(
         # god help us if result does not contain exactly one curve3D object.
         transformedCurve3D : adsk.core.Curve3D = result[0]
 
-        print(f"edge {_edge_index_within_body(edge)}: isParamReversed: {edge.isParamReversed}.  isTolerant: {edge.isTolerant}")
+        # print(f"edge {_edge_index_within_body(edge)}: isParamReversed: {edge.isParamReversed}.  isTolerant: {edge.isTolerant}")
         edgeDefinitions.append(
             bRepBodyDefinition.createEdgeDefinitionByCurve(
                 startVertex = vertexDefinitions[_vertex_index_within_body(edge.startVertex)],
@@ -1141,26 +1140,30 @@ def changeSurfaceOfSheetBody(
     bRepBodyDefinition.doFullHealing = False
     morphedSheetBody : adsk.fusion.BRepBody = bRepBodyDefinition.createBody()
     
-    print(
-        "bRepBodyDefinition.outcomeInfo: " 
-        + "\n".join( 
-            x
-            for x in bRepBodyDefinition.outcomeInfo
-        )
-    )
+    # print(
+    #     "bRepBodyDefinition.outcomeInfo: " 
+    #     + "\n".join( 
+    #         x
+    #         for x in bRepBodyDefinition.outcomeInfo
+    #     )
+    # )
+    
+    ##region highlighting
+    ## from .design1 import makeHighlightParams
+    ##this is a temporary hack during debugging
+    #for vertexDefinitionIndex, vertexDefinition in enumerate( vertexDefinitions ) :
+    #    highlight(
+    #        vertexDefinition.position,
+    #        **makeHighlightParams(f"vertex definition {vertexDefinitionIndex}")
+    #    )
+    #  
+    #for edgeDefinitionIndex, edgeDefinition in enumerate( edgeDefinitions ) :
+    #    highlight(
+    #        edgeDefinition.modelSpaceCurve,
+    #        **makeHighlightParams(f"edge definition {edgeDefinitionIndex}")
+    #    )
+    ##endregion highlighting 
 
-    for vertexDefinitionIndex, vertexDefinition in enumerate( vertexDefinitions ) :
-        highlight(
-            vertexDefinition.position,
-            **makeHighlightParams(f"vertex definition {vertexDefinitionIndex}")
-        )
-
-
-    for edgeDefinitionIndex, edgeDefinition in enumerate( edgeDefinitions ) :
-        highlight(
-            edgeDefinition.modelSpaceCurve,
-            **makeHighlightParams(f"edge definition {edgeDefinitionIndex}")
-        )
 
     if morphedSheetBody is None:
         print("oops. morphedSheetBody creation failed.")
@@ -1196,16 +1199,30 @@ def _vertex_index_within_body(vertex: adsk.fusion.BRepVertex) -> int:
 
 def wrapSheetBodiesAroundCylinder(
     sheetBodies : Iterable[adsk.fusion.BRepBody], 
-    destinationFace : adsk.fusion.BRepFace 
-    # we are doing destiantion face instead of destination surface -- see
+    cylinderOrigin :  VectorLike,    
+    cylinderAxisDirection : VectorLike,
+    wrappingRadius : float,
+    rootRadius : Optional[float] = None
+    # destinationFace : adsk.fusion.BRepFace 
+    # we are doing destination face instead of destination surface -- see
     # comment in changeSurfaceOfSheetBody() 
 ) -> Sequence[adsk.fusion.BRepBody]:
+    """
+    The rootRadius is the radius of cylinder on which we perform a preliminary
+    wrapping (so we imagine) of the sheetBodies in order to determine the
+    geometry within (angle, length) space. We then draw the geometry on a
+    cylinder of the specified radius such that the shapes in (angle, length)
+    space are unaltered. In other words, we will stretch the geometry in one
+    direction (that which corresponds to the cylinder's circumferential
+    direction) by a factor of radius/rootRadius.
+    """
+    #region comments_and_discussion
     # this is very nearly the same as changeSurfaceOfSheetBodies, except that we
     # re-parameterize the bounded direction so that the result is as if the
     # range of the cylinder's bounded parameter were 2*Pi*radius, rather than
     # 2*Pi (which it seems, and which we assume, is always the range of the
     # bounded parameter of a cylinder
-
+    #
     # we assume that all cylinders always exhibit the following behavior (i.e.
     # the u direction is unbounded in both directions and the p direction is
     # periodic with the principal interval being (-Pi, Pi) pRange :
@@ -1218,10 +1235,11 @@ def wrapSheetBodiesAroundCylinder(
     # # vRange: (-3.141592653589793, 3.141592653589793)
     # #
     # skewScalingTransform : adsk.core.Matrix3D = adsk.core.Matrix3D.create()
-    
-    # for a bounded evaluator, the u parameter means radians (yes, that's right, the parameter
-    # that controls the position along the axis of the cylinder is ALSO in radians.
-
+    #
+    # for a bounded evaluator, the u parameter means radians (yes, that's right,
+    # the parameter that controls the position along the axis of the cylinder is
+    # ALSO in radians.
+    #
     # for sheetBody in sheetBodies: result : result = fscad.brep().transform(
     #     body=fscad.brep().copy(sheetBody), transform=
     #     )
@@ -1235,9 +1253,46 @@ def wrapSheetBodiesAroundCylinder(
     # be that simple transforming by Matrix3D works as long as the MAtrix3D is
     # singular.  At any rate, for now, I will do my nonuniform scaling in the
     # canoncial fscad way: by means of the fscad "Scale" class.
+    #endregion comments_and_discussion
+
+    cylinderLength = 20 * inch
+    #TODO: compute the length intelligently.  We must ensure (I think) that the
+    #length of the cylinder is longer than anything we want to wrap around it
+
+    #TODO: allow the user to specify which direction in the sheetSpace will be
+    # aligned with the axis of the cylinder and/or project the cylinder's axis
+    # onto sheetSpace (in our case, the xy plane) to determine the alignment.
     
+
+    cylinderForWrapping = cylinderByStartEndRadius(
+        startPoint = castToPoint3D(castTo3dArray(cylinderOrigin) - castTo3dArray(cylinderAxisDirection) * cylinderLength/2),
+        endPoint = castToPoint3D(castTo3dArray(cylinderOrigin) + castTo3dArray(cylinderAxisDirection) * cylinderLength/2),
+        radius=wrappingRadius
+    )
+
+    # cylinderForWrapping.name = "cylinder for wrapping"
+    # cylinderForWrapping.create_occurrence().isLightBulbOn = False
+    
+    destinationFace = cylinderForWrapping.side.brep
     destinationSurface : adsk.core.Surface = destinationFace.geometry
     assert destinationFace.geometry.surfaceType == adsk.core.SurfaceTypes.CylinderSurfaceType
+
+
+    # print(f"destinationSurface.evaluator.getParamAnomaly(): {destinationSurface.evaluator.getParamAnomaly()}")
+    # pRange : adsk.core.BoundingBox2D = destinationSurface.evaluator.parametricRange()
+    # uRange = (pRange.minPoint.x, pRange.maxPoint.x)
+    # vRange = (pRange.minPoint.y, pRange.maxPoint.y)
+    # print(f"uRange: {uRange}\nvRange: {vRange}")
+    #
+    # print(f"cylinderForWrapping.side.brep.evaluator.getParamAnomaly(): {cylinderForWrapping.side.brep.evaluator.getParamAnomaly()}")
+    # pRange : adsk.core.BoundingBox2D = cylinderForWrapping.side.brep.evaluator.parametricRange()
+    # uRange = (pRange.minPoint.x, pRange.maxPoint.x)
+    # vRange = (pRange.minPoint.y, pRange.maxPoint.y)
+    # print(f"uRange: {uRange}\nvRange: {vRange}")
+    #
+    # xRange = (supportFscadComponent.min().x, supportFscadComponent.max().x)
+    # yRange = (supportFscadComponent.min().y, supportFscadComponent.max().y)
+
 
 
     unscaledSheetBodiesFscadComponent = fscad.BRepComponent(*sheetBodies)
@@ -1250,27 +1305,25 @@ def wrapSheetBodiesAroundCylinder(
 
     scaledSheetBodiesFscadComponent = fscad.Scale(
             unscaledSheetBodiesFscadComponent,
-            sx = 1/destinationSurface.radius,
-            sy = 1/destinationSurface.radius,
-            sz = 1/destinationSurface.radius,
+            sx = 1/wrappingRadius,
+            sy = 1/rootRadius,
+            sz = 1/wrappingRadius,
         )
 
-    scaledSheetBodiesFscadComponent.name = "scaled sheet bodies"
 
     scaledSheetBodies = (           
             fscadBody.brep
             for fscadBody in scaledSheetBodiesFscadComponent.bodies
         )
 
-    scaledSheetBodiesFscadComponent.create_occurrence()
-    # fscad.BRepComponent(*scaledSheetBodies, name="double-checking scaled sheet bodies.").create_occurrence()
+    # scaledSheetBodiesFscadComponent.name = "scaled sheet bodies"
+    # scaledSheetBodiesFscadComponent.create_occurrence()
 
-
-    print(
-        f"scaledSheetBodiesFscadComponent has "
-        + f"xRange {(scaledSheetBodiesFscadComponent.min().x,scaledSheetBodiesFscadComponent.max().x)} "
-        + f"and yRange {(scaledSheetBodiesFscadComponent.min().y,scaledSheetBodiesFscadComponent.max().y)}"
-    )
+    # print(
+    #     f"scaledSheetBodiesFscadComponent has "
+    #     + f"xRange {(scaledSheetBodiesFscadComponent.min().x,scaledSheetBodiesFscadComponent.max().x)} "
+    #     + f"and yRange {(scaledSheetBodiesFscadComponent.min().y,scaledSheetBodiesFscadComponent.max().y)}"
+    # )
 
     return changeSurfaceOfSheetBodies(
         sheetBodies=scaledSheetBodies,
