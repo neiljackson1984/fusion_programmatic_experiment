@@ -3187,7 +3187,28 @@ class OffsetEdges(ComponentWithChildren):
             _collection_of(to_offset), sketch.modelToSketchSpace(face.brep.pointOnFace), -offset)
 
         for curve in offset_sketch_curves:
-            if hasattr(curve, "endSketchPoint"):
+            # if hasattr(curve, "endSketchPoint"):
+            #
+            # There are some subclasses of adsk.fusion.SketchCurve (for instance
+            # SketchFittedSpline) which do have an "endSketchPoint" attribute,
+            # but for which there can be instances such that attempting to
+            # retrieve the endSketchPoint property will cause fusion to throw an
+            # exception.  One example of this is a SketchFittedSpline that
+            # happens to be closed. Upon calling curve.endSketchPoint, Fusion
+            # throws a "RuntimeError: 2 : InternalValidationError : pt" error.
+            # Therefore, we need a slightly more sophisticated test to determine
+            # whether this sketch curve is a non-closed curve (unfortunately the
+            # adsk.fusion.SketchCurve class does not have an isClosed property)
+            #
+            # the problem is even worse than I first imagined -- even calling
+            # hasattr(curve, "endSketchPoint") when curve is the aforementioned
+            # closed SketchFittedSpline causes fusion to throw the
+            # "RuntimeError: 2 : InternalValidationError : pt" error.  How
+            # annoying! 
+            #
+            # -Neil Jackson
+            #
+            if not ( hasattr(curve, 'isClosed') and curve.isClosed ) and hasattr(curve, "endSketchPoint"):
                 if curve.endSketchPoint.connectedEntities.count == 1:
                     curve.extend(curve.endSketchPoint.geometry, createConstraints=False)
                 if curve.startSketchPoint.connectedEntities.count == 1:

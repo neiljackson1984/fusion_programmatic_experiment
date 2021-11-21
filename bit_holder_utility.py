@@ -27,7 +27,7 @@ import unyt
 import operator
 from .braids.fscad.src.fscad import fscad as fscad
 
-from adsk.fusion import BRepEdge, ProfileLoop
+from adsk.fusion import BRepEdge, ProfileLoop, SurfaceExtendTypes, TemporaryBRepManager
 # "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install unyt
 
 from .design1 import makeHighlightParams
@@ -60,7 +60,7 @@ def design()        -> adsk.fusion.Design      : return adsk.fusion.Design.cast(
 def rootComponent() -> adsk.fusion.Component   : return design().rootComponent
 
 _brep = None
-def temporarayBrepManager() -> adsk.fusion.TemporaryBRepManager:
+def temporaryBRepManager() -> adsk.fusion.TemporaryBRepManager:
     # caching the brep is a workaround for a weird bug where an exception from calling a TemporaryBRepManager method
     # and then catching the exception causes TemporaryBRepManager.get() to then throw the same error that was previously
     # thrown and caught. Probably some weird SWIG bug or something.
@@ -1438,4 +1438,31 @@ def planeParameterSpaceToModelSpaceTransform(arg : Union[adsk.core.Plane, adsk.c
     return castToMatrix3D(t)
 
 
+def offsetSheetBodies(sheetBodies : Iterable[adsk.fusion.BRepBody], offset: float) -> Sequence[adsk.fusion.BRepBody]:
+    # This function is intended to operate on planar sheet bodies (i.e. a BRepBody consisting of a single open face)
+    offsetedSheetBodies : Sequence[adsk.fusion.BRepBody]
+    # offsetedSheetBodies = tuple(
+    #     fscadBody.brep
+    #     for sheetBody in sheetBodies
+    #     for face in fscad.BRepComponent(sheetBody).faces
+    #     for fscadBody in fscad.OffsetEdges(face=face, edges=face.edges, offset = offset).bodies
+    # )
+    # unfortunately, fscad's OffsetEdges() class is not quite ready for prime time.
+    temp_occurrence = fscad._create_component(fscad.root(), *sheetBodies, name="temp")
+
+    brepBody : adsk.fusion.BRepBody
+    for brepBody in temp_occurrence.component.bRepBodies:
+        extendFeatureInput : adsk.fusion.ExtendFeatureInput = temp_occurrence.component.features.extendFeatures.createInput(
+            edges= fscad._collection_of(brepBody.edges),
+            distance = adsk.core.ValueInput.createByReal(offset),
+            extendType = adsk.fusion.SurfaceExtendTypes.NaturalSurfaceExtendType,
+            isChainingEnabled = False
+        )
+        extendFeature : adsk.fusion.ExtendFeature = temp_occurrence.component.features.extendFeatures.add(extendFeatureInput)
+    offsetedSheetBodies = tuple(
+        temporaryBRepManager().copy(bRepBody)
+        for bRepBody in temp_occurrence.component.bRepBodies
+    )
+    temp_occurrence.deleteMe()
+    return offsetedSheetBodies
 

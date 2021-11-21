@@ -152,8 +152,7 @@ def run(context:dict):
             }
         }.get(pathOfSVGFile.name, {}) 
         svgOrigin = {
-            'eXotic logo 1 2.svg': adsk.core.Point3D.create(14.335792228219473 * centimeter , -8.991493048989101 * centimeter, 0.0),
-            'test_logo.svg': adsk.core.Point3D.create(8.530670928955079 * centimeter, 3.66572017669678 * centimeter  )
+            'eXotic logo 1 2.svg': adsk.core.Point3D.create(14.335792228219473 * centimeter , -8.991493048989101 * centimeter, 0.0)
         }.get(pathOfSVGFile.name, adsk.core.Point3D.create(0,0,0) )
 
         # optionalArgsForImportSVG = {**defaultOptionalArgsForImportSVG, **fileSpecificOptionalArgsForImportSVG}
@@ -183,12 +182,12 @@ def run(context:dict):
 
         for sheetBodyRankGroup in allSheetBodiesFromSketchGroupedByRank:
             for sheetBody in sheetBodyRankGroup:
-                result : bool = temporarayBrepManager().transform(sheetBody, translation(-castTo3dArray(svgOrigin))); assert result
+                result : bool = temporaryBRepManager().transform(sheetBody, translation(-castTo3dArray(svgOrigin))); assert result
                 #
                 # temporary hack to rotate the sheet bodies (since I have not
                 # yet implemented cylinder-axis projection in the
                 # wrapAroundCylinder() function.): 
-                result : bool = temporarayBrepManager().transform(sheetBody, rotation(angle=90*degree)); assert result
+                result : bool = temporaryBRepManager().transform(sheetBody, rotation(angle=90*degree)); assert result
 
 
 
@@ -229,7 +228,9 @@ def run(context:dict):
         letterRadiusMax = rootRadius
         plinthRadiusMax = rootRadius - (1/4)*inch
         plinthRadiusMin = plinthRadiusMax - (1/4*inch)
-
+        letterRadiusMin = plinthRadiusMax
+        letterDraftAngle = 7 *degree
+        plinthDraftAngle = 7 *degree
 
         cylinderOrigin = (0,0,rootRadius + 1*centimeter)       
         cylinderAxisDirection = xHat
@@ -250,10 +251,17 @@ def run(context:dict):
         letterSheetsAtMaxRadius = oddRankSheetBodies
         plinthSheetsAtMaxRadius = supportSheetBodies
         #TODO: construct plinthSheetsAtMinRadius by offsetting plinthSheetsAtMaxRadius (in order to produce the desired draft angle)
-        plinthSheetsAtMinRadius = plinthSheetsAtMaxRadius # just for testing
+        # plinthSheetsAtMinRadius = plinthSheetsAtMaxRadius # just for testing
+        plinthSheetsAtMinRadius = offsetSheetBodies(plinthSheetsAtMaxRadius, math.tan(plinthDraftAngle)* (plinthRadiusMax - plinthRadiusMin))
+        plinthSheetsAtMinRadiusFscadComponent = fscad.BRepComponent(*plinthSheetsAtMinRadius, name=f"plinthSheetsAtMinRadius"); plinthSheetsAtMinRadiusFscadComponent.create_occurrence()
+
+
 
         #TODO: construct letterSheetsAtMinRadius by offsetting letterSheetsAtMaxRadius (in order to produce the desired draft angle)
-        letterSheetsAtMinRadius = letterSheetsAtMaxRadius
+        # letterSheetsAtMinRadius = letterSheetsAtMaxRadius
+        letterSheetsAtMinRadius = offsetSheetBodies(letterSheetsAtMaxRadius, math.tan(letterDraftAngle) * (letterRadiusMax - letterRadiusMin))
+        letterSheetsAtMinRadiusFscadComponent = fscad.BRepComponent(*letterSheetsAtMinRadius, name=f"letterSheetsAtMinRadius"); letterSheetsAtMinRadiusFscadComponent.create_occurrence()
+
 
 
         highlight(
@@ -274,7 +282,7 @@ def run(context:dict):
 
         wrappedLetterSheetsAtMinRadius = wrapSheetBodiesAroundCylinder(
             sheetBodies    = letterSheetsAtMinRadius,
-            wrappingRadius = plinthRadiusMax,
+            wrappingRadius = letterRadiusMin,
             **commonWrappingArguments
         )
 
