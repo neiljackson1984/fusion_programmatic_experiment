@@ -59,6 +59,16 @@ def ui()            -> adsk.core.UserInterface : return app().userInterface
 def design()        -> adsk.fusion.Design      : return adsk.fusion.Design.cast(app().activeProduct)
 def rootComponent() -> adsk.fusion.Component   : return design().rootComponent
 
+_brep = None
+def temporarayBrepManager() -> adsk.fusion.TemporaryBRepManager:
+    # caching the brep is a workaround for a weird bug where an exception from calling a TemporaryBRepManager method
+    # and then catching the exception causes TemporaryBRepManager.get() to then throw the same error that was previously
+    # thrown and caught. Probably some weird SWIG bug or something.
+    global _brep
+    if not _brep:
+        _brep = adsk.fusion.TemporaryBRepManager.get()
+    return _brep
+
 
 radian = 1
 degree = math.pi/180 * radian
@@ -768,6 +778,33 @@ def captureEntityTokens(occurrence : adsk.fusion.Occurrence):
         ]
     }
  
+def translation(v: VectorLike) -> adsk.core.Matrix3D:
+    # this is a convenience function that encapsulates the annoyance
+    # of having to create the matrix, then assign its translation in twq separate steps.
+    t : adsk.core.Matrix3D = adsk.core.Matrix3D.create()
+    # result :bool = t.setWithCoordinateSystem(
+    #     origin= castToPoint3D(v),
+    #     xAxis = adsk.core.Vector3D.create(1,0,0),
+    #     yAxis = adsk.core.Vector3D.create(0,1,0),
+    #     zAxis = adsk.core.Vector3D.create(0,0,1),
+    # ); assert result
+    t.translation = castToVector3D(v)
+    return t
+
+def rotation(
+    angle : float,
+    axis: VectorLike = (0,0,1),
+    origin: VectorLike = (0,0,0)
+) -> adsk.core.Matrix3D:
+    # a convenience function to make it easier to use the fusion Matrix3D class
+    t : adsk.core.Matrix3D = adsk.core.Matrix3D.create()
+    result :bool = t.setToRotation(
+        angle= angle,
+        axis = castToVector3D(axis),
+        origin = castToPoint3D(origin)
+    ); assert result
+    return t
+
 def rigidTransform3D(
     xDirection : Optional[VectorLike] = None, 
     yDirection : Optional[VectorLike] = None, 
