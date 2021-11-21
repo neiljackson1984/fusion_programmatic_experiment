@@ -27,7 +27,7 @@
 
         {   "label": "reload_fusion_script_runner_addin_with_keystrokes",
             "type":"shell",
-            "command": "autohotkey \"${workspaceFolder}${pathSeparator}reload_fusion_addin.ahk\" fusion_script_runner_addin\"",
+            "command": "autohotkey \"${config:neil.pathOfFusionScriptRunnerAddin}${pathSeparator}reload_fusion_addin.ahk\" fusion_script_runner_addin\"",
             "presentation": {
                 "reveal": "always",
                 "showReuseMessage": false
@@ -35,7 +35,7 @@
         },
         {   "label": "monitor_fusion_script_runnner_addin_log",
             "type":"shell",
-            "command": "tail -F '${workspaceFolder}${pathSeparator}fusion_script_runner_addin${pathSeparator}fusion_script_runner_addin_log.log'",
+            "command": "tail -F '${env:TEMP}${pathSeparator}fusion_script_runner_addin_log.log'",
             "presentation": {
                 "reveal": "always",
                 "showReuseMessage": false

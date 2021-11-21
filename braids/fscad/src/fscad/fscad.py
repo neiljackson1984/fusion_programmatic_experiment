@@ -4458,7 +4458,7 @@ def setup_document(document_name="fSCAD-Preview"):
 
 
 def run_design(design_func, message_box_on_error=True, print_runtime=True, document_name=None,
-               design_args=None, design_kwargs=None):
+               design_args=None, design_kwargs=None, re_raise_exceptions=False):
     """Utility method to handle the common setup tasks for a script
 
     This can be used in a script like this::
@@ -4491,8 +4491,10 @@ def run_design(design_func, message_box_on_error=True, print_runtime=True, docum
             print("Run time: %f" % (end-start))
     except Exception:
         print(traceback.format_exc())
+        if re_raise_exceptions: raise
         if message_box_on_error:
             ui().messageBox('Failed:\n{}'.format(traceback.format_exc()))
+
 
 
 def run(_):

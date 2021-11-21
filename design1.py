@@ -230,7 +230,7 @@ def run(context:dict):
         # plinthDraftAngle = - 7 *degree
 
 
-        rootAngularSpan = 2 * degree
+        rootAngularSpan = 0.1 * degree
         letterRadialExtent = 0.1 * millimeter
         plinthRadialExtent = 0.1 * millimeter
         letterDraftAngle = 0 *degree
@@ -364,7 +364,7 @@ def run(context:dict):
     #monkeypatching traceback with vscode-compatible link formatting
     initialTracebackStackSummaryFormatMethod = formatStackSummary
     traceback.StackSummary.format = formatStackSummary
-    fscad.run_design(design_func=design1, message_box_on_error=False)
+    fscad.run_design(design_func=design1, message_box_on_error=False, re_raise_exceptions=True)
     traceback.StackSummary.format = initialTracebackStackSummaryFormatMethod
     # run_design(design_func=design2, message_box_on_error=False)
     # print(traceback.format_tb(sys.last_traceback))

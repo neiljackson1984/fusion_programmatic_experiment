@@ -179,7 +179,12 @@ class AddIn(object):
                 logger.warning("No script provided and debugging not requested. There's nothing to do.")
                 return
 
-            if debug: ensureThatDebuggingIsStarted(debugpy_path=debugpy_path, debug_port=debug_port)
+            if debug: 
+                ensureThatDebuggingIsStarted(debugpy_path=debugpy_path, debug_port=debug_port)
+                with debugpy._vendored.vendored(project='pydevd'):
+                    from _pydevd_bundle.pydevd_constants import get_global_debugger
+                    from pydevd import PyDB
+                    import pydevd
                 
             if script_path:
                 if debug:
@@ -224,12 +229,42 @@ class AddIn(object):
                     sys.modules[module_name] = module
                     spec.loader.exec_module(module)
                     logger.debug("Running script")
-                    module.run({"isApplicationStartup": False})
                 except Exception:
                     logger.fatal(
-                        "Unhandled exception while importing and running script.",
+                        "Unhandled exception while importing script.",
                         exc_info=sys.exc_info()
                     )
+                if debug:
+                    # breakpoint()
+                    # pydevd.settrace()
+                    # globalDebugger : pydevd.PyDB = get_global_debugger()
+                    # ex = globalDebugger.add_break_on_exception(
+                    #     exception='Exception', 
+                    #     condition="True",  
+                    #     expression="True", 
+                    #     notify_on_handled_exceptions= True, 
+                    #     notify_on_unhandled_exceptions= True,
+                    #     notify_on_user_unhandled_exceptions=True,
+                    #     notify_on_first_raise_only=False
+                    # )
+                    # globalDebugger.update_after_exceptions_added([ex])
+                    # globalDebugger.enable_tracing_in_frames_while_running_if_frame_eval()
+                    module.run({"isApplicationStartup": False})                
+                else:
+                    try:
+                        module.run({"isApplicationStartup": False})
+                    except Exception:
+                        logger.fatal(
+                            "Unhandled exception while running script.",
+                            exc_info=sys.exc_info()
+                        )
+                        # if debug: 
+                            # debugpy.breakpoint()
+                            # get_global_debugger.SetTrace()
+                                        
+                        
+                logger.debug("Finished running script.")
+
             # i = 0
             # # wait_for_client experiment
             # while i<5:
