@@ -230,9 +230,9 @@ def run(context:dict):
         # plinthDraftAngle = - 7 *degree
 
 
-        rootAngularSpan = 0.1 * degree
-        letterRadialExtent = 0.1 * millimeter
-        plinthRadialExtent = 0.1 * millimeter
+        rootAngularSpan = 10 * degree
+        letterRadialExtent =1 * millimeter
+        plinthRadialExtent = 1 * millimeter
         letterDraftAngle = 0 *degree
         plinthDraftAngle = 0 *degree
 

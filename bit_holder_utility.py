@@ -27,10 +27,11 @@ import unyt
 import operator
 from .braids.fscad.src.fscad import fscad as fscad
 
-from adsk.fusion import BRepEdge, ProfileLoop, SurfaceExtendTypes, TemporaryBRepManager
+from adsk.fusion import BRepEdge, ChainedCurveOptions, ProfileLoop, SurfaceExtendTypes, TemporaryBRepManager
 # "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install unyt
 
 from .design1 import makeHighlightParams
+#This is a temporary hack for debugging in a particular case.
 
 import unyt
 # "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install unyt
@@ -1535,12 +1536,66 @@ def extrudeDraftAndWrapSheetbodiesAroundCylinder(
         assert wrappedSheetAtEndPersistedBody.faces.count == 1
 
         loftFeatureInput : adsk.fusion.LoftFeatureInput = mainTempComponent.features.loftFeatures.createInput(operation=adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-        startLoftSection : adsk.fusion.LoftSection = loftFeatureInput.loftSections.add( wrappedSheetAtStartPersistedBody.faces[0] )
-        endLoftSection : adsk.fusion.LoftSection = loftFeatureInput.loftSections.add( wrappedSheetAtEndPersistedBody.faces[0] )
-        loftFeature : adsk.fusion.LoftFeature = fscad.root().features.loftFeatures.add(loftFeatureInput)
-        loftFeatureInput.isSolid = True
-        returnBodies.extend( temporaryBRepManager().copy(body) for body in loftFeature.bodies )
         # The loft feature, when operating on faces, seems to ignore inner loops.
+        # Therefore, we must pass something other than faces as loftFeature input.
+        
+        startFace : adsk.fusion.BRepFace = wrappedSheetAtStartPersistedBody.faces[0]
+        endFace : adsk.fusion.BRepFace = wrappedSheetAtEndPersistedBody.faces[0]
+        assert startFace.loops.count == endFace.loops.count
+        for loopIndex in range(startFace.loops.count):
+            # We are trusting that the loop index is analogous in the startFace and endFace.
+            # If it turns out that loop index does not give us corresponding loops, I will have
+            # re-compute the end loops loop by loop from the startFace's loops ( which will be a pain
+            # due to the difficulty of offseting with a negative offset )
+            startLoop : adsk.fusion.BRepLoop = startFace.loops[loopIndex]
+
+            endLoop   : adsk.fusion.BRepLoop = endFace.loops[loopIndex]
+            
+            highlight(
+                startLoop.edges,
+                **makeHighlightParams(f"start loop {loopIndex}")
+            )
+
+            highlight(
+                endLoop.edges,
+                **makeHighlightParams(f"end loop {loopIndex}")
+            )
+
+
+
+            # startPath : adsk.fusion.Path = adsk.fusion.Path.create(curves = startLoop.edges[0]   , chainOptions = adsk.fusion.ChainedCurveOptions.noChainedCurves)
+            # for edgeIndex in range(1, startLoop.edges.count): startPath.addCurves(startLoop.edges[edgeIndex], chainOptions = adsk.fusion.ChainedCurveOptions.noChainedCurves)
+
+            # endPath : adsk.fusion.Path = adsk.fusion.Path.create(curves = endLoop.edges[0]   , chainOptions = adsk.fusion.ChainedCurveOptions.noChainedCurves)
+            # for edgeIndex in range(1, endLoop.edges.count): startPath.addCurves(endLoop.edges[edgeIndex], chainOptions = adsk.fusion.ChainedCurveOptions.noChainedCurves)
+
+            startPath : adsk.fusion.Path = mainTempComponent.features.createPath(curve= fscad._collection_of(startLoop.edges), isChain=False)
+            endPath   : adsk.fusion.Path = mainTempComponent.features.createPath(curve= fscad._collection_of(endLoop.edges), isChain=False)
+            #curiously, adsk.fusion.Path.create(curves= fscad._collection_of(startLoop.edges), chainOptions = adsk.fusion.ChainedCurveOptions.noChainedCurves)
+            # would throw an error, saying something about path being empty.  However, mainTempComponent.features.createPath() worked as desired.
+            # This difference might have something to do with persisted vs. transient bodies.
+
+
+            highlight(
+                startPath,
+                **makeHighlightParams(f"startPath {loopIndex}")
+            )
+
+            highlight(
+                endPath,
+                **makeHighlightParams(f"endPath {loopIndex}")
+            )
+
+
+            startLoftSection : adsk.fusion.LoftSection = loftFeatureInput.loftSections.add( startPath )
+            endLoftSection   : adsk.fusion.LoftSection = loftFeatureInput.loftSections.add( endPath )
+
+            loftFeature : adsk.fusion.LoftFeature = fscad.root().features.loftFeatures.add(loftFeatureInput)
+            # loftFeatureInput.isSolid = True # this seems to make no difference -- we seemn to almost always get sheet bodies rather than solids.
+
+            returnBodies.extend( temporaryBRepManager().copy(body) for body in loftFeature.bodies )
+
+
 
 
         
