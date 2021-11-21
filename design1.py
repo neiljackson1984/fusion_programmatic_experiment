@@ -223,10 +223,18 @@ def run(context:dict):
         
 
         
-        rootAngularSpan = 120 * degree
-        # rootAngularSpan = 0.01 * degree
-        letterRadialExtent = 1/4 * inch
-        plinthRadialExtent = 1/4 * inch
+        # rootAngularSpan = 120 * degree
+        # letterRadialExtent = 1/4 * inch
+        # plinthRadialExtent = 1/4 * inch
+        # letterDraftAngle = - 7 *degree
+        # plinthDraftAngle = - 7 *degree
+
+
+        rootAngularSpan = 2 * degree
+        letterRadialExtent = 0.1 * millimeter
+        plinthRadialExtent = 0.1 * millimeter
+        letterDraftAngle = 0 *degree
+        plinthDraftAngle = 0 *degree
 
 
         rootRadius = ( supportFscadComponent.max().y - supportFscadComponent.min().y ) * radian / rootAngularSpan
@@ -240,8 +248,7 @@ def run(context:dict):
         plinthRadiusMax = letterRadiusMin
         plinthRadiusMin = plinthRadiusMax - plinthRadialExtent
         
-        letterDraftAngle = - 7 *degree
-        plinthDraftAngle = - 7 *degree
+        
 
         cylinderOrigin = (0,0,rootRadius + 1*centimeter)       
         cylinderAxisDirection = xHat

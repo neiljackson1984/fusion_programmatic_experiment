@@ -1382,9 +1382,9 @@ def planeParameterSpaceToModelSpaceTransform(arg : Union[adsk.core.Plane, adsk.c
         planarSurfaceEvaluator = arg
     elif isinstance(arg, adsk.fusion.BRepFace) and isinstance(arg.geometry, adsk.core.Plane):
         planarSurfaceEvaluator = arg.evaluator
-    # elif isinstance(arg, adsk.fusion.BRepFace) and not isinstance(arg.geometry, adsk.core.Plane):
-    #     planarSurfaceEvaluator = arg.evaluator
-    #     # we are taking our chances here and hoping that the surface is close enough to a plane.
+    elif isinstance(arg, adsk.fusion.BRepFace) and not isinstance(arg.geometry, adsk.core.Plane):
+        planarSurfaceEvaluator = arg.evaluator
+        # we are taking our chances here and hoping that the surface is close enough to a plane.
     else:
         raise TypeError(f" type(arg): {type(arg)}.   " + ( f"type(arg.geometry): {type(arg.geometry)}  "  if isinstance(arg, adsk.fusion.BRepFace) else "") )
 
