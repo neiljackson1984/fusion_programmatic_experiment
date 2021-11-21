@@ -214,23 +214,34 @@ def run(context:dict):
         #     fscad.BRepComponent(*allSheetBodiesFromSketchGroupedByRank[rank], name=f"rank {rank} sheet bodies").create_occurrence()
 
         # rankZeroFscadComponent = fscad.BRepComponent(*rankZeroSheetBodies, name=f"rank zero"); rankZeroFscadComponent.create_occurrence()
-        supportFscadComponent = fscad.BRepComponent(*supportSheetBodies, name=f"support"); supportFscadComponent.create_occurrence()
-        oddRankFscadComponent = fscad.BRepComponent(*oddRankSheetBodies, name=f"oddRank"); oddRankFscadComponent.create_occurrence()
-        # print(f"supportFscadComponent.mid: {castTo3dArray(adsk.core.Point3D.create(5,6,7))}")
-        # print(f"supportFscadComponent.mid: {castTo3dArray(supportFscadComponent.mid())}")
+        supportFscadComponent = fscad.BRepComponent(*supportSheetBodies, name=f"support"); 
+        # supportFscadComponent.create_occurrence()
+        # oddRankFscadComponent = fscad.BRepComponent(*oddRankSheetBodies, name=f"oddRank"); oddRankFscadComponent.create_occurrence()
+        # # print(f"supportFscadComponent.mid: {castTo3dArray(adsk.core.Point3D.create(5,6,7))}")
+        # # print(f"supportFscadComponent.mid: {castTo3dArray(supportFscadComponent.mid())}")
         print(f"supportFscadComponent.mid: {(supportFscadComponent.mid().x, supportFscadComponent.mid().y, supportFscadComponent.mid().z)}")
         
 
         
         rootAngularSpan = 120 * degree
+        # rootAngularSpan = 0.01 * degree
+        letterRadialExtent = 1/4 * inch
+        plinthRadialExtent = 1/4 * inch
+
+
         rootRadius = ( supportFscadComponent.max().y - supportFscadComponent.min().y ) * radian / rootAngularSpan
+
+
+        print(f"rootRadius: {rootRadius}")
         # rootRadius = 3*centimeter
         letterRadiusMax = rootRadius
-        plinthRadiusMax = rootRadius - (1/4)*inch
-        plinthRadiusMin = plinthRadiusMax - (1/4*inch)
-        letterRadiusMin = plinthRadiusMax
-        letterDraftAngle = 7 *degree
-        plinthDraftAngle = 7 *degree
+        letterRadiusMin = letterRadiusMax - letterRadialExtent
+
+        plinthRadiusMax = letterRadiusMin
+        plinthRadiusMin = plinthRadiusMax - plinthRadialExtent
+        
+        letterDraftAngle = - 7 *degree
+        plinthDraftAngle = - 7 *degree
 
         cylinderOrigin = (0,0,rootRadius + 1*centimeter)       
         cylinderAxisDirection = xHat
@@ -248,19 +259,14 @@ def run(context:dict):
         # stretching to account for differing radii here)-- that gets done by
         # wrapSheetBodiesAroundCylinder() (by using both the rootRadius and the
         # wrappingRadius parameters).
-        letterSheetsAtMaxRadius = oddRankSheetBodies
-        plinthSheetsAtMaxRadius = supportSheetBodies
-        #TODO: construct plinthSheetsAtMinRadius by offsetting plinthSheetsAtMaxRadius (in order to produce the desired draft angle)
-        # plinthSheetsAtMinRadius = plinthSheetsAtMaxRadius # just for testing
-        plinthSheetsAtMinRadius = offsetSheetBodies(plinthSheetsAtMaxRadius, math.tan(plinthDraftAngle)* (plinthRadiusMax - plinthRadiusMin))
-        plinthSheetsAtMinRadiusFscadComponent = fscad.BRepComponent(*plinthSheetsAtMinRadius, name=f"plinthSheetsAtMinRadius"); plinthSheetsAtMinRadiusFscadComponent.create_occurrence()
 
+        # letterSheetsAtMaxRadius = oddRankSheetBodies
+        # plinthSheetsAtMaxRadius = supportSheetBodies
+        # plinthSheetsAtMinRadius = offsetSheetBodies(plinthSheetsAtMaxRadius, math.tan(plinthDraftAngle)* (plinthRadiusMax - plinthRadiusMin))
+        # plinthSheetsAtMinRadiusFscadComponent = fscad.BRepComponent(*plinthSheetsAtMinRadius, name=f"plinthSheetsAtMinRadius"); plinthSheetsAtMinRadiusFscadComponent.create_occurrence()
 
-
-        #TODO: construct letterSheetsAtMinRadius by offsetting letterSheetsAtMaxRadius (in order to produce the desired draft angle)
-        # letterSheetsAtMinRadius = letterSheetsAtMaxRadius
-        letterSheetsAtMinRadius = offsetSheetBodies(letterSheetsAtMaxRadius, math.tan(letterDraftAngle) * (letterRadiusMax - letterRadiusMin))
-        letterSheetsAtMinRadiusFscadComponent = fscad.BRepComponent(*letterSheetsAtMinRadius, name=f"letterSheetsAtMinRadius"); letterSheetsAtMinRadiusFscadComponent.create_occurrence()
+        # letterSheetsAtMinRadius = offsetSheetBodies(letterSheetsAtMaxRadius, math.tan(letterDraftAngle) * (letterRadiusMax - letterRadiusMin))
+        # letterSheetsAtMinRadiusFscadComponent = fscad.BRepComponent(*letterSheetsAtMinRadius, name=f"letterSheetsAtMinRadius"); letterSheetsAtMinRadiusFscadComponent.create_occurrence()
 
 
 
@@ -274,49 +280,79 @@ def run(context:dict):
             **makeHighlightParams("cylinder preview")
         )
 
-        wrappedLetterSheetsAtMaxRadius = wrapSheetBodiesAroundCylinder(
-            sheetBodies    = letterSheetsAtMaxRadius,
-            wrappingRadius = letterRadiusMax,
-            **commonWrappingArguments
-        )
+        # wrappedLetterSheetsAtMaxRadius = wrapSheetBodiesAroundCylinder(
+        #     sheetBodies    = letterSheetsAtMaxRadius,
+        #     wrappingRadius = letterRadiusMax,
+        #     **commonWrappingArguments
+        # )
 
-        wrappedLetterSheetsAtMinRadius = wrapSheetBodiesAroundCylinder(
-            sheetBodies    = letterSheetsAtMinRadius,
-            wrappingRadius = letterRadiusMin,
-            **commonWrappingArguments
-        )
+        # wrappedLetterSheetsAtMinRadius = wrapSheetBodiesAroundCylinder(
+        #     sheetBodies    = letterSheetsAtMinRadius,
+        #     wrappingRadius = letterRadiusMin,
+        #     **commonWrappingArguments
+        # )
 
-        wrappedPlinthSheetsAtMaxRadius = wrapSheetBodiesAroundCylinder(
-            sheetBodies    = plinthSheetsAtMaxRadius,
-            wrappingRadius = plinthRadiusMax,
-            **commonWrappingArguments
-        )
+        # wrappedPlinthSheetsAtMaxRadius = wrapSheetBodiesAroundCylinder(
+        #     sheetBodies    = plinthSheetsAtMaxRadius,
+        #     wrappingRadius = plinthRadiusMax,
+        #     **commonWrappingArguments
+        # )
 
-        wrappedPlinthSheetsAtMinRadius = wrapSheetBodiesAroundCylinder(
-            sheetBodies    = plinthSheetsAtMinRadius,
-            wrappingRadius = plinthRadiusMin,
+        # wrappedPlinthSheetsAtMinRadius = wrapSheetBodiesAroundCylinder(
+        #     sheetBodies    = plinthSheetsAtMinRadius,
+        #     wrappingRadius = plinthRadiusMin,
+        #     **commonWrappingArguments
+        # )
+
+        # fscad.BRepComponent(
+        #     *wrappedLetterSheetsAtMaxRadius, 
+        #     name=f"wrappedLetterSheetsAtMaxRadius"
+        # ).create_occurrence()
+
+        # fscad.BRepComponent(
+        #     *wrappedLetterSheetsAtMinRadius, 
+        #     name=f"wrappedLetterSheetsAtMinRadius"
+        # ).create_occurrence()
+
+        # fscad.BRepComponent(
+        #     *wrappedPlinthSheetsAtMaxRadius, 
+        #     name=f"wrappedPlinthSheetsAtMaxRadius"
+        # ).create_occurrence()
+
+        # fscad.BRepComponent(
+        #     *wrappedPlinthSheetsAtMinRadius, 
+        #     name=f"wrappedPlinthSheetsAtMinRadius"
+        # ).create_occurrence()
+
+        edifiedPlinthBodies = extrudeDraftAndWrapSheetbodiesAroundCylinder(
+            sheetBodies = supportSheetBodies,
+            wrappingRadiusStart = plinthRadiusMax,
+            wrappingRadiusEnd = plinthRadiusMin,
+            draftAngle = plinthDraftAngle ,
             **commonWrappingArguments
         )
 
         fscad.BRepComponent(
-            *wrappedLetterSheetsAtMaxRadius, 
-            name=f"wrappedLetterSheetsAtMaxRadius"
+            *edifiedPlinthBodies, 
+            name=f"edifiedPlinthBodies"
         ).create_occurrence()
 
-        fscad.BRepComponent(
-            *wrappedLetterSheetsAtMinRadius, 
-            name=f"wrappedLetterSheetsAtMinRadius"
-        ).create_occurrence()
+        edifiedLetterBodies = extrudeDraftAndWrapSheetbodiesAroundCylinder(
+            sheetBodies = oddRankSheetBodies,
+            wrappingRadiusStart = letterRadiusMax,
+            wrappingRadiusEnd = letterRadiusMin,
+            draftAngle = letterDraftAngle ,
+            **commonWrappingArguments
+        )
 
         fscad.BRepComponent(
-            *wrappedPlinthSheetsAtMaxRadius, 
-            name=f"wrappedPlinthSheetsAtMaxRadius"
+            *edifiedLetterBodies, 
+            name=f"edifiedLetterBodies"
         ).create_occurrence()
 
-        fscad.BRepComponent(
-            *wrappedPlinthSheetsAtMinRadius, 
-            name=f"wrappedPlinthSheetsAtMinRadius"
-        ).create_occurrence()
+
+
+
 
     #monkeypatching traceback with vscode-compatible link formatting
     initialTracebackStackSummaryFormatMethod = formatStackSummary

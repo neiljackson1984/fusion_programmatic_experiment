@@ -1382,6 +1382,9 @@ def planeParameterSpaceToModelSpaceTransform(arg : Union[adsk.core.Plane, adsk.c
         planarSurfaceEvaluator = arg
     elif isinstance(arg, adsk.fusion.BRepFace) and isinstance(arg.geometry, adsk.core.Plane):
         planarSurfaceEvaluator = arg.evaluator
+    # elif isinstance(arg, adsk.fusion.BRepFace) and not isinstance(arg.geometry, adsk.core.Plane):
+    #     planarSurfaceEvaluator = arg.evaluator
+    #     # we are taking our chances here and hoping that the surface is close enough to a plane.
     else:
         raise TypeError(f" type(arg): {type(arg)}.   " + ( f"type(arg.geometry): {type(arg.geometry)}  "  if isinstance(arg, adsk.fusion.BRepFace) else "") )
 
@@ -1440,6 +1443,10 @@ def planeParameterSpaceToModelSpaceTransform(arg : Union[adsk.core.Plane, adsk.c
 
 def offsetSheetBodies(sheetBodies : Iterable[adsk.fusion.BRepBody], offset: float) -> Sequence[adsk.fusion.BRepBody]:
     # This function is intended to operate on planar sheet bodies (i.e. a BRepBody consisting of a single open face)
+
+    # The strategy herein relies on Fusion's "Extend" feature which only works
+    # with NON-NEGATIVE VALUES of OFFSET.  DAMNIT!  This is probably why fscad
+    # resorts to using sketches to do offsetting.
     offsetedSheetBodies : Sequence[adsk.fusion.BRepBody]
     # offsetedSheetBodies = tuple(
     #     fscadBody.brep
@@ -1448,7 +1455,7 @@ def offsetSheetBodies(sheetBodies : Iterable[adsk.fusion.BRepBody], offset: floa
     #     for fscadBody in fscad.OffsetEdges(face=face, edges=face.edges, offset = offset).bodies
     # )
     # unfortunately, fscad's OffsetEdges() class is not quite ready for prime time.
-    temp_occurrence = fscad._create_component(fscad.root(), *sheetBodies, name="temp")
+    temp_occurrence = fscad._create_component(fscad.root(), *sheetBodies, name="temp-offsetSheetBodies")
 
     brepBody : adsk.fusion.BRepBody
     for brepBody in temp_occurrence.component.bRepBodies:
@@ -1466,3 +1473,102 @@ def offsetSheetBodies(sheetBodies : Iterable[adsk.fusion.BRepBody], offset: floa
     temp_occurrence.deleteMe()
     return offsetedSheetBodies
 
+def extrudeDraftAndWrapSheetbodiesAroundCylinder(
+    sheetBodies : Iterable[adsk.fusion.BRepBody], 
+    cylinderOrigin :  VectorLike,    
+    cylinderAxisDirection : VectorLike,
+    wrappingRadiusStart : float,
+    wrappingRadiusEnd: float,
+    draftAngle: float,
+    rootRadius : Optional[float] = None
+) -> Sequence[adsk.fusion.BRepBody]:
+    # the name of this function is admittedly terrible. this function takes a
+    # set of sheet bodies, assumed to lie on the xy plane.  We then do the
+    # equivalent of extruding these sheet bodies, with draft, and then
+    # transforming the resulting solid into cylindrical coordinates.  (TODO: make this explanation clearer)
+    # I am going to call this operation "Edification" for lack of a better word.
+    returnBodies : Sequence[adsk.fusion.BRepBody] = []
+       
+    tempOccurrence = fscad.root().occurrences.addNewComponent(adsk.core.Matrix3D.create())
+    mainTempComponent = tempOccurrence.component
+    tempOccurrence.component.name = "edifyingWorker"
+
+    for sheetBody in sheetBodies:
+        #we are assuming that each sheetBody has a single face (and that the wrapped version of the sheet body will also have a single face)
+        flatSheetAtStart = sheetBody
+        fscad.BRepComponent(
+            flatSheetAtStart,
+            name="flatSheetAtStart"
+        ).create_occurrence()
+
+
+        flatSheetsAtEnd = offsetSheetBodies( [flatSheetAtStart], math.tan(draftAngle) * (wrappingRadiusEnd - wrappingRadiusStart))
+        assert len(flatSheetsAtEnd) == 1
+        flatSheetAtEnd = flatSheetsAtEnd[0]
+        fscad.BRepComponent(
+            flatSheetAtEnd,
+            name="flatSheetAtEnd"
+        ).create_occurrence()
+
+
+        wrappedSheetsAtStart = wrapSheetBodiesAroundCylinder(
+            sheetBodies    = (flatSheetAtStart, ),
+            wrappingRadius = wrappingRadiusStart,
+
+            cylinderOrigin =cylinderOrigin ,
+            cylinderAxisDirection=cylinderAxisDirection ,
+            rootRadius = rootRadius
+        )
+        assert len(wrappedSheetsAtStart) == 1
+        wrappedSheetAtStart = wrappedSheetsAtStart[0]
+        fscad.BRepComponent(
+            wrappedSheetAtStart,
+            name="wrappedSheetAtStart"
+        ).create_occurrence()
+
+
+        wrappedSheetsAtEnd = wrapSheetBodiesAroundCylinder(
+            sheetBodies    = (flatSheetAtEnd, ),
+            wrappingRadius = wrappingRadiusEnd,
+            cylinderOrigin =cylinderOrigin ,
+            cylinderAxisDirection=cylinderAxisDirection ,
+            rootRadius = rootRadius
+        )
+        assert len(wrappedSheetsAtEnd) == 1
+        wrappedSheetAtEnd = wrappedSheetsAtEnd[0]
+        fscad.BRepComponent(
+            wrappedSheetAtEnd,
+            name="wrappedSheetAtEnd"
+        ).create_occurrence()
+
+
+        wrappedSheetAtStartPersistedBody : adsk.fusion.BRepBody  = mainTempComponent.bRepBodies.add(wrappedSheetAtStart)
+        wrappedSheetAtEndPersistedBody : adsk.fusion.BRepBody    = mainTempComponent.bRepBodies.add(wrappedSheetAtEnd)
+        assert wrappedSheetAtStartPersistedBody.faces.count == 1
+        assert wrappedSheetAtEndPersistedBody.faces.count == 1
+
+        loftFeatureInput : adsk.fusion.LoftFeatureInput = mainTempComponent.features.loftFeatures.createInput(operation=adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+        startLoftSection : adsk.fusion.LoftSection = loftFeatureInput.loftSections.add( wrappedSheetAtStartPersistedBody.faces[0] )
+        endLoftSection : adsk.fusion.LoftSection = loftFeatureInput.loftSections.add( wrappedSheetAtEndPersistedBody.faces[0] )
+        loftFeature : adsk.fusion.LoftFeature = fscad.root().features.loftFeatures.add(loftFeatureInput)
+        loftFeatureInput.isSolid = True
+        returnBodies.extend( temporaryBRepManager().copy(body) for body in loftFeature.bodies )
+        
+
+        # startSectionOccurence = fscad.BRepComponent(
+        #     *wrappedPlinthSheetsAtMaxRadius, 
+        #     name=f"startSectionTemp"
+        # ).create_occurrence()
+
+        # endSectionOccurence = fscad.BRepComponent(
+        #     *wrappedPlinthSheetsAtMinRadius, 
+        #     name=f"endSectionTemp"
+        # ).create_occurrence()
+
+        # 
+
+
+    # tempOccurrence.deleteMe()
+
+
+    return returnBodies
