@@ -63,7 +63,7 @@ def renderEntityToken(entityToken: str) -> str:
     # )
     return entityToken
 
-def makeHighlightParams(name: Optional[str] = None) -> Dict[str,Any]:
+def makeHighlightParams(name: Optional[str] = None, show : bool = True) -> Dict[str,Any]:
     """
     this produces a dict containing the optional params for the highlight()
     function  (intended to be double-star splatted into the arguments list) 
@@ -73,13 +73,12 @@ def makeHighlightParams(name: Optional[str] = None) -> Dict[str,Any]:
     hihghlights in the ui by togglinng the visibility of the occurence of the
     componet.
     """
-    componentToReceiveTheCustomGraphics = (
-        rootComponent()
-        .occurrences
-        .addNewComponent(adsk.core.Matrix3D.create())
-        .component
-    )
+    
+    occurenceOfComponentToReceiveTheCustomGraphics = rootComponent().occurrences.addNewComponent(adsk.core.Matrix3D.create())
+    componentToReceiveTheCustomGraphics = occurenceOfComponentToReceiveTheCustomGraphics.component
     componentToReceiveTheCustomGraphics.name = (name if name is not None else "anonymous_highlight")
+    occurenceOfComponentToReceiveTheCustomGraphics.isLightBulbOn = show
+
     return {
         'colorEffect':  next(globalColorCycle),
         'customGraphicsGroupToReceiveTheCustomGraphics' : componentToReceiveTheCustomGraphics.customGraphicsGroups.add()
@@ -128,8 +127,8 @@ def run(context:dict):
         # the native SVG length unit is 1 millimeter.
         #
 
-        # pathOfSVGFile = pathlib.Path(__file__).parent.joinpath('eXotic logo 1 2.svg')
-        pathOfSVGFile = pathlib.Path(__file__).parent.joinpath('test_logo.svg')
+        pathOfSVGFile = pathlib.Path(__file__).parent.joinpath('eXotic logo 1 2.svg')
+        # pathOfSVGFile = pathlib.Path(__file__).parent.joinpath('test_logo.svg')
         # SVGNativeLengthUnit = 1 * millimeter
         standardSVGNativeLengthUnit = 1 * millimeter
         nativeSVGLengthUnitAssumedByFusion = (1/96) * inch
@@ -179,7 +178,7 @@ def run(context:dict):
         # 2.  The embossed design.
 
         allSheetBodiesFromSketchGroupedByRank = getAllSheetBodiesFromSketchGroupedByRank(sketch)
-
+        tempOccurrence.deleteMe()
         for sheetBodyRankGroup in allSheetBodiesFromSketchGroupedByRank:
             for sheetBody in sheetBodyRankGroup:
                 result : bool = temporaryBRepManager().transform(sheetBody, translation(-castTo3dArray(svgOrigin))); assert result
@@ -223,18 +222,20 @@ def run(context:dict):
         
 
         
-        # rootAngularSpan = 120 * degree
-        # letterRadialExtent = 1/4 * inch
-        # plinthRadialExtent = 1/4 * inch
-        # letterDraftAngle = - 7 *degree
-        # plinthDraftAngle = - 7 *degree
+        rootAngularSpan = 120 * degree
+        letterRadialExtent = 1/4 * inch
+        plinthRadialExtent = 1/4 * inch
+        letterDraftAngle = - 4 *degree
+        plinthDraftAngle = - 7 *degree
+        # offsetCornerType =  adsk.fusion.OffsetCornerTypes.LinearOffsetCornerType  #.CircularOffsetCornerType  #.ExtendedOffsetCornerType
+        offsetCornerType =  adsk.fusion.OffsetCornerTypes.ExtendedOffsetCornerType
 
 
-        rootAngularSpan = 10 * degree
-        letterRadialExtent =1 * millimeter
-        plinthRadialExtent = 1 * millimeter
-        letterDraftAngle = 0 *degree
-        plinthDraftAngle = 0 *degree
+        # rootAngularSpan = 10 * degree
+        # letterRadialExtent =1 * millimeter
+        # plinthRadialExtent = 1 * millimeter
+        # letterDraftAngle = 0 *degree
+        # plinthDraftAngle = 0 *degree
 
 
         rootRadius = ( supportFscadComponent.max().y - supportFscadComponent.min().y ) * radian / rootAngularSpan
@@ -258,7 +259,8 @@ def run(context:dict):
         commonWrappingArguments = {
             'cylinderOrigin'         : cylinderOrigin ,
             'cylinderAxisDirection'  : cylinderAxisDirection ,
-            'rootRadius'             : rootRadius
+            'rootRadius'             : rootRadius ,
+            'offsetCornerType'       : offsetCornerType
         }
 
         #These are the sheets that, along with rootRadius define the shapes in
@@ -284,7 +286,7 @@ def run(context:dict):
                 normal = castToVector3D(cylinderAxisDirection),
                 radius = rootRadius
             ),
-            **makeHighlightParams("cylinder preview")
+            **makeHighlightParams("cylinder preview", show=False)
         )
 
         # wrappedLetterSheetsAtMaxRadius = wrapSheetBodiesAroundCylinder(
