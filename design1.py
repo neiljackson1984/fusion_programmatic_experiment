@@ -1,27 +1,11 @@
-import os, sys
 import adsk.core, adsk.fusion, traceback
-import inspect
-import pprint
 from typing import Any, Dict, Optional, Sequence, Union
-# from . import scripted_component
-from . import bit_holder
-# from .scripted_component import ScriptedComponent
-# from .bolt import Bolt
 from .braids.fscad.src.fscad import fscad as fscad
-from .highlight import *
-import uuid
 import traceback
-import time
-
 import pathlib
-import itertools
 
-from .bit_holder_utility import *
 
-def app()           -> adsk.core.Application   : return adsk.core.Application.get()
-def ui()            -> adsk.core.UserInterface : return app().userInterface
-def design()        -> adsk.fusion.Design      : return adsk.fusion.Design.cast(app().activeProduct)
-def rootComponent() -> adsk.fusion.Component   : return design().rootComponent
+from .utility import *
 
 
 
@@ -62,28 +46,6 @@ def renderEntityToken(entityToken: str) -> str:
     
     # )
     return entityToken
-
-def makeHighlightParams(name: Optional[str] = None, show : bool = True) -> Dict[str,Any]:
-    """
-    this produces a dict containing the optional params for the highlight()
-    function  (intended to be double-star splatted into the arguments list) 
-    that will cause the hihglight function to produce a new named
-    component just tom contain the hihglights -- the benfit of having a set of
-    highlights in a component is that we can then toggle the visibility of the
-    hihghlights in the ui by togglinng the visibility of the occurence of the
-    componet.
-    """
-    
-    occurenceOfComponentToReceiveTheCustomGraphics = rootComponent().occurrences.addNewComponent(adsk.core.Matrix3D.create())
-    componentToReceiveTheCustomGraphics = occurenceOfComponentToReceiveTheCustomGraphics.component
-    componentToReceiveTheCustomGraphics.name = (name if name is not None else "anonymous_highlight")
-    occurenceOfComponentToReceiveTheCustomGraphics.isLightBulbOn = show
-
-    return {
-        'colorEffect':  next(globalColorCycle),
-        'customGraphicsGroupToReceiveTheCustomGraphics' : componentToReceiveTheCustomGraphics.customGraphicsGroups.add()
-    }
-
 
 def run(context:dict):
  

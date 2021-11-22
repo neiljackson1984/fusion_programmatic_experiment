@@ -1,16 +1,18 @@
 from typing import Iterable, Optional, Sequence, Tuple, Union
-from enum import Enum
-import enum
 import math
-import functools
-# import scipy
 import itertools
 import warnings
-# the above import of scipy requires the user to have taken action to ensure that scipy is available somewhere on the system path,
-# for instance by doing "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install scipy
-# I would like to automate the management of dependencies like this.  With a "normal" Python project, pipenv would be the logical way to do it,
-# but for scripts that are to be loaded by fusion, it is unclear what the best way to manage dependencies is -- maybe some sort of vendoring?
 
+# import scipy
+# the above import of scipy requires the user to have taken action to ensure
+# that scipy is available somewhere on the system path, for instance by doing
+# "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe"
+# -m pip install scipy I would like to automate the management of dependencies
+# like this.  With a "normal" Python project, pipenv would be the logical way to
+# do it, but for scripts that are to be loaded by fusion, it is unclear what the
+# best way to manage dependencies is -- maybe some sort of vendoring?
+
+from .highlight import *
 
 import numpy as np
 from numpy.core.numerictypes import ScalarType
@@ -32,11 +34,14 @@ from .braids.fscad.src.fscad import fscad as fscad
 from adsk.fusion import BRepEdge, ChainedCurveOptions, ProfileLoop, SurfaceExtendTypes, TemporaryBRepManager
 # "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install unyt
 
-from .design1 import makeHighlightParams
-#This is a temporary hack for debugging in a particular case.
-
 import unyt
 # "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install unyt
+
+
+def app()           -> adsk.core.Application   : return adsk.core.Application.get()
+def ui()            -> adsk.core.UserInterface : return app().userInterface
+def design()        -> adsk.fusion.Design      : return adsk.fusion.Design.cast(app().activeProduct)
+def rootComponent() -> adsk.fusion.Component   : return design().rootComponent
 
 unyt.millimeter = unyt.milimeter
 # this is a work-around for the problem that unyt misspells the SI

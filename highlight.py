@@ -1,6 +1,6 @@
 
 import adsk.core, adsk.fusion
-from typing import Optional, Iterable, Union, Sequence, SupportsFloat, Tuple
+from typing import Any, Dict, Optional, Iterable, Union, Sequence, SupportsFloat, Tuple
 from .braids.fscad.src.fscad import fscad as fscad
 from PIL import Image
 from PIL import ImageFont
@@ -581,7 +581,26 @@ def highlight(
             continue
             #this is a type error
 
+def makeHighlightParams(name: Optional[str] = None, show : bool = True) -> Dict[str,Any]:
+    """
+    this produces a dict containing the optional params for the highlight()
+    function  (intended to be double-star splatted into the arguments list) 
+    that will cause the hihglight function to produce a new named
+    component just tom contain the hihglights -- the benfit of having a set of
+    highlights in a component is that we can then toggle the visibility of the
+    hihghlights in the ui by togglinng the visibility of the occurence of the
+    componet.
+    """
+    rootComponent : adsk.fusion.Component = adsk.fusion.Design.cast(adsk.core.Application.get().activeProduct).rootComponent
+    occurenceOfComponentToReceiveTheCustomGraphics = rootComponent.occurrences.addNewComponent(adsk.core.Matrix3D.create())
+    componentToReceiveTheCustomGraphics = occurenceOfComponentToReceiveTheCustomGraphics.component
+    componentToReceiveTheCustomGraphics.name = (name if name is not None else "anonymous_highlight")
+    occurenceOfComponentToReceiveTheCustomGraphics.isLightBulbOn = show
 
+    return {
+        'colorEffect':  next(globalColorCycle),
+        'customGraphicsGroupToReceiveTheCustomGraphics' : componentToReceiveTheCustomGraphics.customGraphicsGroups.add()
+    }
 
 
 
