@@ -29,7 +29,7 @@ import struct
 import sys
 import threading
 import traceback
-from typing import Optional, Callable
+from typing import Optional, Callable, Sequence
 import urllib.parse
 import tempfile
 
@@ -228,12 +228,12 @@ class AddIn(object):
 
                     sys.modules[module_name] = module
                     spec.loader.exec_module(module)
-                    logger.debug("Running script")
                 except Exception:
                     logger.fatal(
                         "Unhandled exception while importing script.",
                         exc_info=sys.exc_info()
                     )
+                logger.debug("Running script...")
                 if debug:
                     # breakpoint()
                     # pydevd.settrace()
@@ -249,7 +249,13 @@ class AddIn(object):
                     # )
                     # globalDebugger.update_after_exceptions_added([ex])
                     # globalDebugger.enable_tracing_in_frames_while_running_if_frame_eval()
-                    module.run({"isApplicationStartup": False})                
+                    
+                    #monkeypatching traceback with vscode-compatible formatting of line references
+                    initialTracebackStackSummaryFormatMethod = traceback.StackSummary.format
+                    traceback.StackSummary.format = formatStackSummaryWithLineReferencesInVscodeCompatibleFormat
+                    module.run({"isApplicationStartup": False})    
+                    traceback.StackSummary.format = initialTracebackStackSummaryFormatMethod
+                    # print(traceback.format_tb(sys.last_traceback))                              
                 else:
                     try:
                         module.run({"isApplicationStartup": False})
@@ -312,8 +318,6 @@ class AddIn(object):
             # hitting F5 in vs code.
         except Exception:
             logger.fatal("An error occurred while attempting to start script.", exc_info=sys.exc_info())
-        finally:
-            pass
 
     def stop(self):
         if self._http_server:
@@ -567,3 +571,76 @@ def run(context:dict):
 def stop(context:dict):
     logger.debug("stopping")
     addin.stop()
+
+
+
+#copied, with modification, from the python library function traceback.StackSummary::format()
+# we are tweaking the format of the file name and line number information to conform with
+# the relatively strict format (filename followed b y a colon followed by the line number) that
+# vscode must have in the debug console output in order to automatically create a link
+# to zap to the specified line number in the specified file.
+##  To use, do something like the following:
+##  #monkeypatching traceback with vscode-compatible formatting of line references
+##  initialTracebackStackSummaryFormatMethod = traceback.StackSummary.format
+##  traceback.StackSummary.format = formatStackSummaryWithLineReferencesInVscodeCompatibleFormat
+##  <<< run code here >>>  
+##  traceback.StackSummary.format = initialTracebackStackSummaryFormatMethod
+
+def formatStackSummaryWithLineReferencesInVscodeCompatibleFormat(stackSummary : traceback.StackSummary) -> Sequence[str]:
+    """Format the stack ready for printing.
+
+    Returns a list of strings ready for printing.  Each string in the
+    resulting list corresponds to a single frame from the stack.
+    Each string ends in a newline; the strings may contain internal
+    newlines as well, for those items with source text lines.
+
+    For long sequences of the same frame and line, the first few
+    repetitions are shown, followed by a summary line stating the exact
+    number of further repetitions.
+    """
+    result = []
+    last_file = None
+    last_line = None
+    last_name = None
+    count = 0
+    for frame in stackSummary:
+        if (last_file is None or last_file != frame.filename or
+            last_line is None or last_line != frame.lineno or
+            last_name is None or last_name != frame.name):
+            if count > traceback._RECURSIVE_CUTOFF:
+                count -= traceback._RECURSIVE_CUTOFF
+                result.append(
+                    f'  [Previous line repeated {count} more '
+                    f'time{"s" if count > 1 else ""}]\n'
+                )
+            last_file = frame.filename
+            last_line = frame.lineno
+            last_name = frame.name
+            count = 0
+        count += 1
+        if count > traceback._RECURSIVE_CUTOFF:
+            continue
+        row = []
+        # row.append('  File "{}", line {}, in {}\n'.format(
+        row.append('  File "{}:{}" in {}\n'.format(
+            frame.filename, frame.lineno, frame.name))
+        if frame.line:
+            row.append('    {}\n'.format(frame.line.strip()))
+        if frame.locals:
+            for name, value in sorted(frame.locals.items()):
+                row.append('    {name} = {value}\n'.format(name=name, value=value))
+        result.append(''.join(row))
+    if count > traceback._RECURSIVE_CUTOFF:
+        count -= traceback._RECURSIVE_CUTOFF
+        result.append(
+            f'  [Previous line repeated {count} more '
+            f'time{"s" if count > 1 else ""}]\n'
+        )
+    return result
+
+#monkeypatching traceback with vscode-compatible link formatting
+# traceback.StackSummary.format = formatStackSummaryWithLineReferencesInVscodeCompatibleFormat
+
+
+
+

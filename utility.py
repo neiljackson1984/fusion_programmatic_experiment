@@ -96,6 +96,46 @@ zHat : NDArray = np.array((0,0,1.0))
 
 
 
+def renderEntityToken(entityToken: str) -> str:
+    """trying to make sense of Fusion's entity tokens."""
+    # return "\n".join( entityToken.split('/'))
+    import base64
+    import string
+    import zlib
+    
+    bb = base64.b64decode(entityToken)
+    ss = []
+
+    for i in range(len(bb)):
+        # try:
+        #     s = ba[i:i+1].decode('ascii')
+        # except:
+        #     s = ba[i:i+1].hex()
+
+        if (
+            bb[i] in string.printable.encode('ascii') 
+            and not (bb[i] in "\t\r\n\x0b\x0c".encode('ascii'))
+            and bb[i] != 255
+            and False
+        ) :
+            s = bb[i:i+1].decode('ascii')
+        else:
+            s = bb[i:i+1].hex()
+        ss.append(s)
+
+    # zlib.decompress(bb[21:])
+
+    return  "".join(ss)
+    # + "\n" + "\n".join( 
+    #     (
+    #         str(len(piece)) + ' ' + piece
+    #         for piece in entityToken.split('/')
+    #     )
+    
+    # )
+    return entityToken
+
+
 def norm(v : ndarray) -> number :
     # v is intended to be a rank-one array with real elements
     # being able to specify size and rank (i.e. array 'shape' in numpy parlance) as a type is sorely needed -- actually, it looks like numpy.typing.NDArray comes pretty close.
