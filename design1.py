@@ -12,7 +12,6 @@ def run(context:dict):
  
     def design1():
         
-        # bit_holder.getCannedBitHolders()['1/4-inch hex shank driver bits holder'].create_occurrence()
         tempOccurrence = fscad._create_component(
             parent_component = fscad.root(), 
             name="temp"
@@ -281,11 +280,7 @@ def run(context:dict):
             *edifiedLetterBodies, 
             name=f"edifiedLetterBodies"
         ).create_occurrence()
-
     fscad.run_design(design_func=design1, message_box_on_error=False, re_raise_exceptions=True)
-
-
-
     print(f"finished running {__file__}")
 
 # prevent this module from being terminated when the script returns

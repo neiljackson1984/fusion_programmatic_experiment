@@ -94,7 +94,8 @@ xHat : NDArray = np.array((1.0,0,0))
 yHat : NDArray = np.array((0,1.0,0))
 zHat : NDArray = np.array((0,0,1.0))
 
-
+originPoint3D = adsk.core.Point3D.create(0,0,0)
+zeroVector3D = adsk.core.Vector3D.create(0,0,0)
 
 def renderEntityToken(entityToken: str) -> str:
     """trying to make sense of Fusion's entity tokens."""

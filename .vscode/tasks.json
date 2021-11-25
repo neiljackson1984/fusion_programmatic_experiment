@@ -12,7 +12,7 @@
         { "label": "f4_task",            "dependsOn": ["run_design1_with_debugging"]                           },
         { "label": "f7_task",            "dependsOn": ["run_rpyc_playground"]                                  },
         { "label": "f8_task",            "dependsOn": ["reload_fusion_script_runner_addin_with_keystrokes"]    },
-        { "label": "f9_task",            "dependsOn": ["run_script_in_fusion_without_debugging"]               },
+        { "label": "f9_task",            "dependsOn": ["run_script_in_fusion_with_debugging"]                  },
 
 
 
@@ -209,14 +209,21 @@
         {   "label":"run_script_in_fusion_with_debugging",
             "type":"shell",
             "command": "${config:python.pythonPath} \"${config:neil.pathOfPythonScriptToRunScriptInFusion}\"",
+            "dependsOn": ["run_fusion_and_ensure_that_fusion_script_runner_addin_is_installed"] ,
+            // "dependsOrder": "parallel",
             "args":[
-                "--script", "${file}",
-                "--debug", "1",
-                "--debugpy_path", "${config:neil.debugpyPath}",
-                // "--use_vscode_debugpy", "true",
-                "--addin_port", "19812",
-                "--debug_port", "9000"
-            ]
+                "--script"                                  , "${file}"   ,                                                 
+                "--debug"                                   , "1"                                              ,      
+                "--debugpy_path"                            , "${config:neil.debugpyPath}"                     ,                               
+                //"--use_vscode_debugpy"                      , "true"                                           ,
+                "--addin_port"                              , "19812"                                          ,          
+                "--debug_port"                              , "9000"                                           ,         
+                "--prefix_of_submodule_not_to_be_reloaded"  , "braids.fscad"                                   ,                 
+            ],
+            "presentation": {
+                "reveal" : "silent" ,
+                "panel": "shared"
+            }
         },
         {   "label":"run_test_script_in_fusion_without_debugging",
             "type":"shell",
@@ -224,18 +231,6 @@
             "args":[
                 "--script", "${workspaceFolder}${pathSeparator}test_scripts${pathSeparator}arbitrary_script_1${pathSeparator}arbitrary_script_1.py",
                 "--debug", "0",
-                "--debugpy_path", "${config:neil.debugpyPath}",
-                // "--use_vscode_debugpy", "true",
-                "--addin_port", "19812",
-                "--debug_port", "9000"
-            ]
-        },
-        {   "label":"run_test_script_in_fusion_with_debugging",
-            "type":"shell",
-            "command": "${config:python.pythonPath} \"${config:neil.pathOfPythonScriptToRunScriptInFusion}\"",
-            "args":[
-                "--script", "${workspaceFolder}${pathSeparator}test_scripts${pathSeparator}arbitrary_script_1${pathSeparator}arbitrary_script_1.py",
-                "--debug", "1",
                 "--debugpy_path", "${config:neil.debugpyPath}",
                 // "--use_vscode_debugpy", "true",
                 "--addin_port", "19812",
