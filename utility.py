@@ -634,8 +634,216 @@ def getAllSheetBodiesFromSketch(sketch : adsk.fusion.Sketch) -> Sequence[adsk.fu
 
     return bodies
 
+def generateSheetBodiesFromSketch(sketch : adsk.fusion.Sketch) -> Sequence[adsk.fusion.BRepBody]:
+    # this function is similar to getAllSheetBodiesFromSketch().  However,
+    # whereas getAllSheetBodiesFromSketch() returns exactly one (single-faced)
+    # sheetBody for each profile in the sketch, this function returns one
+    # (possibly multi-faced) sheetBody for each cluster of connected profiles,
+    # with each sketch profile becoming one face in the resulting body(s).
+    # This strategy preserves the adjacency relationship between sketch profiles.
+    returnBodies : Sequence[adsk.fusion.BRepBody] = []
+    workingComponent = sketch.parentComponent
+    initialBodiesOfWorkingComponent = tuple(workingComponent.bRepBodies)
 
-def getAllSheetBodiesFromSketchGroupedByRank(sketch : adsk.fusion.Sketch) -> Sequence[Sequence[adsk.fusion.BRepBody]]:
+
+    #construct a planar sheet body lying on the sketch plane and comletely
+    #covering all sketch profiles.  We will operate on this face with the SplitFaceFeature .
+    # midPoint = castToPoint3D(mean( castTo3dArray(sketch.boundingBox.minPoint), castTo3dArray(sketch.boundingBox.maxPoint)))
+    # radius = 1.1 * sketch.boundingBox.maxPoint.distanceTo(sketch.boundingBox.minPoint)
+    # sketchPlane = adsk.core.Plane.create(origin = sketch.origin, normal=sketch.xDirection.crossProduct(sketch.yDirection))
+    
+    bb : adsk.core.BoundingBox3D
+    bb = sketch.boundingBox.copy()
+    # assert bb.contains(sketch.origin)
+    # it seems that it is not generally true that a sketch's bounding box contains sketch.origin.
+    
+    result = bb.expand(sketch.origin); assert result
+    assert bb.contains(sketch.origin)
+
+
+    # resultOfProjection = sketch.project()
+
+    circleCurve : adsk.core.Circle3D = adsk.core.Circle3D.createByCenter(
+        center= sketch.origin,
+        normal= sketch.xDirection.crossProduct(sketch.yDirection) ,
+        radius= 1.1 * bb.maxPoint.distanceTo(bb.minPoint)
+    )
+
+    circleWirebody, edgeMap = temporaryBRepManager().createWireFromCurves([circleCurve])
+    discSheetBody : Optional[adsk.fusion.BRepBody] = temporaryBRepManager().createFaceFromPlanarWires([circleWirebody])
+
+    discSheetBodyPersisted  : Optional[adsk.fusion.BRepBody] = workingComponent.bRepBodies.add(discSheetBody)
+
+
+
+    splitFaceFeatureInput = workingComponent.features.splitFaceFeatures.createInput(
+        facesToSplit= fscad._collection_of(discSheetBodyPersisted.faces),
+        splittingTool= fscad._collection_of( sketch.sketchCurves ),
+        isSplittingToolExtended = False
+    )
+    splitFaceFeature : Optional[adsk.fusion.SplitFaceFeature] = workingComponent.features.splitFaceFeatures.add(splitFaceFeatureInput)
+    
+    # splitFaceFeature is ending up to be None, even though the operation appears to have been completed succesfully.
+    # I suspect that this is because I am in non-history-recording mode.
+    # This means that I cannot rely on being able to get the newly-created bodies with splitFaceFeature.bodies
+
+    newlyCreatedBodiesPersisted : Sequence[adsk.fusion.BRepBody] = [
+        body for body in workingComponent.bRepBodies
+        if body not in initialBodiesOfWorkingComponent
+    ]
+
+    for bodyPersisted in newlyCreatedBodiesPersisted:
+        tempBody = temporaryBRepManager().copy(bodyPersisted)
+        bodyPersisted.deleteMe()
+        facesOfTempBodyGroupedByRank = groupFacesOfSheetBodyByRank(tempBody)
+        result = temporaryBRepManager().deleteFaces(faces = facesOfTempBodyGroupedByRank[0], deleteSpecifiedFaces=True) ; assert result
+        returnBodies.append(tempBody)
+
+    if splitFaceFeature is not None and splitFaceFeature.isValid : splitFaceFeature.deleteMe()
+    if discSheetBodyPersisted is not None and discSheetBodyPersisted.isValid: discSheetBodyPersisted.deleteMe()
+
+    return tuple(returnBodies)
+
+def generateSheetBodiesFromSketch_deprecated(sketch : adsk.fusion.Sketch) -> Sequence[adsk.fusion.BRepBody]:
+    # this function is similar to getAllSheetBodiesFromSketch().  However,
+    # whereas getAllSheetBodiesFromSketch() returns exactly one (single-faced)
+    # sheetBody for each profile in the sketch, this function returns one
+    # (possibly multi-faced) sheetBody for each cluster of connected profiles,
+    # with each sketch profile becoming one face in the resulting body(s).
+    # This strategy preserves the adjacency relationship between sketch profiles.
+    returnBodies : Sequence[adsk.fusion.BRepBody] = []
+    
+        
+    bb : adsk.core.BoundingBox3D
+    bb = sketch.boundingBox.copy()
+    # assert bb.contains(sketch.origin)
+    # it seems that it is not generally true that a sketch's bounding box contains sketch.origin.
+    
+    result = bb.expand(sketch.origin); assert result
+    assert bb.contains(sketch.origin)
+
+
+    # resultOfProjection = sketch.project()
+
+    circleCurve : adsk.core.Circle3D = adsk.core.Circle3D.createByCenter(
+        center= sketch.origin,
+        normal= sketch.xDirection.crossProduct(sketch.yDirection) ,
+        radius= 1.1 * bb.maxPoint.distanceTo(bb.minPoint)
+    )
+
+    wireBody, edgeMap = temporaryBRepManager().createWireFromCurves(
+        [
+            sketchCurve.geometry
+            for sketchCurve in sketch.sketchCurves
+        ],
+        allowSelfIntersections=True
+    ); assert wireBody is not None
+    
+    returnBody : Optional[adsk.fusion.BRepBody] = temporaryBRepManager().createFaceFromPlanarWires([wireBody])
+
+    # returnBody is a BRepBody containing possibly many lumps.  The faces of
+    # returnBody are precisely the even-rank regions of the sketch.
+
+    returnBodies.append(returnBody)
+    return tuple(returnBodies)
+
+def groupFacesOfSheetBodyByRank(sheetBody : adsk.fusion.BRepBody) -> Sequence[Sequence[adsk.fusion.BRepFace]]:    
+    facesGroupedByLumpThenByRank : Sequence[Sequence[Sequence[adsk.fusion.BRepFace]]] = []
+
+    lump : adsk.fusion.BRepLump
+    for lump in sheetBody.lumps:
+        faceIndicesGroupedByRank : Sequence[Sequence[int]] = []
+        
+        # collect the outer loop and inner loops of each face for future reference
+        outerLoops : Sequence[adsk.fusion.BRepLoop] = [
+            getOuterLoopOfFace(face)
+            for face in lump.faces
+        ]
+        innerLoops : Sequence[Sequence[adsk.fusion.BRepLoop]] = [
+            getInnerLoopsOfFace(face)
+            for face in lump.faces
+        ]
+
+
+        r : int = 0
+        maxrank=100 
+        # maxrank is mainly to prevent ridiculous runaways due to a programming
+        # error.
+        remainingFaceIndices = set(range(lump.faces.count))
+        while remainingFaceIndices and r <= maxrank:
+            # find the set of faces f such that the outer loop of f does not 
+            # coincide (except perhaps by osculation)
+            # with any of the inner loops of any of the other faces.
+            # this is the set of rank r faces.  Move these faces out of remainingFaces
+            # and deposit them in facesGroupedByRank[r].
+            faceIndicesOfRankR = set()
+            candidateFaceIndex : int
+            for candidateFaceIndex in remainingFaceIndices: 
+                # we assume, as a hypothesis to be disproven, that outerLoop of
+                # candidateFace shares no edges with the inner loops of any of the
+                # inner loops of the other remaining faces.
+                outerLoopOfCandidateFaceSharesAnEdgeWithAnInnerLoopOfSomeOtherRemainingFace : bool = False
+                for i in remainingFaceIndices:
+                    for innerLoop in innerLoops[i]:
+                        if loopsHaveACommonEdge(outerLoops[candidateFaceIndex], innerLoop):
+                            outerLoopOfCandidateFaceSharesAnEdgeWithAnInnerLoopOfSomeOtherRemainingFace = True
+                            break
+                    if outerLoopOfCandidateFaceSharesAnEdgeWithAnInnerLoopOfSomeOtherRemainingFace: 
+                        break
+                if not outerLoopOfCandidateFaceSharesAnEdgeWithAnInnerLoopOfSomeOtherRemainingFace:
+                    faceIndicesOfRankR.add(candidateFaceIndex)
+            remainingFaceIndices -= faceIndicesOfRankR
+            faceIndicesGroupedByRank.append(faceIndicesOfRankR)
+            r += 1 
+        facesInThisLumpGroupedByRank : Sequence[Sequence[adsk.fusion.BRepFace]] = tuple(
+            tuple(
+                lump.faces[faceIndex]
+                for faceIndex in faceIndicesGroupedByRank[r]
+            )
+            for r in range(len(faceIndicesGroupedByRank))
+        )
+        facesGroupedByLumpThenByRank.append(facesInThisLumpGroupedByRank)
+    
+    facesGroupedByRank : Sequence[Sequence[adsk.fusion.BRepFace]] = tuple(
+            tuple(
+                itertools.chain(
+                    *(
+                        (
+                            facesGroupedByLumpThenByRank[lumpIndex][r] 
+                            if r < len(facesGroupedByLumpThenByRank[lumpIndex])
+                            else tuple()
+                        )
+                        for lumpIndex in range(len(facesGroupedByLumpThenByRank))
+                    )
+                )
+            )
+            for r in range(max(map(len, facesGroupedByLumpThenByRank)))
+        )
+
+    return facesGroupedByRank
+
+    
+
+def loopsHaveACommonEdge(loop1 : adsk.fusion.BRepLoop, loop2: adsk.fusion.BRepLoop) -> bool:
+    for edge1 in loop1.edges:
+        for edge2 in loop2.edges:
+            if edge1 == edge2: return True
+    return False
+
+def getOuterLoopOfFace(face : adsk.fusion.BRepFace) -> adsk.fusion.BRepLoop:
+    for loop in face.loops:
+        if loop.isOuter: return loop
+    assert False
+
+def getInnerLoopsOfFace(face : adsk.fusion.BRepFace) -> Sequence[adsk.fusion.BRepLoop]:
+    return tuple(
+        loop
+        for loop in face.loops
+        if not loop.isOuter
+    )
+
+
+def getAllSheetBodiesFromSketchGroupedByRank_version1(sketch : adsk.fusion.Sketch) -> Sequence[Sequence[adsk.fusion.BRepBody]]:
     """ returns a sequence of sequence BRepBody, containing (collectively) one
     member for each member of sketch.profiles and sheet bodies corresponding to
     the sketch texts. each body is a sheet body having exactly one face.
@@ -647,7 +855,7 @@ def getAllSheetBodiesFromSketchGroupedByRank(sketch : adsk.fusion.Sketch) -> Seq
     corresponding to all non-sketchtext geometry. 
     For now, we might just neglect sketchtext altogether.
     """
-
+    benchmarkTimestamps : List[float] = []
     # the below algorithm is NOT the most efficient, because it does not make use
     # of Fusion's automatic built-in plane-partitioning.  Fusion has already figured out the
     # topology of the regions in the sketch - I merely need to query Fusion's graph.
@@ -818,11 +1026,60 @@ def getAllSheetBodiesFromSketchGroupedByRank(sketch : adsk.fusion.Sketch) -> Seq
     )
 
     return sheetBodiesGroupedByRank
+    
+def getAllSheetBodiesFromSketchGroupedByRank_version2(sketch : adsk.fusion.Sketch) -> Sequence[Sequence[adsk.fusion.BRepBody]]:
+    """ returns a sequence of sequence BRepBody, containing (collectively) one
+    member for each member of sketch.profiles and sheet bodies corresponding to
+    the sketch texts. each body is a sheet body having exactly one face.
+    returnValue[i] contains precisely the sheets of rank i. Inasmuch as the
+    rank-finding algorithm relies on Fusion's ability to give us non-overlapping
+    profiles, the logic herein might break down in the case of sketchtext
+    objects combined with other skethc geometry, because Fusion deals with the
+    profiles corresponding to the sketchtext as separate from the profiles
+    corresponding to all non-sketchtext geometry. 
+    For now, we might just neglect sketchtext altogether.
+    """
+    sheetBodies = generateSheetBodiesFromSketch(sketch)
 
-def getAllSheetBodiesFromSvgGroupedByRank(pathOfSVGFile, 
+    facesGroupedByBodyThenByRank = tuple(
+        groupFacesOfSheetBodyByRank(sheetBody)
+        for sheetBody in sheetBodies
+    )
+
+    facesGroupedByRank : Sequence[Sequence[adsk.fusion.BRepFace]] = tuple(
+        tuple(
+            itertools.chain(
+                *(
+                    (
+                        facesGroupedByBodyThenByRank[bodyIndex][r]
+                        if r < len(facesGroupedByBodyThenByRank[bodyIndex])
+                        else tuple()
+                    )
+                    for bodyIndex in range(len(facesGroupedByBodyThenByRank))
+                )
+            )
+        )
+        for r in range(max(map(len, facesGroupedByBodyThenByRank)))
+    )
+
+    sheetBodiesGroupedByRank : Sequence[Sequence[adsk.fusion.BRepBody]] = tuple(
+        tuple(
+            temporaryBRepManager().copy(face)
+            for face in facesGroupedByRank[r]
+        )
+        for r in range(len(facesGroupedByRank))
+    )
+    
+    return sheetBodiesGroupedByRank
+    
+getAllSheetBodiesFromSketchGroupedByRank = getAllSheetBodiesFromSketchGroupedByRank_version2
+
+
+def getSheetBodiesGroupedByRankFromSvg(pathOfSVGFile, 
     svgNativeLengthUnit : float = 1 * millimeter,
-    transform : Optional[adsk.core.Matrix3D] = None
-) -> Sequence[Sequence[adsk.fusion.BRepBody]]:
+    transform : Optional[adsk.core.Matrix3D] = None,
+    translateAsNeededInOrderToPlaceMidPoint : Optional[VectorLike] = None
+) -> Tuple[Sequence[Sequence[adsk.fusion.BRepBody]], Sequence[adsk.fusion.BRepBody]]  :
     
     #
     # Fusion seems to be looking at the current pixel size (i.e. dependent
@@ -853,7 +1110,7 @@ def getAllSheetBodiesFromSvgGroupedByRank(pathOfSVGFile,
     # file?  At any rate, for my purposes here, it suffices to assume that
     # the native SVG length unit is 1 millimeter.
     #
-    
+    benchmarkTimestamps : List[float] = []
     nativeSVGLengthUnitAssumedByFusion = (1/96) * inch
     pathOfSVGFile = pathlib.Path(pathOfSVGFile).resolve()
     tempOccurrence = rootComponent().occurrences.addNewComponent(adsk.core.Matrix3D.create())
@@ -867,17 +1124,130 @@ def getAllSheetBodiesFromSvgGroupedByRank(pathOfSVGFile,
         yPosition= 0
     )
     # the xPosition and yPosition arguments to Sketch::importSVG() seem to have no effect.
-    timestamps : List[float] = []
-    timestamps.append(time.time())
+    
+    benchmarkTimestamps.append(time.time())
     allSheetBodiesFromSketchGroupedByRank = getAllSheetBodiesFromSketchGroupedByRank(sketch)
-    timestamps.append(time.time())
-    print(f"time to to get all sheet bodies from sketch: {timestamps[-1] - timestamps[-2]} seconds.")
+    benchmarkTimestamps.append(time.time())
+    print(f"time to to get all sheet bodies from sketch: {benchmarkTimestamps[-1] - benchmarkTimestamps[-2]} seconds.")
     tempOccurrence.deleteMe()
     if transform is not None:
         for sheetBodyRankGroup in allSheetBodiesFromSketchGroupedByRank:
             for sheetBody in sheetBodyRankGroup:
                 result : bool = temporaryBRepManager().transform(sheetBody, transform); assert result
+
+    if translateAsNeededInOrderToPlaceMidPoint is not None:
+        destinationPoint = castToPoint3D(translateAsNeededInOrderToPlaceMidPoint)
+        bb = allSheetBodiesFromSketchGroupedByRank[0][0].boundingBox.copy()
+        for r in range(len(allSheetBodiesFromSketchGroupedByRank)):
+            for sheetBody in allSheetBodiesFromSketchGroupedByRank[r]:
+                bb.combine(sheetBody.boundingBox)
+        sourcePoint = mean(castTo3dArray(bb.minPoint), castTo3dArray(bb.maxPoint))
+        t = translation(castTo3dArray(destinationPoint) - castTo3dArray(sourcePoint))
+        for sheetBodyRankGroup in allSheetBodiesFromSketchGroupedByRank:
+            for sheetBody in sheetBodyRankGroup:
+                result : bool = temporaryBRepManager().transform(sheetBody, t); assert result
+
+
     return allSheetBodiesFromSketchGroupedByRank
+
+
+def deleteInnerLoops(body: adsk.fusion.BRepBody) -> adsk.fusion.BRepBody:
+    """ returns a copy of the input body in which all inner loops have been deleted """
+    
+    bRepBodyDefinition : adsk.fusion.BRepBodyDefinition = adsk.fusion.BRepBodyDefinition.create()
+
+    body : adsk.fusion.BRepBody
+
+    vertexDefinitions : Sequence[adsk.fusion.BRepVertexDefinition] = []
+    edgeDefinitions : Sequence[adsk.fusion.BRepEdgeDefinition] = []
+
+    vertex : adsk.fusion.BRepVertex
+    for vertex in body.vertices:
+        vertexDefinitions.append(bRepBodyDefinition.createVertexDefinition(position=vertex.geometry))
+
+    
+    edge : adsk.fusion.BRepEdge
+    for edge in body.edges:
+        edgeDefinitions.append(
+            bRepBodyDefinition.createEdgeDefinitionByCurve(
+                startVertex = vertexDefinitions[_vertex_index_within_body(edge.startVertex)],
+                endVertex = vertexDefinitions[_vertex_index_within_body(edge.endVertex)],
+                modelSpaceCurve = edge.geometry
+            )
+        )
+
+
+    lump : adsk.fusion.BRepLump
+    indexOfLumpWithinBody = 0
+    for lump in body.lumps:
+        lumpDefinition : adsk.fusion.BRepLumpDefinition = bRepBodyDefinition.lumpDefinitions.add()
+        shell : adsk.fusion.BRepShell
+        indexOfShellWithinLump = 0
+        for shell in lump.shells:
+            shellDefinition : adsk.fusion.BRepShellDefinition = lumpDefinition.shellDefinitions.add()
+            face : adsk.fusion.BRepFace
+            indexOfFaceWithinShell = 0
+            for face in shell.faces:
+                faceDefinition : adsk.fusion.BRepFaceDefinition = shellDefinition.faceDefinitions.add(
+                    surfaceGeometry = face.geometry, 
+                    isParamReversed = face.isParamReversed
+                )
+                loop : adsk.fusion.BRepLoop
+                indexOfLoopWithinFace = 0
+                for loop in face.loops:
+                    if loop.isOuter:
+                        loopDefinition : adsk.fusion.BRepLoopDefinition = faceDefinition.loopDefinitions.add()
+                        coEdge : adsk.fusion.BRepCoEdge
+                        indexOfCoedgeWithinLoop = 0
+                        for coEdge in loop.coEdges:
+                            coEdgeDefinition : adsk.fusion.BRepCoEdgeDefinition = loopDefinition.bRepCoEdgeDefinitions.add(
+                                edgeDefinition=edgeDefinitions[_edge_index_within_body(coEdge.edge)],
+                                isOpposedToEdge=coEdge.isOpposedToEdge
+                            )
+                            indexOfCoedgeWithinLoop += 1
+                    indexOfLoopWithinFace += 1
+                indexOfFaceWithinShell += 1
+            indexOfShellWithinLump += 1
+        indexOfLumpWithinBody += 1
+
+    bRepBodyDefinition.doFullHealing = False
+    return bRepBodyDefinition.createBody()
+    
+
+def test1(pathOfSVGFile, 
+    svgNativeLengthUnit : float = 1 * millimeter,
+    transform : Optional[adsk.core.Matrix3D] = None
+) -> Sequence[Sequence[adsk.fusion.BRepBody]]:
+    
+    benchmarkTimestamps : List[float] = []
+    nativeSVGLengthUnitAssumedByFusion = (1/96) * inch
+    pathOfSVGFile = pathlib.Path(pathOfSVGFile).resolve()
+    tempOccurrence = rootComponent().occurrences.addNewComponent(adsk.core.Matrix3D.create())
+    mainTempComponent = tempOccurrence.component
+    mainTempComponent.name = "test1-mainTempComponent"
+    sketch = mainTempComponent.sketches.add(mainTempComponent.xYConstructionPlane)
+    sketch.importSVG(
+        pathOfSVGFile.as_posix(),
+        scale =  svgNativeLengthUnit/nativeSVGLengthUnitAssumedByFusion, 
+        xPosition= 0, 
+        yPosition= 0
+    )
+    # the xPosition and yPosition arguments to Sketch::importSVG() seem to have no effect.
+    sheetBodies = generateSheetBodiesFromSketch(sketch)
+    fscad.BRepComponent(*sheetBodies, name="generateSheetBodiesFromSketch()").create_occurrence()
+    for bodyIndex in range(len(sheetBodies)):
+        facesGroupedByRank = groupFacesOfSheetBodyByRank(sheetBodies[bodyIndex])
+        for r in range(len(facesGroupedByRank)):
+            fscad.BRepComponent(
+                *(
+                    temporaryBRepManager().copy(face)
+                    for face in facesGroupedByRank[r]
+                ),
+                name=f"body {bodyIndex}, rank {r} faces"
+            ).create_occurrence()
+
+
+    
 
 def captureEntityTokens(occurrence : adsk.fusion.Occurrence):
     return {

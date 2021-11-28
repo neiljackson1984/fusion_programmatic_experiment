@@ -10,29 +10,42 @@ from .utility import *
 
 def run(context:dict):
  
-    def design1():
+    def design1() -> None:
         
 
 
         pathOfSVGFile = pathlib.Path(__file__).parent.joinpath('eXotic logo 1 2.svg')
+        # pathOfSVGFile = pathlib.Path(__file__).parent.joinpath('test_logo1.svg')
 
 
         fileSpecificOptionalArgsForSVGProcessing = {
             'eXotic logo 1 2.svg': {
                 'svgNativeLengthUnit': ((1/2 * inch)/36.068069458007805), 
+                'translateAsNeededInOrderToPlaceMidPoint': (0,0,0),
                 'transform': castToMatrix3D(
-                    castToNDArray( rotation(angle=90*degree) )
-                    @ 
-                    castToNDArray( translation(-castTo3dArray((14.335792228219473 * centimeter , -8.991493048989101 * centimeter, 0.0))) )
-                )
+                        castToNDArray( rotation(angle=90*degree) )
+                    )
             }
-        }.get(pathOfSVGFile.name, {}) 
+        }.get(pathOfSVGFile.name, {
+            'translateAsNeededInOrderToPlaceMidPoint': (0,0,0),
+            'transform': castToMatrix3D(
+                    castToNDArray( rotation(angle=90*degree) )
+                )
+        }) 
         
-        allSheetBodiesGroupedByRank = getAllSheetBodiesFromSvgGroupedByRank(
+        # test1(
+        #     pathOfSVGFile, 
+        #     **fileSpecificOptionalArgsForSVGProcessing
+        # )
+
+        
+
+
+
+        sheetBodiesGroupedByRank = getSheetBodiesGroupedByRankFromSvg(
             pathOfSVGFile, 
             **fileSpecificOptionalArgsForSVGProcessing
         )
-
 
 
         # we want to obtain two (sets of) flat sheet bodies:
@@ -40,25 +53,32 @@ def run(context:dict):
         #     confused with 'support' in the context of 3d printing)
         # 2.  The embossed design.
 
+        supportSheetBodies : Sequence[adsk.fusion.BRepBody] = tuple(
+            deleteInnerLoops(rankZeroSheetBody)
+            for rankZeroSheetBody in sheetBodiesGroupedByRank[0]
+        )
 
-
-        
-        rankZeroSheetBodies = allSheetBodiesGroupedByRank[0]
+        rankZeroSheetBodies = sheetBodiesGroupedByRank[0]
         oddRankSheetBodies = tuple(
             sheetBody
-            for r in range(len(allSheetBodiesGroupedByRank))
-            for sheetBody in allSheetBodiesGroupedByRank[r]
+            for r in range(len(sheetBodiesGroupedByRank))
+            for sheetBody in sheetBodiesGroupedByRank[r]
             if r % 2 == 1
         )
-        supportSheetBodies = tuple(
-            fscadBody.brep 
-            for rankZeroSheetBody in rankZeroSheetBodies
-            for fscadBody in fscad.Hull(fscad.BRepComponent(rankZeroSheetBody)).bodies
-        )
+
+        # supportSheetBodies = tuple(
+        #     fscadBody.brep 
+        #     for rankZeroSheetBody in rankZeroSheetBodies
+        #     for fscadBody in fscad.Hull(fscad.BRepComponent(rankZeroSheetBody)).bodies
+        # )
 
         supportFscadComponent = fscad.BRepComponent(*supportSheetBodies, name=f"support"); 
         print(f"supportFscadComponent.mid: {(supportFscadComponent.mid().x, supportFscadComponent.mid().y, supportFscadComponent.mid().z)}")
         
+        # supportFscadComponent.create_occurrence()
+        # oddRankFscadComponent = fscad.BRepComponent(*oddRankSheetBodies, name=f"odd rank"); oddRankFscadComponent.create_occurrence()
+        # rankZeroFscadComponent = fscad.BRepComponent(*rankZeroSheetBodies, name=f"rank zero"); rankZeroFscadComponent.create_occurrence()
+
 
         
         rootAngularSpan = 120 * degree
