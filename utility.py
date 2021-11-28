@@ -2488,7 +2488,9 @@ def extrudeDraftAndWrapSheetbodiesAroundCylinder(
     wrappingRadiusEnd: float,
     draftAngle: float,
     rootRadius : Optional[float] = None,
-    offsetCornerType : Optional[adsk.fusion.OffsetCornerTypes] = None
+    offsetCornerType : Optional[adsk.fusion.OffsetCornerTypes] = None,
+    doFlatBackFill : bool = False ,
+    flatBackFillThickness : float = 0.0
 ) -> Sequence[adsk.fusion.BRepBody]:
     # the name of this function is admittedly terrible. this function takes a
     # set of sheet bodies, assumed to lie on the xy plane.  We then do the
@@ -2526,7 +2528,7 @@ def extrudeDraftAndWrapSheetbodiesAroundCylinder(
         fscad.BRepComponent(wrappedSheetAtStart,name="wrappedSheetAtStart").create_occurrence().isLightBulbOn = False
 
 
-        wrappedSheetsAtEnd = wrapSheetBodiesAroundCylinder(
+        wrappedSheetsAtEnd : Sequence[adsk.fusion.BRepBody] = wrapSheetBodiesAroundCylinder(
             sheetBodies    = (flatSheetAtEnd, ),
             wrappingRadius = wrappingRadiusEnd,
             cylinderOrigin =cylinderOrigin ,
@@ -2537,7 +2539,69 @@ def extrudeDraftAndWrapSheetbodiesAroundCylinder(
         wrappedSheetAtEnd = wrappedSheetsAtEnd[0]
         fscad.BRepComponent(wrappedSheetAtEnd,name="wrappedSheetAtEnd").create_occurrence().isLightBulbOn = False
 
-        returnBodies.extend(loftBetweenSheets((wrappedSheetAtStart, wrappedSheetAtEnd)))
+        
+        loftBodies = loftBetweenSheets((wrappedSheetAtStart, wrappedSheetAtEnd))
+        if  doFlatBackFill:
+            # To do: make this work for the arbitrary case, so that we are not relying
+            # on the radial direction being negative z.
+            sheet1 = wrappedSheetAtEnd
+            sheet2 = temporaryBRepManager().copy(wrappedSheetAtEnd)
+            result = temporaryBRepManager().transform(
+                body=sheet2,
+                transform=translation(
+                    (
+                        0,
+                        0,
+                        wrappedSheetAtEnd.boundingBox.maxPoint.z - wrappedSheetAtEnd.boundingBox.minPoint.z + flatBackFillThickness + 1
+                    )
+                )
+            ); assert result
+            backFillLoftBodies = loftBetweenSheets((sheet1, sheet2))
+            # assert len(loftBodies) == 1
+            # loftBody = loftBodies[0]
+            bb : adsk.core.BoundingBox3D = backFillLoftBodies[0].boundingBox.copy()
+            for body in backFillLoftBodies:
+                bb.combine(body.boundingBox)
+            print(f"initially, bb: {castTo3dArray(bb.minPoint)} -- {castTo3dArray(bb.maxPoint)}")
+            # bb.minPoint.x -= 1 * centimeter
+            # bb.minPoint.y -= 1 * centimeter
+            # bb.minPoint.z -= 1 * centimeter
+            # bb.maxPoint.x += 1 * centimeter
+            # bb.minPoint.y += 1 * centimeter
+            # bb.minPoint.z = wrappedSheetAtEnd.boundingBox.maxPoint.z + flatBackFillThickness
+
+            bb.minPoint = castToPoint3D(
+                castTo3dArray(bb.minPoint) - castTo3dArray((1 * centimeter, 1*centimeter, 1*centimeter))
+            )
+            bb.maxPoint = castToPoint3D(
+                castTo3dArray(bb.maxPoint) + castTo3dArray((1 * centimeter, 1*centimeter, 1*centimeter))
+            )
+            bb.maxPoint = adsk.core.Point3D.create(bb.maxPoint.x, bb.maxPoint.y, wrappedSheetAtEnd.boundingBox.maxPoint.z + flatBackFillThickness)
+
+            print(f"after modification, bb: {castTo3dArray(bb.minPoint)} -- {castTo3dArray(bb.maxPoint)}")
+            obb = adsk.core.OrientedBoundingBox3D.create(
+                centerPoint = castToPoint3D(mean(castTo3dArray(bb.minPoint), castTo3dArray(bb.maxPoint))),
+                lengthDirection = castToVector3D(xHat),
+                widthDirection = castToVector3D(yHat),
+                length= bb.maxPoint.x - bb.minPoint.x,
+                width= bb.maxPoint.y - bb.minPoint.y,
+                height= bb.maxPoint.z - bb.minPoint.z
+            )
+            maskBody = temporaryBRepManager().createBox(obb)
+            for backfillBody in backFillLoftBodies:
+                result = temporaryBRepManager().booleanOperation(
+                    targetBody=backfillBody,
+                    toolBody=maskBody,
+                    booleanType=adsk.fusion.BooleanTypes.IntersectionBooleanType
+                ); assert result
+                for loftBody in loftBodies:
+                    result = temporaryBRepManager().booleanOperation(
+                        targetBody=loftBody,
+                        toolBody=backfillBody,
+                        booleanType=adsk.fusion.BooleanTypes.UnionBooleanType
+                    ); assert result
+
+        returnBodies.extend(loftBodies)
 
 
 

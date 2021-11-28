@@ -197,13 +197,12 @@ def run(context:dict):
             wrappingRadiusStart = plinthRadiusMax,
             wrappingRadiusEnd = plinthRadiusMin,
             draftAngle = plinthDraftAngle ,
+            doFlatBackFill = True ,
+            flatBackFillThickness = 1 * centimeter,
             **commonWrappingArguments
         )
 
-        fscad.BRepComponent(
-            *edifiedPlinthBodies, 
-            name=f"edifiedPlinthBodies"
-        ).create_occurrence()
+        fscad.BRepComponent(*edifiedPlinthBodies, name=f"edifiedPlinthBodies").create_occurrence()
 
         edifiedLetterBodies = extrudeDraftAndWrapSheetbodiesAroundCylinder(
             sheetBodies = oddRankSheetBodies,
@@ -213,10 +212,7 @@ def run(context:dict):
             **commonWrappingArguments
         )
 
-        fscad.BRepComponent(
-            *edifiedLetterBodies, 
-            name=f"edifiedLetterBodies"
-        ).create_occurrence()
+        fscad.BRepComponent(*edifiedLetterBodies, name=f"edifiedLetterBodies").create_occurrence()
     fscad.run_design(design_func=design1, message_box_on_error=False, re_raise_exceptions=True)
     print(f"finished running {__file__}")
 
