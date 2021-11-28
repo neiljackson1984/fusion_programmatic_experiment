@@ -485,6 +485,100 @@ def rectByCorners(corner1 = vector(0,0) * meter, corner2 = vector(1,1) * meter, 
     # is what we have to do to work around Python's lack of
     # automatic type coercion.
 
+def roundedRect(extentX : float = 1 * meter,  extentY : float = 1 * meter, roundingRadius: float = 0) -> adsk.fusion.BRepBody:
+    #the rounding of sharp polygonal corners in a flat sheet body ought to be
+    # done by a function that ingests a sheet body, rather than having to have a
+    # special rounded...  version of each possible function that creates a
+    # planar polygonal sheet body.  Nevertheless, this serves the current purpose.
+    
+    # we are completely ignoring the z coordinates of the corners.  This function returns a planar rectangle lying on the xy plane.
+    corner1 = castTo3dArray((-extentX/2, -extentY/2))
+    corner2 = castTo3dArray((+extentX/2, +extentY/2))
+    # print('corner1: ' + str(corner1))
+    # print('corner2: ' + str(corner2))
+    # set the 'x' and 'y' entries to kwargs (overriding any 'x' and 'y' that may have been passed)
+
+    extent = abs(corner2 - corner1)
+    minimumCorner = tuple(map(min, corner1, corner2))
+    maximumCorner = tuple(map(max, corner1, corner2))
+    #the above working out of the minimum anbd maximum corner is left over from a version of the rect function that took two arbitrary corner points.
+
+    path = []
+    path.append(
+        adsk.core.Line3D.create(
+            adsk.core.Point3D.create(   minimumCorner[0] + roundingRadius,  minimumCorner[1],  0 ) , 
+            adsk.core.Point3D.create(   maximumCorner[0] - roundingRadius, minimumCorner[1] ) , 
+        )
+    )
+    if roundingRadius > 0.0:
+        path.append(
+            adsk.core.Arc3D.createByCenter(
+                center=adsk.core.Point3D.create( maximumCorner[0] -  roundingRadius,  minimumCorner[1]  + roundingRadius , 0 ),
+                normal=castToVector3D(zHat),
+                referenceVector=castToVector3D(-yHat),
+                radius = roundingRadius,
+                startAngle=0,
+                endAngle=90*degree
+            )
+        )
+    path.append(
+        adsk.core.Line3D.create(
+            adsk.core.Point3D.create(   maximumCorner[0] ,  minimumCorner[1] + roundingRadius,  0 ) , 
+            adsk.core.Point3D.create(   maximumCorner[0] ,  maximumCorner[1] - roundingRadius,  0 ) 
+        )
+    )
+    if roundingRadius > 0.0:
+        path.append(
+            adsk.core.Arc3D.createByCenter(
+                center=adsk.core.Point3D.create( maximumCorner[0] -  roundingRadius,  maximumCorner[1]  - roundingRadius , 0 ),
+                normal=castToVector3D(zHat),
+                referenceVector=castToVector3D(xHat),
+                radius = roundingRadius,
+                startAngle=0,
+                endAngle=90*degree
+            )
+        )
+    path.append(
+        adsk.core.Line3D.create(
+            adsk.core.Point3D.create(   maximumCorner[0] - roundingRadius,  maximumCorner[1] ,  0 ) , 
+            adsk.core.Point3D.create(   minimumCorner[0] + roundingRadius ,  maximumCorner[1],  0 ) 
+        )
+    )
+    if roundingRadius > 0.0:
+        path.append(
+            adsk.core.Arc3D.createByCenter(
+                center=adsk.core.Point3D.create( minimumCorner[0] +  roundingRadius,  maximumCorner[1]  - roundingRadius , 0 ),
+                normal=castToVector3D(zHat),
+                referenceVector=castToVector3D(yHat),
+                radius = roundingRadius,
+                startAngle=0,
+                endAngle=90*degree
+            )
+        )
+    path.append(
+        adsk.core.Line3D.create(
+            adsk.core.Point3D.create(   minimumCorner[0] ,  maximumCorner[1] - roundingRadius ,  0 ) , 
+            adsk.core.Point3D.create(   minimumCorner[0] ,  minimumCorner[1] + roundingRadius,   0 ) 
+        )
+    )
+    if roundingRadius > 0.0:
+        path.append(
+            adsk.core.Arc3D.createByCenter(
+                center=adsk.core.Point3D.create( minimumCorner[0] +  roundingRadius,  minimumCorner[1]  + roundingRadius , 0 ),
+                normal=castToVector3D(zHat),
+                referenceVector=castToVector3D(-xHat),
+                radius = roundingRadius,
+                startAngle=0,
+                endAngle=90*degree
+            )
+        )
+
+    highlight(path, **makeHighlightParams("roundedRectangle", show=False))
+
+    wireBody, edgeMap = temporaryBRepManager().createWireFromCurves(path, allowSelfIntersections=True)
+    returnBody = temporaryBRepManager().createFaceFromPlanarWires([wireBody])
+    return returnBody
+
 def cylinderByStartEndRadius(startPoint : adsk.core.Point3D = adsk.core.Point3D.create(0,0,0), endPoint : adsk.core.Point3D = adsk.core.Point3D.create(0,0,1), radius : float = 1) -> fscad.Cylinder:
     x = fscad.Cylinder(height=endPoint.distanceTo(startPoint),radius=radius)
 
@@ -2182,14 +2276,14 @@ def offsetSheetBodyUsingTheWireTechnique(
 
         offsetWireBodies.append(offsetWireBody)
     
-    highlight(
-        [ 
-            edge 
-            for body in offsetWireBodies
-            for edge in body.edges
-        ],
-        **makeHighlightParams(f"offsetWireBodies", show=False)
-    )
+    # highlight(
+    #     [ 
+    #         edge 
+    #         for body in offsetWireBodies
+    #         for edge in body.edges
+    #     ],
+    #     **makeHighlightParams(f"offsetWireBodies", show=False)
+    # )
 
     result : Optional[adsk.fusion.BRepBody] = temporaryBRepManager().createFaceFromPlanarWires(wireBodies=offsetWireBodies)
     if result is not None:
@@ -2272,8 +2366,8 @@ def loftBetweenSheets(sheetBodies : Sequence[adsk.fusion.BRepBody]) -> Sequence[
         startSampleCoEdge = candidateStartCoEdges[0]
         startSampleCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge = startSampleCoEdge.isOpposedToEdge ^ startSampleCoEdge.edge.isParamReversed
         startReferencePoint = (startSampleEdge.endVertex.geometry  if startSampleCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge else startSampleEdge.startVertex.geometry )
-        highlight(startReferencePoint,**makeHighlightParams(f"startReferencePoint", show=False))
-        highlight(startSampleEdge,**makeHighlightParams(f"startSampleEdge", show=False))
+        # highlight(startReferencePoint,**makeHighlightParams(f"startReferencePoint", show=False))
+        # highlight(startSampleEdge,**makeHighlightParams(f"startSampleEdge", show=False))
 
         endLoop   : adsk.fusion.BRepLoop = endFace.loops[loopIndex]
         endSampleEdge : adsk.fusion.BRepEdge = endLoop.edges[sampleEdgeIndex]
@@ -2282,8 +2376,8 @@ def loftBetweenSheets(sheetBodies : Sequence[adsk.fusion.BRepBody]) -> Sequence[
         endSampleCoEdge = candidateEndCoEdges[0]
         endSampleCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge = endSampleCoEdge.isOpposedToEdge ^ endSampleCoEdge.edge.isParamReversed
         endReferencePoint = (endSampleEdge.endVertex.geometry  if endSampleCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge else endSampleEdge.startVertex.geometry )
-        highlight(endReferencePoint,**makeHighlightParams(f"endReferencePoint", show=False))
-        highlight(endSampleEdge,**makeHighlightParams(f"endSampleEdge", show=False))
+        # highlight(endReferencePoint,**makeHighlightParams(f"endReferencePoint", show=False))
+        # highlight(endSampleEdge,**makeHighlightParams(f"endSampleEdge", show=False))
 
         guideWireBody : adsk.fusion.BRepBody
         guideWireBody, _ = temporaryBRepManager().createWireFromCurves(
@@ -2291,7 +2385,7 @@ def loftBetweenSheets(sheetBodies : Sequence[adsk.fusion.BRepBody]) -> Sequence[
             allowSelfIntersections=False
         )
         assert guideWireBody.edges.count == 1
-        highlight(guideWireBody.edges,**makeHighlightParams(f"guideWire", show=False))
+        # highlight(guideWireBody.edges,**makeHighlightParams(f"guideWire", show=False))
   
         
         
@@ -2359,7 +2453,7 @@ def loftBetweenSheets(sheetBodies : Sequence[adsk.fusion.BRepBody]) -> Sequence[
             
             guideWireBodyPersisted : adsk.fusion.BRepBody = mainTempComponent.bRepBodies.add(guideWireBody)
             assert guideWireBodyPersisted.edges.count == 1  
-            highlight(guideWireBody.edges,**makeHighlightParams(f"guideWire-had to use it", show=False))
+            # highlight(guideWireBody.edges,**makeHighlightParams(f"guideWire-had to use it", show=False))
 
 
             loftFeatureInput : adsk.fusion.LoftFeatureInput = mainTempComponent.features.loftFeatures.createInput(operation=adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
@@ -2437,12 +2531,12 @@ def loftBetweenSheets(sheetBodies : Sequence[adsk.fusion.BRepBody]) -> Sequence[
             print(f"endWireDirectionMatchesEndLoopDirection: {endWireDirectionMatchesEndLoopDirection}")
             endStartPoint = (sourceEdge.endVertex.geometry  if sourceCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge else sourceEdge.startVertex.geometry )
 
-            highlight(startWire.edges,**makeHighlightParams(f"startWire", show=False))
-            highlight(startStartPoint,**makeHighlightParams(f"startStartPoint", show=False))
+            # highlight(startWire.edges,**makeHighlightParams(f"startWire", show=False))
+            # highlight(startStartPoint,**makeHighlightParams(f"startStartPoint", show=False))
 
 
-            highlight(endWire.edges,**makeHighlightParams(f"endWire", show=False))
-            highlight(endStartPoint,**makeHighlightParams(f"endStartPoint", show=False))
+            # highlight(endWire.edges,**makeHighlightParams(f"endWire", show=False))
+            # highlight(endStartPoint,**makeHighlightParams(f"endStartPoint", show=False))
 
 
             # WRAP THIS IN ATRY LOOP
@@ -2503,7 +2597,7 @@ def extrudeDraftAndWrapSheetbodiesAroundCylinder(
     for sheetBody in sheetBodies:
         #we are assuming that each sheetBody has a single face (and that the wrapped version of the sheet body will also have a single face)
         flatSheetAtStart = sheetBody
-        fscad.BRepComponent(flatSheetAtStart,name="flatSheetAtStart").create_occurrence().isLightBulbOn = False
+        # fscad.BRepComponent(flatSheetAtStart,name="flatSheetAtStart").create_occurrence().isLightBulbOn = False
 
 
         flatSheetsAtEnd = offsetSheetBodies( 
@@ -2513,7 +2607,7 @@ def extrudeDraftAndWrapSheetbodiesAroundCylinder(
         )
         assert len(flatSheetsAtEnd) == 1
         flatSheetAtEnd = flatSheetsAtEnd[0]
-        fscad.BRepComponent(flatSheetAtEnd,name="flatSheetAtEnd").create_occurrence().isLightBulbOn = False
+        # fscad.BRepComponent(flatSheetAtEnd,name="flatSheetAtEnd").create_occurrence().isLightBulbOn = False
 
 
         wrappedSheetsAtStart = wrapSheetBodiesAroundCylinder(
@@ -2525,7 +2619,7 @@ def extrudeDraftAndWrapSheetbodiesAroundCylinder(
         )
         assert len(wrappedSheetsAtStart) == 1
         wrappedSheetAtStart = wrappedSheetsAtStart[0]
-        fscad.BRepComponent(wrappedSheetAtStart,name="wrappedSheetAtStart").create_occurrence().isLightBulbOn = False
+        # fscad.BRepComponent(wrappedSheetAtStart,name="wrappedSheetAtStart").create_occurrence().isLightBulbOn = False
 
 
         wrappedSheetsAtEnd : Sequence[adsk.fusion.BRepBody] = wrapSheetBodiesAroundCylinder(
@@ -2537,7 +2631,7 @@ def extrudeDraftAndWrapSheetbodiesAroundCylinder(
         )
         assert len(wrappedSheetsAtEnd) == 1
         wrappedSheetAtEnd = wrappedSheetsAtEnd[0]
-        fscad.BRepComponent(wrappedSheetAtEnd,name="wrappedSheetAtEnd").create_occurrence().isLightBulbOn = False
+        # fscad.BRepComponent(wrappedSheetAtEnd,name="wrappedSheetAtEnd").create_occurrence().isLightBulbOn = False
 
         
         loftBodies = loftBetweenSheets((wrappedSheetAtStart, wrappedSheetAtEnd))

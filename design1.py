@@ -15,22 +15,20 @@ def run(context:dict):
 
 
         pathOfSVGFile = pathlib.Path(__file__).parent.joinpath('eXotic logo 1 2.svg')
+        # pathOfHandleFile = pathlib.Path(__file__).parent.joinpath('Handle_1.3mf')
         # pathOfSVGFile = pathlib.Path(__file__).parent.joinpath('test_logo1.svg')
 
+        transformUponImport = castToMatrix3D(castToNDArray( rotation(angle=90*degree) ))
 
         fileSpecificOptionalArgsForSVGProcessing = {
             'eXotic logo 1 2.svg': {
                 'svgNativeLengthUnit': ((1/2 * inch)/36.068069458007805), 
                 'translateAsNeededInOrderToPlaceMidPoint': (0,0,0),
-                'transform': castToMatrix3D(
-                        castToNDArray( rotation(angle=90*degree) )
-                    )
+                'transform': transformUponImport
             }
         }.get(pathOfSVGFile.name, {
             'translateAsNeededInOrderToPlaceMidPoint': (0,0,0),
-            'transform': castToMatrix3D(
-                    castToNDArray( rotation(angle=90*degree) )
-                )
+            'transform': transformUponImport
         }) 
         
         # test1(
@@ -81,13 +79,23 @@ def run(context:dict):
 
 
         
-        rootAngularSpan = 120 * degree
+        rootAngularSpan    = 120 * degree
         letterRadialExtent = 1/4 * inch
         plinthRadialExtent = 1/4 * inch
-        letterDraftAngle = - 4 *degree
-        plinthDraftAngle = - 7 *degree
+        letterDraftAngle   = - 4 *degree
+        plinthDraftAngle   = - 7 *degree
         # offsetCornerType =  adsk.fusion.OffsetCornerTypes.LinearOffsetCornerType  #.CircularOffsetCornerType  #.ExtendedOffsetCornerType
         offsetCornerType =  adsk.fusion.OffsetCornerTypes.ExtendedOffsetCornerType
+        
+        handlePathExtentZ           =  25 * millimeter
+        handlePathExtentY           =  55 * millimeter
+        handlePathRoundingRadius    =  10 * millimeter
+        handleProfileExtentX        =  15 * millimeter
+        handleProfileExtentY        =  6  * millimeter
+        handleProfileRoundingRadius =  2  * millimeter
+        handleToPlinthFilletRadius  =  6  * millimeter
+        flatBackFillThickness       =  3  * millimeter
+
 
 
         # rootAngularSpan = 10 * degree
@@ -99,17 +107,12 @@ def run(context:dict):
 
         rootRadius = ( supportFscadComponent.max().y - supportFscadComponent.min().y ) * radian / rootAngularSpan
 
-
         print(f"rootRadius: {rootRadius}")
         # rootRadius = 3*centimeter
         letterRadiusMax = rootRadius
         letterRadiusMin = letterRadiusMax - letterRadialExtent
-
         plinthRadiusMax = letterRadiusMin
         plinthRadiusMin = plinthRadiusMax - plinthRadialExtent
-        
-        
-
         cylinderOrigin = (0,0,rootRadius + 1*centimeter)       
         cylinderAxisDirection = xHat
 
@@ -136,8 +139,6 @@ def run(context:dict):
         # letterSheetsAtMinRadius = offsetSheetBodies(letterSheetsAtMaxRadius, math.tan(letterDraftAngle) * (letterRadiusMax - letterRadiusMin))
         # letterSheetsAtMinRadiusFscadComponent = fscad.BRepComponent(*letterSheetsAtMinRadius, name=f"letterSheetsAtMinRadius"); letterSheetsAtMinRadiusFscadComponent.create_occurrence()
 
-
-
         highlight(
             # tuple(destinationSurface.evaluator.getIsoCurve(0,isUDirection=False)),
             adsk.core.Circle3D.createByCenter(
@@ -148,49 +149,6 @@ def run(context:dict):
             **makeHighlightParams("cylinder preview", show=False)
         )
 
-        # wrappedLetterSheetsAtMaxRadius = wrapSheetBodiesAroundCylinder(
-        #     sheetBodies    = letterSheetsAtMaxRadius,
-        #     wrappingRadius = letterRadiusMax,
-        #     **commonWrappingArguments
-        # )
-
-        # wrappedLetterSheetsAtMinRadius = wrapSheetBodiesAroundCylinder(
-        #     sheetBodies    = letterSheetsAtMinRadius,
-        #     wrappingRadius = letterRadiusMin,
-        #     **commonWrappingArguments
-        # )
-
-        # wrappedPlinthSheetsAtMaxRadius = wrapSheetBodiesAroundCylinder(
-        #     sheetBodies    = plinthSheetsAtMaxRadius,
-        #     wrappingRadius = plinthRadiusMax,
-        #     **commonWrappingArguments
-        # )
-
-        # wrappedPlinthSheetsAtMinRadius = wrapSheetBodiesAroundCylinder(
-        #     sheetBodies    = plinthSheetsAtMinRadius,
-        #     wrappingRadius = plinthRadiusMin,
-        #     **commonWrappingArguments
-        # )
-
-        # fscad.BRepComponent(
-        #     *wrappedLetterSheetsAtMaxRadius, 
-        #     name=f"wrappedLetterSheetsAtMaxRadius"
-        # ).create_occurrence()
-
-        # fscad.BRepComponent(
-        #     *wrappedLetterSheetsAtMinRadius, 
-        #     name=f"wrappedLetterSheetsAtMinRadius"
-        # ).create_occurrence()
-
-        # fscad.BRepComponent(
-        #     *wrappedPlinthSheetsAtMaxRadius, 
-        #     name=f"wrappedPlinthSheetsAtMaxRadius"
-        # ).create_occurrence()
-
-        # fscad.BRepComponent(
-        #     *wrappedPlinthSheetsAtMinRadius, 
-        #     name=f"wrappedPlinthSheetsAtMinRadius"
-        # ).create_occurrence()
 
         edifiedPlinthBodies = extrudeDraftAndWrapSheetbodiesAroundCylinder(
             sheetBodies = supportSheetBodies,
@@ -198,11 +156,62 @@ def run(context:dict):
             wrappingRadiusEnd = plinthRadiusMin,
             draftAngle = plinthDraftAngle ,
             doFlatBackFill = True ,
-            flatBackFillThickness = 1 * centimeter,
+            flatBackFillThickness = flatBackFillThickness,
             **commonWrappingArguments
         )
 
-        fscad.BRepComponent(*edifiedPlinthBodies, name=f"edifiedPlinthBodies").create_occurrence()
+        edifiedPlinthBodiesFscadComponent = fscad.BRepComponent(*edifiedPlinthBodies, name=f"edifiedPlinthBodies")
+
+
+
+        handlePath = [
+            adsk.core.Line3D.create(
+                adsk.core.Point3D.create(   0,  -handlePathExtentY/2,  edifiedPlinthBodiesFscadComponent.max().z ) , 
+                adsk.core.Point3D.create(   0,  -handlePathExtentY/2,  edifiedPlinthBodiesFscadComponent.max().z + handlePathExtentZ - handlePathRoundingRadius ) , 
+            ),
+            adsk.core.Arc3D.createByCenter(
+                center=adsk.core.Point3D.create(0 , -handlePathExtentY/2 + handlePathRoundingRadius,  edifiedPlinthBodiesFscadComponent.max().z + handlePathExtentZ - handlePathRoundingRadius),
+                normal=castToVector3D(-xHat),
+                referenceVector=castToVector3D(-yHat),
+                radius = handlePathRoundingRadius,
+                startAngle=0,
+                endAngle=90*degree
+            ),
+            adsk.core.Line3D.create(
+                adsk.core.Point3D.create(   0,  -handlePathExtentY/2 + handlePathRoundingRadius,  edifiedPlinthBodiesFscadComponent.max().z + handlePathExtentZ ) , 
+                adsk.core.Point3D.create(   0,  +handlePathExtentY/2 - handlePathRoundingRadius,  edifiedPlinthBodiesFscadComponent.max().z + handlePathExtentZ ) , 
+            ),
+            adsk.core.Arc3D.createByCenter(
+                center=adsk.core.Point3D.create(0 , +handlePathExtentY/2 - handlePathRoundingRadius,  edifiedPlinthBodiesFscadComponent.max().z + handlePathExtentZ - handlePathRoundingRadius),
+                normal=castToVector3D(-xHat),
+                referenceVector=castToVector3D(zHat),
+                radius = handlePathRoundingRadius,
+                startAngle=0,
+                endAngle=90*degree
+            ),
+            adsk.core.Line3D.create(
+                adsk.core.Point3D.create(   0,  +handlePathExtentY/2,  edifiedPlinthBodiesFscadComponent.max().z + handlePathExtentZ - handlePathRoundingRadius ) , 
+                adsk.core.Point3D.create(   0,  +handlePathExtentY/2,  edifiedPlinthBodiesFscadComponent.max().z ) , 
+            )
+        ]
+
+        handleProfileFscadComponent = fscad.BRepComponent(
+            roundedRect(
+                extentX=handleProfileExtentX,
+                extentY=handleProfileExtentY,
+                roundingRadius=handleProfileRoundingRadius
+            ),
+            name='handleProfile'
+        ).translate(0,  -handlePathExtentY/2, edifiedPlinthBodiesFscadComponent.max().z)
+        
+        # handleProfileFscadComponent.create_occurrence()
+        # highlight(handlePath, **makeHighlightParams("handlePath", show=False))
+
+        handleFscadComponent = fscad.Sweep(handleProfileFscadComponent, path=handlePath, name='handle')
+        # handleFscadComponent.create_occurrence()
+
+
+
 
         edifiedLetterBodies = extrudeDraftAndWrapSheetbodiesAroundCylinder(
             sheetBodies = oddRankSheetBodies,
@@ -212,7 +221,61 @@ def run(context:dict):
             **commonWrappingArguments
         )
 
-        fscad.BRepComponent(*edifiedLetterBodies, name=f"edifiedLetterBodies").create_occurrence()
+        plinthOccurence=edifiedPlinthBodiesFscadComponent.create_occurrence()
+        handleToolOccurence=handleFscadComponent.create_occurrence()
+        initialEntityTokensOfPlinth = captureEntityTokens(plinthOccurence)
+        combineFeatureInput = rootComponent().features.combineFeatures.createInput(targetBody=plinthOccurence.bRepBodies.item(0), toolBodies=fscad._collection_of(handleToolOccurence.bRepBodies))
+        combineFeatureInput.operation = adsk.fusion.FeatureOperations.JoinFeatureOperation
+        combineFeature = rootComponent().features.combineFeatures.add(combineFeatureInput)
+        handleToolOccurence.deleteMe()
+        edgesDescendedFromInitialEdges = [
+            entity 
+            for item in initialEntityTokensOfPlinth['bodies']
+            for initialEdgeEntityToken in item['edges']
+            for entity in design().findEntityByToken(initialEdgeEntityToken)
+        ]
+
+        facesDescendedFromInitialFaces = [
+            entity 
+            for item in initialEntityTokensOfPlinth['bodies']
+            for initialFaceEntityToken in item['faces']
+            for entity in design().findEntityByToken(initialFaceEntityToken)
+        ]
+        edgesUsedByFacesDescendedFromIntialFaces = [
+            edge 
+            for face in facesDescendedFromInitialFaces
+            for edge in face.edges
+        ]
+        edgesOfInterest = [
+            edge
+            for edge in edgesUsedByFacesDescendedFromIntialFaces
+            if edge not in edgesDescendedFromInitialEdges
+        ]
+        highlight(edgesOfInterest, **makeHighlightParams("edgesOfInterest", show=False))
+        
+
+        # filletFeatureInput = plinthOccurence.component.features.filletFeatures.createInput()
+        # filletFeatureInput.addConstantRadiusEdgeSet(
+        #     edges= fscad._collection_of(edgesOfInterest),
+        #     radius= adsk.core.ValueInput.createByReal(handleToPlinthFilletRadius),
+        #     isTangentChain=False
+        # )
+        # filletFeature = plinthOccurence.component.features.filletFeatures.add(filletFeatureInput)
+
+        chamferFeatureInput = plinthOccurence.component.features.chamferFeatures.createInput2()
+        chamferFeatureInput.chamferEdgeSets.addEqualDistanceChamferEdgeSet(
+            edges=fscad._collection_of(edgesOfInterest),
+            isTangentChain=False,
+            distance=adsk.core.ValueInput.createByReal(handleToPlinthFilletRadius)
+        )
+        chamferFeature = plinthOccurence.component.features.chamferFeatures.add(chamferFeatureInput)
+        
+       
+        mainFscadComponent = fscad.Union(fscad.BRepComponent(*plinthOccurence.component.bRepBodies, *edifiedLetterBodies),name='main')
+        plinthOccurence.deleteMe()
+        mainFscadOccurrence = mainFscadComponent.create_occurrence()
+
+        # fscad.BRepComponent(*edifiedLetterBodies, name=f"edifiedLetterBodies").create_occurrence()
     fscad.run_design(design_func=design1, message_box_on_error=False, re_raise_exceptions=True)
     print(f"finished running {__file__}")
 
