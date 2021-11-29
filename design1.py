@@ -274,8 +274,25 @@ def run(context:dict):
        
         mainFscadComponent = fscad.Union(fscad.BRepComponent(*plinthOccurence.component.bRepBodies, *edifiedLetterBodies),name='main')
         plinthOccurence.deleteMe()
+
         mainFscadOccurrence = mainFscadComponent.create_occurrence()
 
+        # export component
+
+        result = design().exportManager.execute(
+            design().exportManager.createFusionArchiveExportOptions(
+                pathlib.Path(__file__).parent.joinpath(pathOfSVGFile.name).with_suffix('.f3d').resolve().as_posix(),
+                mainFscadOccurrence.component
+            )
+        ); assert result
+
+
+        result = design().exportManager.execute(
+            design().exportManager.createSTEPExportOptions(
+                pathlib.Path(__file__).parent.joinpath(pathOfSVGFile.name).with_suffix('.step').resolve().as_posix(),
+                mainFscadOccurrence.component
+            )
+        ); assert result
         # fscad.BRepComponent(*edifiedLetterBodies, name=f"edifiedLetterBodies").create_occurrence()
     fscad.run_design(design_func=design1, message_box_on_error=False, re_raise_exceptions=True)
     print(f"finished running {__file__}")
