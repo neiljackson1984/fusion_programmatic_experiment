@@ -32,6 +32,8 @@ import unyt
 import operator
 from .braids.fscad.src.fscad import fscad as fscad
 
+
+
 from adsk.fusion import BRepEdge, ChainedCurveOptions, ProfileLoop, SurfaceExtendTypes, TemporaryBRepManager
 # "C:\Users\Admin\AppData\Local\Autodesk\webdeploy\production\48ac19808c8c18863dd6034eee218407ecc49825\Python\python.exe" -m pip install unyt
 
@@ -1169,10 +1171,12 @@ def getAllSheetBodiesFromSketchGroupedByRank_version2(sketch : adsk.fusion.Sketc
 getAllSheetBodiesFromSketchGroupedByRank = getAllSheetBodiesFromSketchGroupedByRank_version2
 
 
-def getSheetBodiesGroupedByRankFromSvg(pathOfSVGFile, 
+def getSheetBodiesGroupedByRankFromSvg(pathOfSvgFile, 
     svgNativeLengthUnit : float = 1 * millimeter,
     transform : Optional[adsk.core.Matrix3D] = None,
-    translateAsNeededInOrderToPlaceMidPoint : Optional[VectorLike] = None
+    translateAsNeededInOrderToPlaceMidPoint : bool = False,
+    desiredMidpointDestination : VectorLike = (0,0,0)
+    #only applicable in case translateAsNeededInOrderToPlaceMidPoint is True.
 ) -> Tuple[Sequence[Sequence[adsk.fusion.BRepBody]], Sequence[adsk.fusion.BRepBody]]  :
     
     #
@@ -1206,13 +1210,13 @@ def getSheetBodiesGroupedByRankFromSvg(pathOfSVGFile,
     #
     benchmarkTimestamps : List[float] = []
     nativeSVGLengthUnitAssumedByFusion = (1/96) * inch
-    pathOfSVGFile = pathlib.Path(pathOfSVGFile).resolve()
+    pathOfSvgFile = pathlib.Path(pathOfSvgFile).resolve()
     tempOccurrence = rootComponent().occurrences.addNewComponent(adsk.core.Matrix3D.create())
     mainTempComponent = tempOccurrence.component
     mainTempComponent.name = "getAllSheetBodiesFromSvgGroupedByRank-mainTempComponent"
     sketch = mainTempComponent.sketches.add(mainTempComponent.xYConstructionPlane)
     sketch.importSVG(
-        pathOfSVGFile.as_posix(),
+        pathOfSvgFile.as_posix(),
         scale =  svgNativeLengthUnit/nativeSVGLengthUnitAssumedByFusion, 
         xPosition= 0, 
         yPosition= 0
@@ -1229,8 +1233,8 @@ def getSheetBodiesGroupedByRankFromSvg(pathOfSVGFile,
             for sheetBody in sheetBodyRankGroup:
                 result : bool = temporaryBRepManager().transform(sheetBody, transform); assert result
 
-    if translateAsNeededInOrderToPlaceMidPoint is not None:
-        destinationPoint = castToPoint3D(translateAsNeededInOrderToPlaceMidPoint)
+    if translateAsNeededInOrderToPlaceMidPoint:
+        destinationPoint = castToPoint3D(desiredMidpointDestination)
         bb = allSheetBodiesFromSketchGroupedByRank[0][0].boundingBox.copy()
         for r in range(len(allSheetBodiesFromSketchGroupedByRank)):
             for sheetBody in allSheetBodiesFromSketchGroupedByRank[r]:
@@ -2565,7 +2569,9 @@ def extrudeDraftAndWrapSheetbodiesAroundCylinder(
     offsetCornerType : Optional[adsk.fusion.OffsetCornerTypes] = None,
     doFlatBackFill : bool = False ,
     flatBackFillThickness : float = 0.0,
+    doMultipleLoftSegments : bool = True,
     maximumAllowedRadialExtentOfLoftSegment : float = 1*millimeter
+    #only has effect if doMultipleLoftSegments is True.
 ) -> Sequence[adsk.fusion.BRepBody]:
     # the name of this function is admittedly terrible. this function takes a
     # set of sheet bodies, assumed to lie on the xy plane.  We then do the
@@ -2576,7 +2582,7 @@ def extrudeDraftAndWrapSheetbodiesAroundCylinder(
 
     segmentCount : int = (
         math.ceil(abs(wrappingRadiusEnd - wrappingRadiusStart)/maximumAllowedRadialExtentOfLoftSegment)
-        if maximumAllowedRadialExtentOfLoftSegment > 0.0
+        if doMultipleLoftSegments and (maximumAllowedRadialExtentOfLoftSegment > 0.0)
         else 1
     )
     # print(f"segmentCount: {segmentCount}")
