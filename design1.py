@@ -87,15 +87,15 @@ def run(context:dict):
         # offsetCornerType =  adsk.fusion.OffsetCornerTypes.LinearOffsetCornerType  #.CircularOffsetCornerType  #.ExtendedOffsetCornerType
         offsetCornerType =  adsk.fusion.OffsetCornerTypes.ExtendedOffsetCornerType
         
-        handlePathExtentZ           =  25 * millimeter
-        handlePathExtentY           =  55 * millimeter
-        handlePathRoundingRadius    =  10 * millimeter
-        handleProfileExtentX        =  15 * millimeter
-        handleProfileExtentY        =  6  * millimeter
-        handleProfileRoundingRadius =  2  * millimeter
-        handleToPlinthFilletRadius  =  6  * millimeter
-        flatBackFillThickness       =  3  * millimeter
-
+        handlePathExtentZ                       =  25 * millimeter
+        handlePathExtentY                       =  40 * millimeter
+        handlePathRoundingRadius                =  10 * millimeter
+        handleProfileExtentX                    =  15 * millimeter
+        handleProfileExtentY                    =  6  * millimeter
+        handleProfileRoundingRadius             =  2  * millimeter
+        handleToPlinthFilletRadius              =  6  * millimeter
+        flatBackFillThickness                   =  3  * millimeter
+        maximumAllowedRadialExtentOfLoftSegment = 1 * millimeter
 
 
         # rootAngularSpan = 10 * degree
@@ -113,16 +113,17 @@ def run(context:dict):
         letterRadiusMin = letterRadiusMax - letterRadialExtent
         plinthRadiusMax = letterRadiusMin
         plinthRadiusMin = plinthRadiusMax - plinthRadialExtent
-        cylinderOrigin = (0,0,rootRadius + 1*centimeter)       
+        cylinderOrigin = (0,0,rootRadius)       
         cylinderAxisDirection = xHat
 
         # these argument values will be splatted into all calls to
         # wrapSheetBodiesAroundCylinder() .
         commonWrappingArguments = {
-            'cylinderOrigin'         : cylinderOrigin ,
-            'cylinderAxisDirection'  : cylinderAxisDirection ,
-            'rootRadius'             : rootRadius ,
-            'offsetCornerType'       : offsetCornerType
+            'cylinderOrigin'                            : cylinderOrigin ,
+            'cylinderAxisDirection'                     : cylinderAxisDirection ,
+            'rootRadius'                                : rootRadius ,
+            'offsetCornerType'                          : offsetCornerType,
+            'maximumAllowedRadialExtentOfLoftSegment'   : maximumAllowedRadialExtentOfLoftSegment
         }
 
         #These are the sheets that, along with rootRadius define the shapes in
@@ -139,15 +140,15 @@ def run(context:dict):
         # letterSheetsAtMinRadius = offsetSheetBodies(letterSheetsAtMaxRadius, math.tan(letterDraftAngle) * (letterRadiusMax - letterRadiusMin))
         # letterSheetsAtMinRadiusFscadComponent = fscad.BRepComponent(*letterSheetsAtMinRadius, name=f"letterSheetsAtMinRadius"); letterSheetsAtMinRadiusFscadComponent.create_occurrence()
 
-        highlight(
-            # tuple(destinationSurface.evaluator.getIsoCurve(0,isUDirection=False)),
-            adsk.core.Circle3D.createByCenter(
-                center = castToPoint3D(cylinderOrigin),
-                normal = castToVector3D(cylinderAxisDirection),
-                radius = rootRadius
-            ),
-            **makeHighlightParams("cylinder preview", show=False)
-        )
+        # highlight(
+        #     # tuple(destinationSurface.evaluator.getIsoCurve(0,isUDirection=False)),
+        #     adsk.core.Circle3D.createByCenter(
+        #         center = castToPoint3D(cylinderOrigin),
+        #         normal = castToVector3D(cylinderAxisDirection),
+        #         radius = rootRadius
+        #     ),
+        #     **makeHighlightParams("cylinder preview", show=False)
+        # )
 
 
         edifiedPlinthBodies = extrudeDraftAndWrapSheetbodiesAroundCylinder(
@@ -251,7 +252,7 @@ def run(context:dict):
             for edge in edgesUsedByFacesDescendedFromIntialFaces
             if edge not in edgesDescendedFromInitialEdges
         ]
-        highlight(edgesOfInterest, **makeHighlightParams("edgesOfInterest", show=False))
+        # highlight(edgesOfInterest, **makeHighlightParams("edgesOfInterest", show=False))
         
 
         # filletFeatureInput = plinthOccurence.component.features.filletFeatures.createInput()

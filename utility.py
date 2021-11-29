@@ -573,7 +573,7 @@ def roundedRect(extentX : float = 1 * meter,  extentY : float = 1 * meter, round
             )
         )
 
-    highlight(path, **makeHighlightParams("roundedRectangle", show=False))
+    # highlight(path, **makeHighlightParams("roundedRectangle", show=False))
 
     wireBody, edgeMap = temporaryBRepManager().createWireFromCurves(path, allowSelfIntersections=True)
     returnBody = temporaryBRepManager().createFaceFromPlanarWires([wireBody])
@@ -2306,14 +2306,16 @@ def offsetSheetBodies(
 
     for sheetBody in sheetBodies:  
         #TODO check for success and warn or raise exception in case of failure.
-        
-        returnBodies.extend(
-            offsetSheetBodyUsingTheWireTechnique(
-                sheetBody=sheetBody, 
-                offset=offset,
-                offsetCornerType = offsetCornerType
+        if offset > 0.0:
+            returnBodies.extend(
+                offsetSheetBodyUsingTheWireTechnique(
+                    sheetBody=sheetBody, 
+                    offset=offset,
+                    offsetCornerType = offsetCornerType
+                )
             )
-        )
+        else:
+            returnBodies.append(temporaryBRepManager().copy(sheetBody))
     return tuple(returnBodies)
 
 def loftBetweenSheets(sheetBodies : Sequence[adsk.fusion.BRepBody]) -> Sequence[adsk.fusion.BRepBody]:
@@ -2325,6 +2327,7 @@ def loftBetweenSheets(sheetBodies : Sequence[adsk.fusion.BRepBody]) -> Sequence[
     # the solid bodies created (which should generally contaion exactly one
     # element).
     returnBodies : Sequence[adsk.fusion.BRepBody] = []
+    thisSegmentBodies : Sequence[adsk.fusion.BRepBody] = []
 
     assert len(sheetBodies) >= 2
 
@@ -2332,241 +2335,250 @@ def loftBetweenSheets(sheetBodies : Sequence[adsk.fusion.BRepBody]) -> Sequence[
     mainTempComponent = tempOccurrence.component
     mainTempComponent.name = "loftBetweenSheets-mainTempComponent"
 
-    i = 0
-    startSheetBody = sheetBodies[i]
-    endSheetBody   = sheetBodies[i+1]
+    for segmentIndex in range(len(sheetBodies) - 1):
+        
 
-    startSheetPersisted : adsk.fusion.BRepBody  = mainTempComponent.bRepBodies.add(startSheetBody)
-    endSheetPersisted   : adsk.fusion.BRepBody  = mainTempComponent.bRepBodies.add(endSheetBody)
-    assert startSheetPersisted.faces.count == 1
-    assert endSheetPersisted.faces.count == 1
+        startSheetBody = sheetBodies[segmentIndex]
+        endSheetBody   = sheetBodies[segmentIndex+1]
+
+        
+
+        startSheetPersisted : adsk.fusion.BRepBody  = mainTempComponent.bRepBodies.add(startSheetBody)
+        endSheetPersisted   : adsk.fusion.BRepBody  = mainTempComponent.bRepBodies.add(endSheetBody)
+        assert startSheetPersisted.faces.count == 1
+        assert endSheetPersisted.faces.count == 1
 
 
-    startFace : adsk.fusion.BRepFace = startSheetPersisted.faces[0]
-    endFace : adsk.fusion.BRepFace = endSheetPersisted.faces[0]
-    assert startFace.loops.count == endFace.loops.count
+        startFace : adsk.fusion.BRepFace = startSheetPersisted.faces[0]
+        endFace : adsk.fusion.BRepFace = endSheetPersisted.faces[0]
+        assert startFace.loops.count == endFace.loops.count
 
-    # loftFeatureInput : adsk.fusion.LoftFeatureInput = mainTempComponent.features.loftFeatures.createInput(operation=adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-    # startLoftSection : adsk.fusion.LoftSection = loftFeatureInput.loftSections.add( startFace )
-    # endLoftSection   : adsk.fusion.LoftSection = loftFeatureInput.loftSections.add( endFace   )
-    # loftFeatureInput.isSolid = False # this seems to make no difference -- we seemn to almost always get sheet bodies rather than solids.
-    # loftFeature : adsk.fusion.LoftFeature = fscad.root().features.loftFeatures.add(loftFeatureInput)
-    # returnBodies.extend( temporaryBRepManager().copy(body) for body in loftFeature.bodies )
-    # # The loft feature, when operating on faces, seems to ignore inner loops.
-    # # Therefore, we must pass something other than faces as loftFeature input, and we must go loop-by-loop.
+        # loftFeatureInput : adsk.fusion.LoftFeatureInput = mainTempComponent.features.loftFeatures.createInput(operation=adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+        # startLoftSection : adsk.fusion.LoftSection = loftFeatureInput.loftSections.add( startFace )
+        # endLoftSection   : adsk.fusion.LoftSection = loftFeatureInput.loftSections.add( endFace   )
+        # loftFeatureInput.isSolid = False # this seems to make no difference -- we seemn to almost always get sheet bodies rather than solids.
+        # loftFeature : adsk.fusion.LoftFeature = fscad.root().features.loftFeatures.add(loftFeatureInput)
+        # returnBodies.extend( temporaryBRepManager().copy(body) for body in loftFeature.bodies )
+        # # The loft feature, when operating on faces, seems to ignore inner loops.
+        # # Therefore, we must pass something other than faces as loftFeature input, and we must go loop-by-loop.
+        
+        sidewallBodies : Sequence[adsk.fusion.BRepBody] = []
+        for loopIndex in range(startFace.loops.count):
+            # We are trusting that the loop index is analogous in the startFace and endFace.
+            startLoop : adsk.fusion.BRepLoop = startFace.loops[loopIndex]
+            sampleEdgeIndex = 0
+            startSampleEdge : adsk.fusion.BRepEdge = startLoop.edges[sampleEdgeIndex]
+            candidateStartCoEdges : Sequence[adsk.fusion.BRepCoEdge] = tuple(filter( lambda coEdge: coEdge.loop == startLoop,  startSampleEdge.coEdges ))
+            assert len(candidateStartCoEdges) == 1
+            startSampleCoEdge = candidateStartCoEdges[0]
+            startSampleCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge = startSampleCoEdge.isOpposedToEdge ^ startSampleCoEdge.edge.isParamReversed
+            startReferencePoint = (startSampleEdge.endVertex.geometry  if startSampleCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge else startSampleEdge.startVertex.geometry )
+            # highlight(startReferencePoint,**makeHighlightParams(f"startReferencePoint", show=False))
+            # highlight(startSampleEdge,**makeHighlightParams(f"startSampleEdge", show=False))
+
+            endLoop   : adsk.fusion.BRepLoop = endFace.loops[loopIndex]
+            endSampleEdge : adsk.fusion.BRepEdge = endLoop.edges[sampleEdgeIndex]
+            candidateEndCoEdges : Sequence[adsk.fusion.BRepCoEdge] = tuple(filter( lambda coEdge: coEdge.loop == endLoop,  endSampleEdge.coEdges ))
+            assert len(candidateEndCoEdges) == 1
+            endSampleCoEdge = candidateEndCoEdges[0]
+            endSampleCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge = endSampleCoEdge.isOpposedToEdge ^ endSampleCoEdge.edge.isParamReversed
+            endReferencePoint = (endSampleEdge.endVertex.geometry  if endSampleCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge else endSampleEdge.startVertex.geometry )
+            # highlight(endReferencePoint,**makeHighlightParams(f"endReferencePoint", show=False))
+            # highlight(endSampleEdge,**makeHighlightParams(f"endSampleEdge", show=False))
+
+            guideWireBody : adsk.fusion.BRepBody
+            guideWireBody, _ = temporaryBRepManager().createWireFromCurves(
+                curves = [adsk.core.Line3D.create(startPoint= startReferencePoint, endPoint= endReferencePoint)],
+                allowSelfIntersections=False
+            )
+            assert guideWireBody.edges.count == 1
+            # highlight(guideWireBody.edges,**makeHighlightParams(f"guideWire", show=False))
     
-    sidewallBodies : Sequence[adsk.fusion.BRepBody] = []
-    for loopIndex in range(startFace.loops.count):
-        # We are trusting that the loop index is analogous in the startFace and endFace.
-        startLoop : adsk.fusion.BRepLoop = startFace.loops[loopIndex]
-        sampleEdgeIndex = 0
-        startSampleEdge : adsk.fusion.BRepEdge = startLoop.edges[sampleEdgeIndex]
-        candidateStartCoEdges : Sequence[adsk.fusion.BRepCoEdge] = tuple(filter( lambda coEdge: coEdge.loop == startLoop,  startSampleEdge.coEdges ))
-        assert len(candidateStartCoEdges) == 1
-        startSampleCoEdge = candidateStartCoEdges[0]
-        startSampleCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge = startSampleCoEdge.isOpposedToEdge ^ startSampleCoEdge.edge.isParamReversed
-        startReferencePoint = (startSampleEdge.endVertex.geometry  if startSampleCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge else startSampleEdge.startVertex.geometry )
-        # highlight(startReferencePoint,**makeHighlightParams(f"startReferencePoint", show=False))
-        # highlight(startSampleEdge,**makeHighlightParams(f"startSampleEdge", show=False))
+            
+            
+            # highlight(
+            #     startLoop.edges,
+            #     **makeHighlightParams(f"start loop {loopIndex}")
+            # )
 
-        endLoop   : adsk.fusion.BRepLoop = endFace.loops[loopIndex]
-        endSampleEdge : adsk.fusion.BRepEdge = endLoop.edges[sampleEdgeIndex]
-        candidateEndCoEdges : Sequence[adsk.fusion.BRepCoEdge] = tuple(filter( lambda coEdge: coEdge.loop == endLoop,  endSampleEdge.coEdges ))
-        assert len(candidateEndCoEdges) == 1
-        endSampleCoEdge = candidateEndCoEdges[0]
-        endSampleCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge = endSampleCoEdge.isOpposedToEdge ^ endSampleCoEdge.edge.isParamReversed
-        endReferencePoint = (endSampleEdge.endVertex.geometry  if endSampleCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge else endSampleEdge.startVertex.geometry )
-        # highlight(endReferencePoint,**makeHighlightParams(f"endReferencePoint", show=False))
-        # highlight(endSampleEdge,**makeHighlightParams(f"endSampleEdge", show=False))
+            # highlight(
+            #     endLoop.edges,
+            #     **makeHighlightParams(f"end loop {loopIndex}")
+            # )
 
-        guideWireBody : adsk.fusion.BRepBody
-        guideWireBody, _ = temporaryBRepManager().createWireFromCurves(
-            curves = [adsk.core.Line3D.create(startPoint= startReferencePoint, endPoint= endReferencePoint)],
-            allowSelfIntersections=False
+
+
+            # startPath : adsk.fusion.Path = adsk.fusion.Path.create(curves = startLoop.edges[0]   , chainOptions = adsk.fusion.ChainedCurveOptions.noChainedCurves)
+            # for edgeIndex in range(1, startLoop.edges.count): startPath.addCurves(startLoop.edges[edgeIndex], chainOptions = adsk.fusion.ChainedCurveOptions.noChainedCurves)
+
+            # endPath : adsk.fusion.Path = adsk.fusion.Path.create(curves = endLoop.edges[0]   , chainOptions = adsk.fusion.ChainedCurveOptions.noChainedCurves)
+            # for edgeIndex in range(1, endLoop.edges.count): startPath.addCurves(endLoop.edges[edgeIndex], chainOptions = adsk.fusion.ChainedCurveOptions.noChainedCurves)
+
+            startPath : adsk.fusion.Path = mainTempComponent.features.createPath(curve= fscad._collection_of(startLoop.edges), isChain=False)
+            endPath   : adsk.fusion.Path = mainTempComponent.features.createPath(curve= fscad._collection_of(endLoop.edges),   isChain=False)
+            #curiously, adsk.fusion.Path.create(curves= fscad._collection_of(startLoop.edges), chainOptions = adsk.fusion.ChainedCurveOptions.noChainedCurves)
+            # would throw an error, saying something about path being empty.  However, mainTempComponent.features.createPath() worked as desired.
+            # This difference might have something to do with persisted vs. transient bodies.
+
+            assert startPath.isClosed
+            assert endPath.isClosed
+
+            # highlight(
+            #     startPath,
+            #     **makeHighlightParams(f"startPath {loopIndex}")
+            # )
+
+            # highlight(
+            #     endPath,
+            #     **makeHighlightParams(f"endPath {loopIndex}")
+            # )
+
+
+            #TODO : Refactor to get rid of pyramid-of-doom below:
+            
+            succesfullyCreatedSidewallBodies : bool = False
+
+            if not succesfullyCreatedSidewallBodies:
+                loftFeature : adsk.fusion.LoftFeature
+                loftFeatureInput : adsk.fusion.LoftFeatureInput = mainTempComponent.features.loftFeatures.createInput(operation=adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+                startLoftSection : adsk.fusion.LoftSection = loftFeatureInput.loftSections.add( startPath )
+                endLoftSection   : adsk.fusion.LoftSection = loftFeatureInput.loftSections.add( endPath )
+                loftFeatureInput.isSolid = False # this seems to make no difference -- we seemn to almost always get sheet bodies rather than solids.
+                
+                try:
+                    loftFeature = fscad.root().features.loftFeatures.add(loftFeatureInput)
+                except Exception as e:
+                    print(f"loftBetweenSheets encountered an error while attempting to construct sidewalls for loop {loopIndex} of segment {segmentIndex} of {len(sheetBodies) - 1} using the loft technique without a rail: {e}")
+                    loftFeature = None
+                else:
+                    sidewallBodies.extend( loftFeature.bodies )
+                    succesfullyCreatedSidewallBodies = True        
+            
+            if not succesfullyCreatedSidewallBodies :
+                print("attempting loft again, this time with guide rail.")
+                
+                
+                guideWireBodyPersisted : adsk.fusion.BRepBody = mainTempComponent.bRepBodies.add(guideWireBody)
+                assert guideWireBodyPersisted.edges.count == 1  
+                highlight(guideWireBody.edges,**makeHighlightParams(f"guideWire-had to use it", show=False))
+
+
+                loftFeatureInput : adsk.fusion.LoftFeatureInput = mainTempComponent.features.loftFeatures.createInput(operation=adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+                startLoftSection : adsk.fusion.LoftSection = loftFeatureInput.loftSections.add( startPath )
+                endLoftSection   : adsk.fusion.LoftSection = loftFeatureInput.loftSections.add( endPath )
+                loftFeatureInput.isSolid = False # this seems to make no difference -- we seemn to almost always get sheet bodies rather than solids.
+                loftCenterLineOrRail : adsk.fusion.LoftCenterLineOrRail = loftFeatureInput.centerLineOrRails.addRail(guideWireBodyPersisted.edges[0])
+                try:
+                    loftFeature = fscad.root().features.loftFeatures.add(loftFeatureInput)
+                except Exception as e:
+                    print(f"loftBetweenSheets encountered error while attempting to construct sidewalls for loop {loopIndex} of segment {segmentIndex} of {len(sheetBodies) - 1} using the loft technique with a rail: {e}")
+                    loftFeature = None
+                else: 
+                    sidewallBodies.extend( loftFeature.bodies )
+                    succesfullyCreatedSidewallBodies = True  
+
+            if not succesfullyCreatedSidewallBodies:
+                print("resorting to ruled surface for sidewall body.")
+                #compute the sidewalls as ruled surfaces.
+                startWireBody  : adsk.fusion.BRepBody
+                startEdgeMap   : Sequence[adsk.fusion.BRepEdge]
+                startWireBody, startEdgeMap = temporaryBRepManager().createWireFromCurves(
+                    curves = [
+                        edge.geometry
+                        for edge in startLoop.edges
+                    ],
+                    allowSelfIntersections=False
+                )
+                assert startWireBody.wires.count == 1
+                startWire : adsk.fusion.BRepWire = startWireBody.wires[0]
+                # start:
+                sampleEdgeIndex = 0
+                sourceEdge : adsk.fusion.BRepEdge = startLoop.edges[sampleEdgeIndex]
+                destinationEdge : adsk.fusion.BRepEdge = startEdgeMap[sampleEdgeIndex]
+
+                candidateSourceCoEdges : Sequence[adsk.fusion.BRepCoEdge] = tuple(filter( lambda coEdge: coEdge.loop == startLoop,  sourceEdge.coEdges ))
+                assert len(candidateSourceCoEdges) == 1
+                sourceCoEdge = candidateSourceCoEdges[0]
+
+                candidateDestinationCoEdges : Sequence[adsk.fusion.BRepCoEdge] = destinationEdge.coEdges
+                assert len(candidateDestinationCoEdges) == 1
+                destinationCoEdge = candidateDestinationCoEdges[0]
+                sourceCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge = sourceCoEdge.isOpposedToEdge ^ sourceCoEdge.edge.isParamReversed
+                destinationCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge = destinationCoEdge.isOpposedToEdge ^ destinationCoEdge.edge.isParamReversed
+                startWireDirectionMatchesStartLoopDirection : bool = sourceCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge == destinationCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge
+                print(f"startWireDirectionMatchesStartLoopDirection: {startWireDirectionMatchesStartLoopDirection}")
+                startStartPoint = (sourceEdge.endVertex.geometry  if sourceCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge else sourceEdge.startVertex.geometry )
+
+                endWireBody  : adsk.fusion.BRepBody
+                endEdgeMap   : Sequence[adsk.fusion.BRepEdge]
+                endWireBody, endEdgeMap = temporaryBRepManager().createWireFromCurves(
+                    curves = [
+                        edge.geometry
+                        for edge in endLoop.edges
+                    ],
+                    allowSelfIntersections=False
+                )
+                assert endWireBody.wires.count == 1
+                endWire : adsk.fusion.BRepWire = endWireBody.wires[0]
+                # end:
+                sampleEdgeIndex = 0
+                sourceEdge : adsk.fusion.BRepEdge = endLoop.edges[sampleEdgeIndex]
+                destinationEdge : adsk.fusion.BRepEdge = endEdgeMap[sampleEdgeIndex]
+
+                candidateSourceCoEdges : Sequence[adsk.fusion.BRepCoEdge] = tuple(filter( lambda coEdge: coEdge.loop == endLoop,  sourceEdge.coEdges ))
+                assert len(candidateSourceCoEdges) == 1
+                sourceCoEdge = candidateSourceCoEdges[0]
+
+                candidateDestinationCoEdges : Sequence[adsk.fusion.BRepCoEdge] = destinationEdge.coEdges
+                assert len(candidateDestinationCoEdges) == 1
+                destinationCoEdge = candidateDestinationCoEdges[0]
+                sourceCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge = sourceCoEdge.isOpposedToEdge ^ sourceCoEdge.edge.isParamReversed
+                destinationCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge = destinationCoEdge.isOpposedToEdge ^ destinationCoEdge.edge.isParamReversed
+                endWireDirectionMatchesEndLoopDirection : bool = sourceCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge == destinationCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge
+                print(f"endWireDirectionMatchesEndLoopDirection: {endWireDirectionMatchesEndLoopDirection}")
+                endStartPoint = (sourceEdge.endVertex.geometry  if sourceCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge else sourceEdge.startVertex.geometry )
+
+                highlight(startWire.edges,**makeHighlightParams(f"startWire", show=False))
+                highlight(startStartPoint,**makeHighlightParams(f"startStartPoint", show=False))
+
+
+                highlight(endWire.edges,**makeHighlightParams(f"endWire", show=False))
+                highlight(endStartPoint,**makeHighlightParams(f"endStartPoint", show=False))
+
+
+                # WRAP THIS IN ATRY LOOP
+                # attmept to construct the sidewalls using a ruled surface
+                sidewallBody : adsk.fusion.BRepBody = temporaryBRepManager().createRuledSurface(
+                    sectionOne = startWire,
+                    sectionTwo = endWire
+                )
+                sidewallPersistedBody: adsk.fusion.BRepBody  = mainTempComponent.bRepBodies.add(sidewallBody)
+
+                sidewallBodies.append(sidewallPersistedBody)
+
+
+
+        boundaryFillFeatureInput : adsk.fusion.BoundaryFillFeatureInput = mainTempComponent.features.boundaryFillFeatures.createInput(
+            tools= fscad._collection_of( sidewallBodies + [startSheetPersisted, endSheetPersisted]) , 
+            operation=adsk.fusion.FeatureOperations.NewBodyFeatureOperation
         )
-        assert guideWireBody.edges.count == 1
-        # highlight(guideWireBody.edges,**makeHighlightParams(f"guideWire", show=False))
-  
-        
-        
-        # highlight(
-        #     startLoop.edges,
-        #     **makeHighlightParams(f"start loop {loopIndex}")
-        # )
 
-        # highlight(
-        #     endLoop.edges,
-        #     **makeHighlightParams(f"end loop {loopIndex}")
-        # )
+        bRepCell : adsk.fusion.BRepCell
+        for bRepCell in boundaryFillFeatureInput.bRepCells: 
+            bRepCell.isSelected = True
 
+        boundaryFillFeature : adsk.fusion.BoundaryFillFeature = mainTempComponent.features.boundaryFillFeatures.add(boundaryFillFeatureInput)
+        thisSegmentSolidBodies : Sequence[adsk.fusion.BRepBody] = tuple( temporaryBRepManager().copy(body) for body in boundaryFillFeature.bodies )
+        if segmentIndex == 0: #if this is the first segment,
+            returnBodies.extend( thisSegmentSolidBodies )
+        else:
+            assert len(returnBodies) == 1
+            assert len(thisSegmentSolidBodies) == 1
+            result = temporaryBRepManager().booleanOperation(targetBody=returnBodies[0], toolBody=thisSegmentSolidBodies[0], booleanType=adsk.fusion.BooleanTypes.UnionBooleanType); assert result
 
-
-        # startPath : adsk.fusion.Path = adsk.fusion.Path.create(curves = startLoop.edges[0]   , chainOptions = adsk.fusion.ChainedCurveOptions.noChainedCurves)
-        # for edgeIndex in range(1, startLoop.edges.count): startPath.addCurves(startLoop.edges[edgeIndex], chainOptions = adsk.fusion.ChainedCurveOptions.noChainedCurves)
-
-        # endPath : adsk.fusion.Path = adsk.fusion.Path.create(curves = endLoop.edges[0]   , chainOptions = adsk.fusion.ChainedCurveOptions.noChainedCurves)
-        # for edgeIndex in range(1, endLoop.edges.count): startPath.addCurves(endLoop.edges[edgeIndex], chainOptions = adsk.fusion.ChainedCurveOptions.noChainedCurves)
-
-        startPath : adsk.fusion.Path = mainTempComponent.features.createPath(curve= fscad._collection_of(startLoop.edges), isChain=False)
-        endPath   : adsk.fusion.Path = mainTempComponent.features.createPath(curve= fscad._collection_of(endLoop.edges),   isChain=False)
-        #curiously, adsk.fusion.Path.create(curves= fscad._collection_of(startLoop.edges), chainOptions = adsk.fusion.ChainedCurveOptions.noChainedCurves)
-        # would throw an error, saying something about path being empty.  However, mainTempComponent.features.createPath() worked as desired.
-        # This difference might have something to do with persisted vs. transient bodies.
-
-        assert startPath.isClosed
-        assert endPath.isClosed
-
-        # highlight(
-        #     startPath,
-        #     **makeHighlightParams(f"startPath {loopIndex}")
-        # )
-
-        # highlight(
-        #     endPath,
-        #     **makeHighlightParams(f"endPath {loopIndex}")
-        # )
-
-
-        #TODO : Refactor to get rid of pyramid-of-doom below:
-        
-        succesfullyCreatedSidewallBodies : bool = False
-
-        if not succesfullyCreatedSidewallBodies:
-            loftFeature : adsk.fusion.LoftFeature
-            loftFeatureInput : adsk.fusion.LoftFeatureInput = mainTempComponent.features.loftFeatures.createInput(operation=adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-            startLoftSection : adsk.fusion.LoftSection = loftFeatureInput.loftSections.add( startPath )
-            endLoftSection   : adsk.fusion.LoftSection = loftFeatureInput.loftSections.add( endPath )
-            loftFeatureInput.isSolid = False # this seems to make no difference -- we seemn to almost always get sheet bodies rather than solids.
-            
-            try:
-                loftFeature = fscad.root().features.loftFeatures.add(loftFeatureInput)
-            except Exception as e:
-                print(f"loftBetweenSheets encountered error while attempting to construct sidewalls using the loft technique without a rail: {e}")
-                loftFeature = None
-            else:
-                sidewallBodies.extend( loftFeature.bodies )
-                succesfullyCreatedSidewallBodies = True        
-        
-        if not succesfullyCreatedSidewallBodies :
-            print("attempting loft again, this time with guide rail.")
-            
-            
-            guideWireBodyPersisted : adsk.fusion.BRepBody = mainTempComponent.bRepBodies.add(guideWireBody)
-            assert guideWireBodyPersisted.edges.count == 1  
-            # highlight(guideWireBody.edges,**makeHighlightParams(f"guideWire-had to use it", show=False))
-
-
-            loftFeatureInput : adsk.fusion.LoftFeatureInput = mainTempComponent.features.loftFeatures.createInput(operation=adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-            startLoftSection : adsk.fusion.LoftSection = loftFeatureInput.loftSections.add( startPath )
-            endLoftSection   : adsk.fusion.LoftSection = loftFeatureInput.loftSections.add( endPath )
-            loftFeatureInput.isSolid = False # this seems to make no difference -- we seemn to almost always get sheet bodies rather than solids.
-            loftCenterLineOrRail : adsk.fusion.LoftCenterLineOrRail = loftFeatureInput.centerLineOrRails.addRail(guideWireBodyPersisted.edges[0])
-            try:
-                loftFeature = fscad.root().features.loftFeatures.add(loftFeatureInput)
-            except Exception as e:
-                print(f"loftBetweenSheets encountered error while attempting to construct sidewalls using the loft technique with a rail: {e}")
-                loftFeature = None
-            else: 
-                sidewallBodies.extend( loftFeature.bodies )
-                succesfullyCreatedSidewallBodies = True  
-
-        if not succesfullyCreatedSidewallBodies:
-            print("resorting to ruled surface for sidewall body.")
-            #compute the sidewalls as ruled surfaces.
-            startWireBody  : adsk.fusion.BRepBody
-            startEdgeMap   : Sequence[adsk.fusion.BRepEdge]
-            startWireBody, startEdgeMap = temporaryBRepManager().createWireFromCurves(
-                curves = [
-                    edge.geometry
-                    for edge in startLoop.edges
-                ],
-                allowSelfIntersections=False
-            )
-            assert startWireBody.wires.count == 1
-            startWire : adsk.fusion.BRepWire = startWireBody.wires[0]
-            # start:
-            sampleEdgeIndex = 0
-            sourceEdge : adsk.fusion.BRepEdge = startLoop.edges[sampleEdgeIndex]
-            destinationEdge : adsk.fusion.BRepEdge = startEdgeMap[sampleEdgeIndex]
-
-            candidateSourceCoEdges : Sequence[adsk.fusion.BRepCoEdge] = tuple(filter( lambda coEdge: coEdge.loop == startLoop,  sourceEdge.coEdges ))
-            assert len(candidateSourceCoEdges) == 1
-            sourceCoEdge = candidateSourceCoEdges[0]
-
-            candidateDestinationCoEdges : Sequence[adsk.fusion.BRepCoEdge] = destinationEdge.coEdges
-            assert len(candidateDestinationCoEdges) == 1
-            destinationCoEdge = candidateDestinationCoEdges[0]
-            sourceCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge = sourceCoEdge.isOpposedToEdge ^ sourceCoEdge.edge.isParamReversed
-            destinationCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge = destinationCoEdge.isOpposedToEdge ^ destinationCoEdge.edge.isParamReversed
-            startWireDirectionMatchesStartLoopDirection : bool = sourceCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge == destinationCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge
-            print(f"startWireDirectionMatchesStartLoopDirection: {startWireDirectionMatchesStartLoopDirection}")
-            startStartPoint = (sourceEdge.endVertex.geometry  if sourceCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge else sourceEdge.startVertex.geometry )
-
-            endWireBody  : adsk.fusion.BRepBody
-            endEdgeMap   : Sequence[adsk.fusion.BRepEdge]
-            endWireBody, endEdgeMap = temporaryBRepManager().createWireFromCurves(
-                curves = [
-                    edge.geometry
-                    for edge in endLoop.edges
-                ],
-                allowSelfIntersections=False
-            )
-            assert endWireBody.wires.count == 1
-            endWire : adsk.fusion.BRepWire = endWireBody.wires[0]
-            # end:
-            sampleEdgeIndex = 0
-            sourceEdge : adsk.fusion.BRepEdge = endLoop.edges[sampleEdgeIndex]
-            destinationEdge : adsk.fusion.BRepEdge = endEdgeMap[sampleEdgeIndex]
-
-            candidateSourceCoEdges : Sequence[adsk.fusion.BRepCoEdge] = tuple(filter( lambda coEdge: coEdge.loop == endLoop,  sourceEdge.coEdges ))
-            assert len(candidateSourceCoEdges) == 1
-            sourceCoEdge = candidateSourceCoEdges[0]
-
-            candidateDestinationCoEdges : Sequence[adsk.fusion.BRepCoEdge] = destinationEdge.coEdges
-            assert len(candidateDestinationCoEdges) == 1
-            destinationCoEdge = candidateDestinationCoEdges[0]
-            sourceCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge = sourceCoEdge.isOpposedToEdge ^ sourceCoEdge.edge.isParamReversed
-            destinationCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge = destinationCoEdge.isOpposedToEdge ^ destinationCoEdge.edge.isParamReversed
-            endWireDirectionMatchesEndLoopDirection : bool = sourceCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge == destinationCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge
-            print(f"endWireDirectionMatchesEndLoopDirection: {endWireDirectionMatchesEndLoopDirection}")
-            endStartPoint = (sourceEdge.endVertex.geometry  if sourceCoEdgeIsOpposedToUnderlyingGeometryOfItsEdge else sourceEdge.startVertex.geometry )
-
-            # highlight(startWire.edges,**makeHighlightParams(f"startWire", show=False))
-            # highlight(startStartPoint,**makeHighlightParams(f"startStartPoint", show=False))
-
-
-            # highlight(endWire.edges,**makeHighlightParams(f"endWire", show=False))
-            # highlight(endStartPoint,**makeHighlightParams(f"endStartPoint", show=False))
-
-
-            # WRAP THIS IN ATRY LOOP
-            #  BOOKMARK 2021-11-22-0954
-            # attmept to construct the sidewalls using a ruled surface
-            sidewallBody : adsk.fusion.BRepBody = temporaryBRepManager().createRuledSurface(
-                sectionOne = startWire,
-                sectionTwo = endWire
-            )
-            sidewallPersistedBody: adsk.fusion.BRepBody  = mainTempComponent.bRepBodies.add(sidewallBody)
-
-            sidewallBodies.append(sidewallPersistedBody)
-
-
-
-    boundaryFillFeatureInput : adsk.fusion.BoundaryFillFeatureInput = mainTempComponent.features.boundaryFillFeatures.createInput(
-        tools= fscad._collection_of( sidewallBodies + [startSheetPersisted, endSheetPersisted]) , 
-        operation=adsk.fusion.FeatureOperations.NewBodyFeatureOperation
-    )
-
-    bRepCell : adsk.fusion.BRepCell
-    for bRepCell in boundaryFillFeatureInput.bRepCells: 
-        bRepCell.isSelected = True
-
-    boundaryFillFeature : adsk.fusion.BoundaryFillFeature = mainTempComponent.features.boundaryFillFeatures.add(boundaryFillFeatureInput)
-    returnBodies.extend( temporaryBRepManager().copy(body) for body in boundaryFillFeature.bodies )
-
-    # we might consider using a ruled surface (as created with TemporaryBRepManager::createRuledSurface(), 
-    # NOT with the ruled surface feature, which does not allow you to create an arbitrary ruled surface
-    # because it only lets youn specify one of the "rails".) instead of a loft.
+        # we might consider using a ruled surface (as created with TemporaryBRepManager::createRuledSurface(), 
+        # NOT with the ruled surface feature, which does not allow you to create an arbitrary ruled surface
+        # because it only lets youn specify one of the "rails".) instead of a loft.
 
 
     tempOccurrence.deleteMe()
@@ -2584,7 +2596,8 @@ def extrudeDraftAndWrapSheetbodiesAroundCylinder(
     rootRadius : Optional[float] = None,
     offsetCornerType : Optional[adsk.fusion.OffsetCornerTypes] = None,
     doFlatBackFill : bool = False ,
-    flatBackFillThickness : float = 0.0
+    flatBackFillThickness : float = 0.0,
+    maximumAllowedRadialExtentOfLoftSegment : float = 1*millimeter
 ) -> Sequence[adsk.fusion.BRepBody]:
     # the name of this function is admittedly terrible. this function takes a
     # set of sheet bodies, assumed to lie on the xy plane.  We then do the
@@ -2593,60 +2606,57 @@ def extrudeDraftAndWrapSheetbodiesAroundCylinder(
     # I am going to call this operation "Edification" for lack of a better word.
     returnBodies : Sequence[adsk.fusion.BRepBody] = []
 
+    segmentCount : int = (
+        math.ceil(abs(wrappingRadiusEnd - wrappingRadiusStart)/maximumAllowedRadialExtentOfLoftSegment)
+        if maximumAllowedRadialExtentOfLoftSegment > 0.0
+        else 1
+    )
 
     for sheetBody in sheetBodies:
         #we are assuming that each sheetBody has a single face (and that the wrapped version of the sheet body will also have a single face)
         flatSheetAtStart = sheetBody
         # fscad.BRepComponent(flatSheetAtStart,name="flatSheetAtStart").create_occurrence().isLightBulbOn = False
 
+        wrappedSheets : List[adsk.fusion.BRepBody] = []
 
-        flatSheetsAtEnd = offsetSheetBodies( 
-            sheetBodies = [flatSheetAtStart], 
-            offset = math.tan(draftAngle) * (wrappingRadiusEnd - wrappingRadiusStart),
-            offsetCornerType = offsetCornerType
-        )
-        assert len(flatSheetsAtEnd) == 1
-        flatSheetAtEnd = flatSheetsAtEnd[0]
+        for segmentIndex in range(segmentCount + 1):
+            thisWrappingRadius =  wrappingRadiusStart + (segmentIndex/segmentCount)*(wrappingRadiusEnd - wrappingRadiusStart)
+            offsettingResult = offsetSheetBodies( 
+                sheetBodies = (flatSheetAtStart, ), 
+                offset = math.tan(draftAngle) * (thisWrappingRadius - wrappingRadiusStart),
+                offsetCornerType = offsetCornerType
+            )
+            assert len(offsettingResult) == 1
+            thisFlatSheet = offsettingResult[0]
+
+            thisWrappedSheetResult = wrapSheetBodiesAroundCylinder(
+                sheetBodies            = (thisFlatSheet, ),
+                wrappingRadius         = thisWrappingRadius,
+                cylinderOrigin         = cylinderOrigin ,
+                cylinderAxisDirection  = cylinderAxisDirection ,
+                rootRadius             = rootRadius
+            )
+            assert len(thisWrappedSheetResult) == 1
+            thisWrappedSheet = thisWrappedSheetResult[0]
+            wrappedSheets.append(thisWrappedSheet)
+
+
         # fscad.BRepComponent(flatSheetAtEnd,name="flatSheetAtEnd").create_occurrence().isLightBulbOn = False
 
 
-        wrappedSheetsAtStart = wrapSheetBodiesAroundCylinder(
-            sheetBodies    = (flatSheetAtStart, ),
-            wrappingRadius = wrappingRadiusStart,
-            cylinderOrigin =cylinderOrigin ,
-            cylinderAxisDirection=cylinderAxisDirection ,
-            rootRadius = rootRadius
-        )
-        assert len(wrappedSheetsAtStart) == 1
-        wrappedSheetAtStart = wrappedSheetsAtStart[0]
-        # fscad.BRepComponent(wrappedSheetAtStart,name="wrappedSheetAtStart").create_occurrence().isLightBulbOn = False
-
-
-        wrappedSheetsAtEnd : Sequence[adsk.fusion.BRepBody] = wrapSheetBodiesAroundCylinder(
-            sheetBodies    = (flatSheetAtEnd, ),
-            wrappingRadius = wrappingRadiusEnd,
-            cylinderOrigin =cylinderOrigin ,
-            cylinderAxisDirection=cylinderAxisDirection ,
-            rootRadius = rootRadius
-        )
-        assert len(wrappedSheetsAtEnd) == 1
-        wrappedSheetAtEnd = wrappedSheetsAtEnd[0]
-        # fscad.BRepComponent(wrappedSheetAtEnd,name="wrappedSheetAtEnd").create_occurrence().isLightBulbOn = False
-
-        
-        loftBodies = loftBetweenSheets((wrappedSheetAtStart, wrappedSheetAtEnd))
+        loftBodies = loftBetweenSheets(wrappedSheets)
         if  doFlatBackFill:
             # To do: make this work for the arbitrary case, so that we are not relying
             # on the radial direction being negative z.
-            sheet1 = wrappedSheetAtEnd
-            sheet2 = temporaryBRepManager().copy(wrappedSheetAtEnd)
+            sheet1 = wrappedSheets[-1]
+            sheet2 = temporaryBRepManager().copy(wrappedSheets[-1])
             result = temporaryBRepManager().transform(
                 body=sheet2,
                 transform=translation(
                     (
                         0,
                         0,
-                        wrappedSheetAtEnd.boundingBox.maxPoint.z - wrappedSheetAtEnd.boundingBox.minPoint.z + flatBackFillThickness + 1
+                        wrappedSheets[-1].boundingBox.maxPoint.z - wrappedSheets[-1].boundingBox.minPoint.z + flatBackFillThickness + 1
                     )
                 )
             ); assert result
@@ -2656,7 +2666,7 @@ def extrudeDraftAndWrapSheetbodiesAroundCylinder(
             bb : adsk.core.BoundingBox3D = backFillLoftBodies[0].boundingBox.copy()
             for body in backFillLoftBodies:
                 bb.combine(body.boundingBox)
-            print(f"initially, bb: {castTo3dArray(bb.minPoint)} -- {castTo3dArray(bb.maxPoint)}")
+            # print(f"initially, bb: {castTo3dArray(bb.minPoint)} -- {castTo3dArray(bb.maxPoint)}")
             # bb.minPoint.x -= 1 * centimeter
             # bb.minPoint.y -= 1 * centimeter
             # bb.minPoint.z -= 1 * centimeter
@@ -2670,9 +2680,9 @@ def extrudeDraftAndWrapSheetbodiesAroundCylinder(
             bb.maxPoint = castToPoint3D(
                 castTo3dArray(bb.maxPoint) + castTo3dArray((1 * centimeter, 1*centimeter, 1*centimeter))
             )
-            bb.maxPoint = adsk.core.Point3D.create(bb.maxPoint.x, bb.maxPoint.y, wrappedSheetAtEnd.boundingBox.maxPoint.z + flatBackFillThickness)
+            bb.maxPoint = adsk.core.Point3D.create(bb.maxPoint.x, bb.maxPoint.y, wrappedSheets[-1].boundingBox.maxPoint.z + flatBackFillThickness)
 
-            print(f"after modification, bb: {castTo3dArray(bb.minPoint)} -- {castTo3dArray(bb.maxPoint)}")
+            # print(f"after modification, bb: {castTo3dArray(bb.minPoint)} -- {castTo3dArray(bb.maxPoint)}")
             obb = adsk.core.OrientedBoundingBox3D.create(
                 centerPoint = castToPoint3D(mean(castTo3dArray(bb.minPoint), castTo3dArray(bb.maxPoint))),
                 lengthDirection = castToVector3D(xHat),
