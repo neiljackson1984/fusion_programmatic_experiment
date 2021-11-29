@@ -95,7 +95,7 @@ def run(context:dict):
         handleProfileRoundingRadius             =  2  * millimeter
         handleToPlinthFilletRadius              =  6  * millimeter
         flatBackFillThickness                   =  3  * millimeter
-        maximumAllowedRadialExtentOfLoftSegment = 1 * millimeter
+        maximumAllowedRadialExtentOfLoftSegment =  0 * millimeter
 
 
         # rootAngularSpan = 10 * degree
