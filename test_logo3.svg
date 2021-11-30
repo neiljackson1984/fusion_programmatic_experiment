@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.1 (c68e22c387, 2021-05-23)"
+   sodipodi:docname="test_logo3.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="3.1108586"
+     inkscape:cx="249.12736"
+     inkscape:cy="86.471304"
+     inkscape:window-width="3840"
+     inkscape:window-height="2126"
+     inkscape:window-x="3829"
+     inkscape:window-y="-11"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs2" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <ellipse
+       style="vector-effect:non-scaling-stroke;fill:none;fill-opacity:0.5;stroke:#000000;stroke-width:0;stroke-miterlimit:9;stroke-dasharray:none;-inkscape-stroke:hairline"
+       id="path928"
+       cx="88.453613"
+       cy="64.128868"
+       rx="50.775772"
+       ry="23.601803" />
+    <g
+       aria-label="Abc"
+       id="text2037"
+       style="font-size:33.1611px;line-height:125%;font-family:Arial;-inkscape-font-specification:Arial;letter-spacing:0px;word-spacing:0px;stroke-width:0.00070115;fill:none;stroke:#000000;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none;vector-effect:non-scaling-stroke;-inkscape-stroke:hairline">
+      <path
+         d="m 82.674019,74.675262 h -5.213806 l -2.072569,-5.391916 h -9.488478 l -1.959225,5.391916 h -5.08427 L 68.10127,50.937875 h 5.068078 z m -8.824609,-9.391326 -3.270773,-8.808417 -3.206004,8.808417 z"
+         style="font-weight:bold;-inkscape-font-specification:'Arial Bold';fill:none;stroke:#000000;stroke-opacity:1;stroke-width:0.00070115;stroke-miterlimit:4;stroke-dasharray:none;vector-effect:non-scaling-stroke;-inkscape-stroke:hairline"
+         id="path9747" />
+      <path
+         d="M 84.989467,74.675262 V 50.937875 h 4.549936 v 8.549345 q 2.104952,-2.396407 4.987118,-2.396407 3.141237,0 5.197614,2.283064 2.056375,2.266872 2.056375,6.525353 0,4.404208 -2.104951,6.784424 -2.088761,2.380215 -5.08427,2.380215 -1.473467,0 -2.91455,-0.728637 -1.424891,-0.74483 -2.461175,-2.185913 v 2.525943 z m 4.517552,-8.970336 q 0,2.671671 0.841981,3.950834 1.182012,1.813498 3.141237,1.813498 1.50585,0 2.558327,-1.279164 1.068668,-1.295355 1.068668,-4.064177 0,-2.946934 -1.068668,-4.242289 -1.068669,-1.311548 -2.736439,-1.311548 -1.635386,0 -2.720246,1.279164 -1.08486,1.262971 -1.08486,3.853682 z"
+         style="font-weight:bold;-inkscape-font-specification:'Arial Bold';fill:none;stroke:#000000;stroke-opacity:1;stroke-width:0.00070115;stroke-miterlimit:4;stroke-dasharray:none;vector-effect:non-scaling-stroke;-inkscape-stroke:hairline"
+         id="path9749" />
+      <path
+         d="m 120.43363,62.563689 -4.48517,0.809598 q -0.22669,-1.343932 -1.03628,-2.023993 -0.79341,-0.680062 -2.07257,-0.680062 -1.70016,0 -2.72025,1.182012 -1.0039,1.16582 -1.0039,3.91845 0,3.060277 1.02009,4.323249 1.03629,1.262971 2.76882,1.262971 1.29536,0 2.12115,-0.728637 0.82579,-0.74483 1.16582,-2.542135 l 4.46897,0.761021 q -0.69625,3.076469 -2.67167,4.647088 -1.97541,1.570618 -5.29476,1.570618 -3.77272,0 -6.0234,-2.380215 -2.23449,-2.380216 -2.23449,-6.590121 0,-4.258481 2.25068,-6.622505 2.25068,-2.380215 6.08817,-2.380215 3.14124,0 4.98712,1.360123 1.86207,1.343931 2.67167,4.112753 z"
+         style="font-weight:bold;-inkscape-font-specification:'Arial Bold';fill:none;stroke:#000000;stroke-opacity:1;stroke-width:0.00070115;stroke-miterlimit:4;stroke-dasharray:none;vector-effect:non-scaling-stroke;-inkscape-stroke:hairline"
+         id="path9751" />
+    </g>
+  </g>
+</svg>

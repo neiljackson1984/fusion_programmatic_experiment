@@ -44,7 +44,7 @@ def makeClayStamp(
         'parameters': json.loads(json.dumps(locals()))
     }
     metadataReport : str = json.dumps(metadata, indent=4)
-
+    print(f"metadataReport: {metadataReport}")
 
     transformUponImport = castToMatrix3D(castToNDArray( rotation(angle=90*degree) ))
     # this is a bit of a hack to account for the fact that I have not made the
@@ -92,7 +92,7 @@ def makeClayStamp(
     letterRadiusMin = letterRadiusMax - letterRadialExtent
     plinthRadiusMax = letterRadiusMin
     plinthRadiusMin = plinthRadiusMax - plinthRadialExtent
-    cylinderOrigin = (0,0,rootRadius)       
+    cylinderOrigin = (0,0,rootRadius + 1*centimeter)       
     cylinderAxisDirection = xHat
 
     # these argument values will be splatted into all calls to
@@ -120,15 +120,15 @@ def makeClayStamp(
     # letterSheetsAtMinRadius = offsetSheetBodies(letterSheetsAtMaxRadius, math.tan(letterDraftAngle) * (letterRadiusMax - letterRadiusMin))
     # letterSheetsAtMinRadiusFscadComponent = fscad.BRepComponent(*letterSheetsAtMinRadius, name=f"letterSheetsAtMinRadius"); letterSheetsAtMinRadiusFscadComponent.create_occurrence()
 
-    # highlight(
-    #     # tuple(destinationSurface.evaluator.getIsoCurve(0,isUDirection=False)),
-    #     adsk.core.Circle3D.createByCenter(
-    #         center = castToPoint3D(cylinderOrigin),
-    #         normal = castToVector3D(cylinderAxisDirection),
-    #         radius = rootRadius
-    #     ),
-    #     **makeHighlightParams("cylinder preview", show=False)
-    # )
+    highlight(
+        # tuple(destinationSurface.evaluator.getIsoCurve(0,isUDirection=False)),
+        adsk.core.Circle3D.createByCenter(
+            center = castToPoint3D(cylinderOrigin),
+            normal = castToVector3D(cylinderAxisDirection),
+            radius = rootRadius
+        ),
+        **makeHighlightParams("cylinder preview", show=False)
+    )
 
 
     edifiedPlinthBodies = extrudeDraftAndWrapSheetbodiesAroundCylinder(
@@ -265,7 +265,7 @@ def makeClayStamp(
         characterSpacing=0.0
     ); assert result
     metadataReportSketchText = sketch.sketchTexts.add(sketchTextInput); assert metadataReportSketchText is not None
-
+    sketch.isLightBulbOn = False
     # export component
 
     result = design().exportManager.execute(
@@ -276,19 +276,19 @@ def makeClayStamp(
     ); assert result
 
 
-    result = design().exportManager.execute(
-        design().exportManager.createSTEPExportOptions(
-            pathlib.Path(pathOfOutputFile).with_suffix('.step').resolve().as_posix(),
-            workingComponent
-        )
-    ); assert result
+    # result = design().exportManager.execute(
+    #     design().exportManager.createSTEPExportOptions(
+    #         pathlib.Path(pathOfOutputFile).with_suffix('.step').resolve().as_posix(),
+    #         workingComponent
+    #     )
+    # ); assert result
 
-    result = design().exportManager.execute(
-        design().exportManager.createIGESExportOptions(
-            pathlib.Path(pathOfOutputFile).with_suffix('.iges').resolve().as_posix(),
-            workingComponent
-        )
-    ); assert result
+    # result = design().exportManager.execute(
+    #     design().exportManager.createIGESExportOptions(
+    #         pathlib.Path(pathOfOutputFile).with_suffix('.iges').resolve().as_posix(),
+    #         workingComponent
+    #     )
+    # ); assert result
     # fscad.BRepComponent(*edifiedLetterBodies, name=f"edifiedLetterBodies").create_occurrence()
 
 

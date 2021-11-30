@@ -2615,6 +2615,7 @@ def extrudeDraftAndWrapSheetbodiesAroundCylinder(
             )
             assert len(thisWrappedSheetResult) == 1
             thisWrappedSheet = thisWrappedSheetResult[0]
+            # fscad.BRepComponent(thisWrappedSheet,name=f"wrapped sheet at start of segment {segmentIndex}").create_occurrence().isLightBulbOn = False
             wrappedSheets.append(thisWrappedSheet)
 
 
