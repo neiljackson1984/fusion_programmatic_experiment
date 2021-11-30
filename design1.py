@@ -50,9 +50,6 @@ def run(context:dict):
             'plinthRadialExtent' : [
                 1/4*inch 
             ],
-            'plinthRadialExtent':  [ 
-                -7*degree 
-            ],
             'letterDraftAngle': [
                 0, 
                 -1* degree, 
@@ -65,8 +62,8 @@ def run(context:dict):
             ],
             'pathOfSvgFile':  [
                 # pathlib.Path(__file__).parent.joinpath('eXotic logo 1 2.svg').resolve().as_posix(),
-                pathlib.Path(__file__).parent.joinpath('test_logo2.svg').resolve().as_posix(),
-                pathlib.Path(__file__).parent.joinpath('test_logo3.svg').resolve().as_posix()
+                pathlib.Path(__file__).parent.joinpath('test_logo1.svg').resolve().as_posix(),
+                pathlib.Path(__file__).parent.joinpath('test_logo2.svg').resolve().as_posix()
             ]
         }
         #testGrid is a dict whose keys are parameter names and whose values are
@@ -107,7 +104,7 @@ def run(context:dict):
                                                                                                                                 
             #parameters controlling the handle:                                                            
             'handlePathExtentZ'                         :  25 * millimeter,
-            'handlePathExtentY'                         :  40 * millimeter,
+            'handlePathExtentY'                         :  63 * millimeter,
             'handlePathRoundingRadius'                  :  10 * millimeter,
             'handleProfileExtentX'                      :  15 * millimeter,
             'handleProfileExtentY'                      :  6  * millimeter,

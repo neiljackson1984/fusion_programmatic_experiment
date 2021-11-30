@@ -79,6 +79,8 @@ def makeClayStamp(
 
     supportFscadComponent = fscad.BRepComponent(*supportSheetBodies, name=f"support"); 
     print(f"supportFscadComponent.mid: {(supportFscadComponent.mid().x, supportFscadComponent.mid().y, supportFscadComponent.mid().z)}")
+    print(f"supportFscadComponent.extent x: {(supportFscadComponent.max().x - supportFscadComponent.min().x)}")
+    print(f"supportFscadComponent.extent y: {(supportFscadComponent.max().y - supportFscadComponent.min().y)}")
     
     # supportFscadComponent.create_occurrence()
     # oddRankFscadComponent = fscad.BRepComponent(*oddRankSheetBodies, name=f"odd rank"); oddRankFscadComponent.create_occurrence()
@@ -253,20 +255,62 @@ def makeClayStamp(
     mainFscadOccurrence = mainFscadComponent.create_occurrence()
     workingComponent = mainFscadOccurrence.component
 
-    sketch : Optional[adsk.fusion.Sketch] = workingComponent.sketches.add(workingComponent.xYConstructionPlane); assert sketch is not None
-    sketch.name = "metadata_report"
-    sketchTextInput = sketch.sketchTexts.createInput2(formattedText=metadataReport, height = 4 * millimeter)
-    sketchTextInput.fontName = "Consolas"
-    result = sketchTextInput.setAsMultiLine(
-        cornerPoint = adsk.core.Point3D.create(0,0,0),
-        diagonalPoint = adsk.core.Point3D.create(1000 * millimeter, -0.1 * millimeter, 0),
-        horizontalAlignment = adsk.core.HorizontalAlignments.LeftHorizontalAlignment,
-        verticalAlignment = adsk.core.VerticalAlignments.TopVerticalAlignment,
-        characterSpacing=0.0
-    ); assert result
-    metadataReportSketchText = sketch.sketchTexts.add(sketchTextInput); assert metadataReportSketchText is not None
-    sketch.isLightBulbOn = False
-    # export component
+
+    writeMetadataReportToSketchText = True
+    if writeMetadataReportToSketchText:
+        #write metadataReport into sketchText:
+        occurrenceOfComponentToContainTheMetadataReport = workingComponent.occurrences.addNewComponent(adsk.core.Matrix3D.create())
+        componentToContainTheMetadataReport = occurrenceOfComponentToContainTheMetadataReport.component
+        componentToContainTheMetadataReport.name = "metadata_report"
+        occurrenceOfComponentToContainTheMetadataReport.isLightBulbOn = False
+        sketch : Optional[adsk.fusion.Sketch] = componentToContainTheMetadataReport.sketches.add(componentToContainTheMetadataReport.xYConstructionPlane); assert sketch is not None
+        sketch.name = "metadata_report"
+        sketch.isLightBulbOn = True
+        sketchTextInput = sketch.sketchTexts.createInput2(formattedText=metadataReport, height = 4 * millimeter)
+        sketchTextInput.fontName = "Consolas"
+        result = sketchTextInput.setAsMultiLine(
+            cornerPoint = adsk.core.Point3D.create(0,0,0),
+            diagonalPoint = adsk.core.Point3D.create(1000 * millimeter, -0.1 * millimeter, 0),
+            horizontalAlignment = adsk.core.HorizontalAlignments.LeftHorizontalAlignment,
+            verticalAlignment = adsk.core.VerticalAlignments.TopVerticalAlignment,
+            characterSpacing=0.0
+        ); assert result
+        metadataReportSketchText = sketch.sketchTexts.add(sketchTextInput); assert metadataReportSketchText is not None
+        
+ 
+
+    writeMetadataReportToCustomGraphics = False
+    if writeMetadataReportToCustomGraphics:
+        #unfortunately, custome grpahics do not seem to persist when the file is saved, and are therefore useless for our purpose here.
+        #write metadataReport into customGraphics container within a child component (to be able to toggle off and on in the ui):
+        occurrenceOfComponentToContainTheMetadataReport = workingComponent.occurrences.addNewComponent(adsk.core.Matrix3D.create())
+        componentToContainTheMetadataReport = occurrenceOfComponentToContainTheMetadataReport.component
+        componentToContainTheMetadataReport.name = "metadata_report"
+        occurrenceOfComponentToContainTheMetadataReport.isLightBulbOn = True
+        customGraphicsGroupToContainTheCustomGraphics = componentToContainTheMetadataReport.customGraphicsGroups.add()
+        customGraphicsText = customGraphicsGroupToContainTheCustomGraphics.addText(
+            formattedText=metadataReport,
+            font="Consolas",
+            size=15,
+            transform= adsk.core.Matrix3D.create()
+        )
+        
+        # customGraphicsText.transform = translation((0,300,0))
+
+        customGraphicsText.billBoarding = adsk.fusion.CustomGraphicsBillBoard.create(anchorPoint=adsk.core.Point3D.create(0,0,0))
+        # customGraphicsText.billBoarding = None
+        customGraphicsText.viewPlacement = adsk.fusion.CustomGraphicsViewPlacement.create(
+            anchorPoint=adsk.core.Point3D.create(0,0,0),
+            viewCorner= adsk.fusion.ViewCorners.lowerRightViewCorner,
+            viewPoint=adsk.core.Point2D.create(customGraphicsText.width+20,customGraphicsText.height+20)
+        )
+        customGraphicsText.viewScale = adsk.fusion.CustomGraphicsViewScale.create(
+            pixelScale=1,
+            anchorPoint=adsk.core.Point3D.create(0,0,0)
+        )
+        customGraphicsText.isSelectable = False
+
+
 
     result = design().exportManager.execute(
         design().exportManager.createFusionArchiveExportOptions(
