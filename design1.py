@@ -29,49 +29,68 @@ def run(context:dict):
         fileSpecificParameterOverrides = {
             'eXotic logo 1 2.svg': {
                 'svgNativeLengthUnit': ((1/2 * inch)/36.068069458007805)
+            },
+            'test_logo2.svg': {
+                'svgNativeLengthUnit': ((1/2 * inch)/36.068069458007805)
             }
         }
 
-        # points in parameter space that we want to test.
-        testPoints = [
-            {
-                'rootAngularSpan'    : rootAngularSpan,
-                'letterRadialExtent' : letterRadialExtent,
-                'plinthRadialExtent' : plinthRadialExtent,
-                'letterDraftAngle'   : letterDraftAngle,
-                'plinthDraftAngle'   : plinthDraftAngle,
-                'pathOfSvgFile'      : pathOfSvgFile
-            }
-            for rootAngularSpan in [ 
-                # 10 * degree,
-                # 40 * degree, 
+
+        testParameterGrid = {
+            'rootAngularSpan': [ 
+                10 * degree,
+                40 * degree, 
                 120 * degree
-            ]
-            for letterRadialExtent in [
+            ],
+            'letterRadialExtent' : [
                 1 * millimeter, 
-                # 3 * millimeter, 
-                # 1/4*inch
-            ]
-            for plinthRadialExtent in [
+                3 * millimeter, 
+                1/4*inch
+            ],
+            'plinthRadialExtent' : [
                 1/4*inch 
-            ]
-            for plinthDraftAngle   in [ 
+            ],
+            'plinthRadialExtent':  [ 
                 -7*degree 
-            ]
-            for letterDraftAngle   in [
-                # 0, 
+            ],
+            'letterDraftAngle': [
+                0, 
                 -1* degree, 
-                # -4* degree, 
-                # -7* degree, 
-                #   -10*degree 
-            ]
-            for pathOfSvgFile in [
-                pathlib.Path(__file__).parent.joinpath('eXotic logo 1 2.svg').resolve().as_posix(),
+                -4* degree, 
+                -7* degree, 
+                -10*degree 
+            ],
+            'plinthDraftAngle': [
+                -7* degree   
+            ],
+            'pathOfSvgFile':  [
+                # pathlib.Path(__file__).parent.joinpath('eXotic logo 1 2.svg').resolve().as_posix(),
+                pathlib.Path(__file__).parent.joinpath('test_logo2.svg').resolve().as_posix(),
                 pathlib.Path(__file__).parent.joinpath('test_logo3.svg').resolve().as_posix()
             ]
-        ]
+        }
+        #testGrid is a dict whose keys are parameter names and whose values are
+        # values of the corresponding parameter, which we are interested in
+        # testing. We will run the process for each member of the cartesian
+        # product of these parameter values.
 
-        commonParameters = { 
+        testPoints = list(
+            map(
+                dict,
+                itertools.product(
+                    *(
+                        [
+                            (key, value)
+                            for value in testParameterGrid[key]
+                        ]
+                        for key in testParameterGrid
+                    )
+                )
+            )
+        )
+
+
+        commonDefaultParameters = { 
             'svgNativeLengthUnit'                       : 1 * millimeter,
             'translateAsNeededInOrderToPlaceMidPoint'   : True,
                                                                                                                                 
@@ -99,7 +118,10 @@ def run(context:dict):
 
         testReport = {}
         testReport['timestampOfThisRun'] = f"{timestampOfThisRun}"
-        testReport['commonParameters'] = commonParameters
+        testReport['commonDefaultParameters'] = commonDefaultParameters
+        testReport['testParameterGrid'] = testParameterGrid
+        testReport['fileSpecificParameterOverrides'] = fileSpecificParameterOverrides
+
         testReport['testResults'] = []
 
         for testPointIndex in range(len(testPoints)):
@@ -120,22 +142,22 @@ def run(context:dict):
                 + ".f3d"
             ).resolve().as_posix()      
 
-            parameters = {
-                **commonParameters,
+            resolvedParameters = {
+                **commonDefaultParameters,
                 # parameters controlling the svg import process:                                           
                 'pathOfSvgFile'                             : pathOfSvgFile,
                 'pathOfOutputFile'                          : pathOfOutputFile,
                 **fileSpecificParameterOverrides.get(pathlib.Path(pathOfSvgFile).name,{}),
                 **testParameters
             }
-            testResult['parameters'] = parameters
+            testResult['resolvedParameters'] = resolvedParameters
 
 
             errorOccured=False
             errorMessage=""
             nameOfArtifactFile=""
             try:
-                clay_stamp.makeClayStamp(**parameters)
+                clay_stamp.makeClayStamp(**resolvedParameters)
             except Exception as e:
                 errorOccured=True
                 errorMessage=f"{e}"
