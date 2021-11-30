@@ -94,7 +94,7 @@ def makeClayStamp(
     letterRadiusMin = letterRadiusMax - letterRadialExtent
     plinthRadiusMax = letterRadiusMin
     plinthRadiusMin = plinthRadiusMax - plinthRadialExtent
-    cylinderOrigin = (0,0,rootRadius + 1*centimeter)       
+    cylinderOrigin = (0,0,rootRadius)       
     cylinderAxisDirection = xHat
 
     # these argument values will be splatted into all calls to

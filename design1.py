@@ -66,7 +66,7 @@ def run(context:dict):
                 pathlib.Path(__file__).parent.joinpath('test_logo2.svg').resolve().as_posix()
             ]
         }
-        #testGrid is a dict whose keys are parameter names and whose values are
+        #testParameterGrid is a dict whose keys are parameter names and whose values are
         # values of the corresponding parameter, which we are interested in
         # testing. We will run the process for each member of the cartesian
         # product of these parameter values.
@@ -124,9 +124,18 @@ def run(context:dict):
         for testPointIndex in range(len(testPoints)):
             print(f"now processing test point {testPointIndex} of {len(testPoints)}.")
             
+
             
             testParameters = testPoints[testPointIndex]
+
+
+            gridIndex = [
+                testParameterGrid[key].index(testParameters[key])
+                for key in testParameterGrid
+            ]
             testResult = {}
+            testResult['testIndex'] = testPointIndex
+            testResult['gridIndex'] = gridIndex
             testResult['testParameters'] = testParameters
 
             pathOfSvgFile = testPoints[testPointIndex]['pathOfSvgFile']
@@ -135,7 +144,9 @@ def run(context:dict):
                 + "--"
                 + f"{testPointIndex}"
                 + "--"
-                + pathlib.Path(pathOfSvgFile).stem 
+                + "-".join(map(str,gridIndex))
+                # + "--"
+                # + pathlib.Path(pathOfSvgFile).stem 
                 + ".f3d"
             ).resolve().as_posix()      
 
