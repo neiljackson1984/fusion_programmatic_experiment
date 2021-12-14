@@ -44,7 +44,7 @@ def makeClayStamp(
         'parameters': json.loads(json.dumps(locals()))
     }
     metadataReport : str = json.dumps(metadata, indent=4)
-    print(f"metadataReport: {metadataReport}")
+    # print(f"metadataReport: {metadataReport}")
 
     transformUponImport = castToMatrix3D(castToNDArray( rotation(angle=90*degree) ))
     # this is a bit of a hack to account for the fact that I have not made the
@@ -76,6 +76,35 @@ def makeClayStamp(
         for sheetBody in sheetBodiesGroupedByRank[r]
         if r % 2 == 1
     )
+
+    minisculeEdgeLengthThreshold = 0.01 * millimeter
+    numberOfShortEdgeCandidatesToHighlight = 3
+    edge : adsk.fusion.BRepEdge
+    edgesSortedByLength = sorted(
+        (
+            edge
+            for sheetBody in (*supportSheetBodies, *oddRankSheetBodies)
+            for edge in sheetBody.edges
+        ),
+        key=getLengthOfEdge
+    )
+
+    for edge in edgesSortedByLength:
+        length = getLengthOfEdge(edge)
+        if length < minisculeEdgeLengthThreshold:
+            highlight(
+                edge,
+                **makeHighlightParams(f"miniscule edge of length {length}", show=False)
+            )
+
+    for i in range(min(numberOfShortEdgeCandidatesToHighlight, len(edgesSortedByLength))):
+        highlight(
+            edgesSortedByLength[i],
+            **makeHighlightParams(f"short edge candidate {i}, length {getLengthOfEdge(edgesSortedByLength[i])}", show=False)
+        )
+    fscad.BRepComponent(*supportSheetBodies, name=f"supportSheetBodies").create_occurrence()
+    fscad.BRepComponent(*oddRankSheetBodies, name=f"oddRankSheetBodies").create_occurrence()
+            
 
     supportFscadComponent = fscad.BRepComponent(*supportSheetBodies, name=f"support"); 
     print(f"supportFscadComponent.mid: {(supportFscadComponent.mid().x, supportFscadComponent.mid().y, supportFscadComponent.mid().z)}")

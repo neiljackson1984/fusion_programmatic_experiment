@@ -1227,7 +1227,8 @@ def getSheetBodiesGroupedByRankFromSvg(pathOfSvgFile,
     allSheetBodiesFromSketchGroupedByRank = getAllSheetBodiesFromSketchGroupedByRank(sketch)
     benchmarkTimestamps.append(time.time())
     print(f"time to to get all sheet bodies from sketch: {benchmarkTimestamps[-1] - benchmarkTimestamps[-2]} seconds.")
-    tempOccurrence.deleteMe()
+    # tempOccurrence.deleteMe()
+    tempOccurrence.isLightBulbOn = False
     if transform is not None:
         for sheetBodyRankGroup in allSheetBodiesFromSketchGroupedByRank:
             for sheetBody in sheetBodyRankGroup:
@@ -2714,3 +2715,8 @@ def interpolatingCurve(*interpolationPoints : Sequence[VectorLike]) -> adsk.core
     returnValue : adsk.core.NurbsCurve3D = sketchFittedSpline.worldGeometry
     tempOccurrence.deleteMe()
     return returnValue
+
+def getLengthOfEdge(edge : adsk.fusion.BRepEdge) -> float:
+    result, startParameter, endParameter = edge.evaluator.getParameterExtents(); assert result
+    result, length = edge.evaluator.getLengthAtParameter(startParameter, endParameter); assert result
+    return length

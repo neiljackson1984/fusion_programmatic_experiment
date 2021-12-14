@@ -38,31 +38,31 @@ def run(context:dict):
 
         testParameterGrid = {
             'rootAngularSpan': [ 
-                10 * degree,
-                40 * degree, 
+                # 10 * degree,
+                # 40 * degree, 
                 120 * degree
             ],
             'letterRadialExtent' : [
-                1 * millimeter, 
+                # 1 * millimeter, 
                 3 * millimeter, 
-                1/4*inch
+                # 1/4*inch
             ],
             'plinthRadialExtent' : [
                 1/4*inch 
             ],
             'letterDraftAngle': [
-                0, 
-                -1* degree, 
+                # 0, 
+                # -1* degree, 
                 -4* degree, 
-                -7* degree, 
-                -10*degree 
+                # -7* degree, 
+                # -10*degree 
             ],
             'plinthDraftAngle': [
                 -7* degree   
             ],
             'pathOfSvgFile':  [
                 # pathlib.Path(__file__).parent.joinpath('eXotic logo 1 2.svg').resolve().as_posix(),
-                pathlib.Path(__file__).parent.joinpath('test_logo1.svg').resolve().as_posix(),
+                # pathlib.Path(__file__).parent.joinpath('test_logo1.svg').resolve().as_posix(),
                 pathlib.Path(__file__).parent.joinpath('test_logo2.svg').resolve().as_posix()
             ]
         }
@@ -97,8 +97,8 @@ def run(context:dict):
             # 'plinthRadialExtent'                        : 1/4 * inch,
             # 'letterDraftAngle'                          : - 4 *degree,
             # 'plinthDraftAngle'                          : - 7 *degree,
-            'offsetCornerType'                          : adsk.fusion.OffsetCornerTypes.ExtendedOffsetCornerType,
-            # 'offsetCornerType'                          : adsk.fusion.OffsetCornerTypes.LinearOffsetCornerType,
+            # 'offsetCornerType'                          : adsk.fusion.OffsetCornerTypes.ExtendedOffsetCornerType,
+            'offsetCornerType'                          : adsk.fusion.OffsetCornerTypes.LinearOffsetCornerType,
             'doMultipleLoftSegments'                    : False,
             'maximumAllowedRadialExtentOfLoftSegment'   : 1*millimeter ,
                                                                                                                                 
