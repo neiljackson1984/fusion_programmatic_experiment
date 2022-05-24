@@ -1,3 +1,7 @@
+; This is an keystroke-sending-based way to reload a fusion add-in.
+; Useful during debugging of an add-in.
+
+
 #NoEnv  ; Recommended for performance and compatibility with future AutoHotkey releases.
 SendMode Input  ; Recommended for new scripts due to its superior speed and reliability.
 SetKeyDelay 20

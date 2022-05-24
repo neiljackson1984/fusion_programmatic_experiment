@@ -3,7 +3,7 @@ from enum import Enum
 import enum
 import math
 from .braids.fscad.src.fscad import fscad as fscad
-from . import highlight as highlight
+# from . import highlight as highlight
 # from .highlight import highlight
 import itertools
 import re
@@ -23,7 +23,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 
-from .bit_holder_utility import *
+from .utility import *
 
 
 _cannedBitHolders : Dict[str, 'BitHolder'] = {}
@@ -177,9 +177,9 @@ class MountHoleSpec :
 
             counterBoreEndPoint = extremePoints[1].copy()
             counterBoreEndPoint.translateBy(offset)
-            # highlight.highlight(extremePoints[0], colorEffect='darkgreen')
-            # highlight.highlight(extremePoints[1], colorEffect='darkorange')
-            # highlight.highlight(counterBoreEndPoint, colorEffect='firebrick')
+            # highlight(extremePoints[0], colorEffect='darkgreen')
+            # highlight(extremePoints[1], colorEffect='darkorange')
+            # highlight(counterBoreEndPoint, colorEffect='firebrick')
 
             tool = fscad.Union(
                 cylinderByStartEndRadius(
@@ -193,7 +193,7 @@ class MountHoleSpec :
                     endPoint = castToPoint3D( castTo3dArray(counterBoreEndPoint) - 1*meter*castTo3dArray(axis.direction) )
                 )
             )
-            # highlight.highlight(tool, colorEffect='darkgreen')
+            # highlight(tool, colorEffect='darkgreen')
             return fscad.Difference(component, tool)
             # TODO: the 1*meter, above, is a major hack that is intended to mean
             # "infinity".  We really ought to evaluate the bounding box of the
@@ -743,7 +743,7 @@ class BitHolderSegment (MutableComponentWithCachedBodiesAndArbitraryBodyHash)  :
         #just for debugging, scale way down:
         # a*=0.1
         # b*=0.1
-        # c*=0.1
+        # c*=0.1getColorCycle
 
         return [
             np.array((zeroLength, zeroLength)),
@@ -761,7 +761,7 @@ class BitHolderSegment (MutableComponentWithCachedBodiesAndArbitraryBodyHash)  :
     def _make_raw_bodies(self) -> Iterable[adsk.fusion.BRepBody]:
         # print(f"BitHolderSegment::_make_raw_bodies() is running for a BitHolderSegment having self.bit.labelText being {repr(self.bit.labelText)}")
         returnValue : list[adsk.fusion.BRepBody] = []
-        colorCycleForHighlighting = highlight.getColorCycle()
+        colorCycleForHighlighting = getColorCycle()
         
         polygonVertices = [
                 vector(self.xMin, self.yMin, zeroLength),
@@ -786,7 +786,7 @@ class BitHolderSegment (MutableComponentWithCachedBodiesAndArbitraryBodyHash)  :
         # there is not at present a pre-existing function to do this.
 
         # print(polygonVertices)
-        # highlight.highlight(
+        # highlight(
         #     itertools.starmap(
         #         adsk.core.Point3D.create,
         #         polygonVertices
@@ -799,14 +799,14 @@ class BitHolderSegment (MutableComponentWithCachedBodiesAndArbitraryBodyHash)  :
                 polygonVertices
             )
         )
-        # highlight.highlight(polygon)
+        # highlight(polygon)
         mainPrivateComponent : fscad.Component
         mainPrivateComponent : fscad.Component = fscad.Extrude(polygon, height=self.extentX)
         mainPrivateComponent.name = 'mainPrivateComponent'
         #the name is just for debugging
 
         boreTool = cylinderByStartEndRadius(startPoint=castToPoint3D(self.boreBottomCenter), endPoint=castToPoint3D(self.boreBottomCenter + 1*meter * self.boreDirection), radius = self.boreDiameter/2)
-        # highlight.highlight(boreTool)
+        # highlight(boreTool)
         boxOccurrence = mainPrivateComponent.create_occurrence()
         boxBody = boxOccurrence.bRepBodies.item(0)
         boreToolOccurrence = boreTool.create_occurrence()
@@ -863,7 +863,7 @@ class BitHolderSegment (MutableComponentWithCachedBodiesAndArbitraryBodyHash)  :
             if edge not in edgesDescendedFromInitialEdges
         ]
         boreToolOccurrence.deleteMe()
-        # highlight.highlight(edgesOfInterest)
+        # highlight(edgesOfInterest)
         # print('len(edgesOfInterest): ' + str(len(edgesOfInterest)))
         
         filletFeatureInput = boxOccurrence.component.features.filletFeatures.createInput()
@@ -1018,7 +1018,7 @@ class BitHolderSegment (MutableComponentWithCachedBodiesAndArbitraryBodyHash)  :
             if edge not in edgesDescendedFromInitialEdges
         ]
         labelSculptingToolOccurrence.deleteMe()
-        # highlight.highlight(edgesOfInterest)
+        # highlight(edgesOfInterest)
         # print('len(edgesOfInterest): ' + str(len(edgesOfInterest)))
         # mainPrivateComponent = fscad.BRepComponent(*boxOccurrence.bRepBodies)
         # print('mainPrivateComponent.name: ' +  mainPrivateComponent.name)
@@ -1076,11 +1076,11 @@ class BitHolderSegment (MutableComponentWithCachedBodiesAndArbitraryBodyHash)  :
 
             sweepingChains = partitionEdgeSequenceIntoChains(sweepingEdges)
             # for sweepingEdge in sweepingEdges:
-            #     highlight.highlight(sweepingEdge, colorEffect=next(colorCycleForHighlighting)['color'])
+            #     highlight(sweepingEdge, colorEffect=next(colorCycleForHighlighting)['color'])
 
 
             # for sweepingPath in sweepingPaths:
-            #     highlight.highlight(sweepingPath, colorEffect=next(colorCycleForHighlighting)['color'])
+            #     highlight(sweepingPath, colorEffect=next(colorCycleForHighlighting)['color'])
 
 
             # we might also consider filtering on the whether
@@ -1107,14 +1107,14 @@ class BitHolderSegment (MutableComponentWithCachedBodiesAndArbitraryBodyHash)  :
             #          |_______________|
 
             lipProfile = fscad.Polygon(*map(castToPoint3D, self.labelRetentionLipProfile), name='lipProfile')
-            # highlight.highlight(lipProfile, colorEffect=next(colorCycleForHighlighting)['color'])
+            # highlight(lipProfile, colorEffect=next(colorCycleForHighlighting)['color'])
 
             lipBodies : Sequence[adsk.fusion.BRepBodies] = []
             
             # for sweepingChain in sweepingChains:
             for i in range(len(sweepingChains)):
                 sweepingChain = sweepingChains[i]
-                # highlight.highlight(sweepingPath, colorEffect=next(colorCycleForHighlighting)['color'])
+                # highlight(sweepingPath, colorEffect=next(colorCycleForHighlighting)['color'])
                 if doHighlighting:
                     colorEffectForHighlighting = next(colorCycleForHighlighting)['color']
                     customGraphicsGroupToReceiveTheCustomGraphics=fscad.BRepComponent(name='highlight').create_occurrence().component.customGraphicsGroups.add()
@@ -1131,7 +1131,7 @@ class BitHolderSegment (MutableComponentWithCachedBodiesAndArbitraryBodyHash)  :
                 # )
                 
                 if doHighlighting:
-                    highlight.highlight(sweepingPath, 
+                    highlight(sweepingPath, 
                         colorEffect=colorEffectForHighlighting, 
                         customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics
                     )
@@ -1169,7 +1169,7 @@ class BitHolderSegment (MutableComponentWithCachedBodiesAndArbitraryBodyHash)  :
 
                 doHighlightHostFace = False
                 if doHighlighting and doHighlightHostFace:
-                    highlight.highlight(hostFace, 
+                    highlight(hostFace, 
                         colorEffect=colorEffectForHighlighting,
                         customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics
                     )
@@ -1215,7 +1215,7 @@ class BitHolderSegment (MutableComponentWithCachedBodiesAndArbitraryBodyHash)  :
 
 
                 if doHighlighting:
-                    highlight.highlight(placedLipProfile, 
+                    highlight(placedLipProfile, 
                         colorEffect=colorEffectForHighlighting,
                         customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics
                     )
@@ -1243,7 +1243,7 @@ class BitHolderSegment (MutableComponentWithCachedBodiesAndArbitraryBodyHash)  :
                     name='lip'
                 )
                 if doHighlighting:
-                    highlight.highlight(lip, 
+                    highlight(lip, 
                         colorEffect=colorEffectForHighlighting,
                         customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics
                     )
@@ -1491,7 +1491,7 @@ class BitHolder  (MutableComponentWithCachedBodiesAndArbitraryBodyHash) :
 
         
 
-        # highlight.highlight(self.mountHolePositions)
+        # highlight(self.mountHolePositions)
 
         for mountHolePosition in self.mountHolePositions:
             combinedSegments = self.mountHoleSpec.cutIntoComponent(component = combinedSegments, axis = adsk.core.InfiniteLine3D.create(origin = mountHolePosition, direction = castToVector3D(yHat)))
@@ -1672,8 +1672,8 @@ class Galley(fscad.BRepComponent):
         )
 
 
-        # highlight.highlight(fscad.Rect(self.width, self.height).edges)
-        # highlight.highlight(
+        # highlight(fscad.Rect(self.width, self.height).edges)
+        # highlight(
         #     rectByCorners(
         #         (self.leftMargin, self.bottomMargin),
         #         (self.width - self.rightMargin, self.height - self.topMargin)
@@ -1987,7 +1987,7 @@ class TextRow(fscad.BRepComponent):
          # sketch.sketchCurves.sketchCircles.addByCenterRadius(centerPoint=layoutDefiningPoints[1] , radius=0.4)
          # sketch.sketchCurves.sketchCircles.addByCenterRadius(centerPoint=adsk.core.Point3D.create(0,0,0) , radius=0.06)
          #
-         # highlight.highlight((sketchText.boundingBox.minPoint, sketchText.boundingBox.maxPoint))
+         # highlight((sketchText.boundingBox.minPoint, sketchText.boundingBox.maxPoint))
          # FilledRectangle(
          #     sketchText.boundingBox.minPoint, 
          #     sketchText.boundingBox.maxPoint

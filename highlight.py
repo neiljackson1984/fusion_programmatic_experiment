@@ -1,6 +1,6 @@
 
 import adsk.core, adsk.fusion
-from typing import Optional, Iterable, Union, Sequence, SupportsFloat, Tuple
+from typing import Any, Dict, Optional, Iterable, Union, Sequence, SupportsFloat, Tuple
 from .braids.fscad.src.fscad import fscad as fscad
 from PIL import Image
 from PIL import ImageFont
@@ -11,7 +11,23 @@ import matplotlib.colors
 import itertools
 
 def getColorCycle():
-    return itertools.cycle(matplotlib.rcParams["axes.prop_cycle"])
+    # return itertools.cycle(matplotlib.rcParams["axes.prop_cycle"])
+    return itertools.cycle(
+        map(
+            lambda x: x['color'],
+            matplotlib.rcParams["axes.prop_cycle"]
+        )
+    )
+
+globalColorCycle = getColorCycle()
+
+# calling next on a color cycle yields an object that has a 'color'
+# attribute (Whose value is a MatPlotLibColorLike (typically a string containing
+# the html color code)).  This object is not directly 
+#
+# string,as it happens, but at any rate the value is a MatPlotLibColorLike
+# globalColorEffectCycle = 
+# color cycle that clients can call next() on to their heart's content.
 
 FusionBRepEntity = (
     Union[
@@ -125,19 +141,30 @@ def makeFusionBRepBodyFromFusionBRepEntity(fusionBRepEntity : FusionBRepEntity) 
 
     return newBRepBody
 
+# def edgeDefinitionToEdge(edgeDefinition : adsk.fusion.BRepEdgeDefinition) -> adsk.fusion.BRepEdge:
+#     bRepBodyDefinition : adsk.fusion.BRepBodyDefinition = adsk.fusion.BRepBodyDefinition.create()
+
 
 HighlightableThing = (
         Union[
+            adsk.fusion.BRepBody, 
+            adsk.core.Curve3D, 
+            adsk.core.Point3D,
+
+
             adsk.fusion.BRepEdge, 
             adsk.fusion.BRepFace, 
-            adsk.core.Curve3D, 
-            adsk.fusion.BRepBody, 
             adsk.fusion.Occurrence, 
-            adsk.core.Point3D,
+            fscad.BRepEntity,
+            fscad.Component,
             adsk.fusion.Path,
             adsk.fusion.PathEntity,
-            fscad.BRepEntity,
-            fscad.Component
+
+            adsk.fusion.BRepVertexDefinition,
+            # adsk.fusion.BRepEdgeDefinition, actually, a BRepEdgeDefinition on
+            # its own doesn't (I think) have quite enough information to unambiguosly
+            # highlight.
+
         ])
 
 def getOwningComponent(customGraphicsGroup : adsk.fusion.CustomGraphicsGroup) -> adsk.fusion.Component:
@@ -274,7 +301,20 @@ def highlight(
         # graphics ought to be placed (which we need to do if the user has not
         # given us a _customGraphicsGroupToReceiveTheCustomGraphics or
         # _fallbackComponentToReceiveTheCustomGraphics) are BRepEdge, BRepFace,
-        # BRepBody, and adsk.fusion.Occurrence.
+        # BRepBody, and adsk.fusion.Occurrence. Be aware: Even though fusion
+        # treats wire bodies as first class citizens under the hood, when it
+        # comes to display, fusion does not display wire bodies. So, how then do
+        # we highlight an edge?  Well, we pass edge.geometry (which is a 3d
+        # curve) to highlight().  I am not convinced that this is a robust way
+        # to highlight an edge, because a 3DCurve (that type exactly) does not
+        # carry any information about endpoints.  However, some (all?) of the
+        # derived types of 3D curve do carry endpoint information, which Fusion
+        # will presumably attend to when we pass the curve as an argument to the
+        # customGraphicsGroup's addCurve() method.
+        #
+        # Does one ever encounter an edge where the type of edge.geometry is
+        # exactly 3DCurve (i.e. not a a sublcass of 3DCurve)?  I am guessing
+        # that the answer is no.
         
 
         
@@ -408,6 +448,57 @@ def highlight(
             # _customGraphicsGroupToReceiveTheCustomGraphics.color=customGraphicsColorEffect #this might be redundant, givinmg that we are setting the color property of customGraphicsBRepBody, below.
             customGraphicsBRepBody : Optional[adsk.fusion.CustomGraphicsBRepBody] = _customGraphicsGroupToReceiveTheCustomGraphics.addBRepBody(bRepBody) 
             customGraphicsBRepBody.color=customGraphicsColorEffect            
+        elif isinstance(highlightableThing, adsk.core.Curve3D       ):
+            curve3D : adsk.core.Curve3D = highlightableThing
+            customGraphicsCurve : Optional[adsk.fusion.CustomGraphicsCurve] = _customGraphicsGroupToReceiveTheCustomGraphics.addCurve(curve3D) 
+            customGraphicsCurve.weight=preferredWeight
+            customGraphicsCurve.color=customGraphicsColorEffect
+        elif isinstance(highlightableThing, adsk.core.Point3D       ):
+            point3D : adsk.core.Point3D = highlightableThing
+
+            ## the hacky, image-based method for point highlighting:
+                # coordinates : adsk.fusion.CustomGraphicsCoordinates = adsk.fusion.CustomGraphicsCoordinates.create(point3D.asArray())
+                # preferredColor = adsk.core.Color.create(red=255, green=0, blue=0, opacity=255)
+                # coordinates.setColor(0,preferredColor)
+                # # coordinates.setCoordinate(0,point3D)
+                # # customGraphicsPointSet : Optional[adsk.fusion.CustomGraphicsPointSet] = customGraphicsGroupToReceiveTheCustomGraphics.addPointSet(
+                # #     coordinates=coordinates,
+                # #     indexList=[],
+                # #     pointType= adsk.fusion.CustomGraphicsPointTypes.PointCloudCustomGraphicsPointType ,
+                # #     pointImage=''
+                # # )
+                # img = Image.new(mode='RGB',size=(4, 4),color=(preferredColor.red, preferredColor.green, preferredColor.blue))
+                # pathOfPointImageFile=tempfile.mktemp('.png')          
+                # img.save(pathOfPointImageFile, format='png')
+                # 
+                # #using an image file as the point icon is quite a hack.  It might be
+                # # better to do a sphere as brep bodies, and to use some of the scaling features built into
+                # # the custom graphics system so as to scale the sphere relative to the screen rather than relative to the model.
+                # customGraphicsPointSet : Optional[adsk.fusion.CustomGraphicsPointSet] = _customGraphicsGroupToReceiveTheCustomGraphics.addPointSet(
+                #     coordinates=coordinates,
+                #     indexList=[],
+                #     pointType= adsk.fusion.CustomGraphicsPointTypes.UserDefinedCustomGraphicsPointType ,
+                #     pointImage=pathOfPointImageFile
+                # )
+                # customGraphicsPointSet.color = customGraphicsColorEffect
+
+
+            temporaryBRepManager : adsk.fusion.TemporaryBRepManager = adsk.fusion.TemporaryBRepManager.get()
+            bRepBody : adsk.fusion.BRepBody = temporaryBRepManager.createSphere(center=point3D, radius=0.5)
+            customGraphicsBRepBody : Optional[adsk.fusion.CustomGraphicsBRepBody] = _customGraphicsGroupToReceiveTheCustomGraphics.addBRepBody(bRepBody) 
+            customGraphicsBRepBody.color=customGraphicsColorEffect
+            customGraphicsBRepBody.viewScale = adsk.fusion.CustomGraphicsViewScale.create(pixelScale=5, anchorPoint=point3D)
+        
+        # thus concludes the cases that we deal with by directly calling the
+        # appropriate add... method of
+        # customGraphicsGroupToReceiveTheCustomGraphics In all cases below, we
+        # convert highlightableThing to some combination of BRepBody, Curve3D,
+        # or Point (generally, everything gets converted to BRepBody), and then
+        # pass the results of the conversion back into highlight(), to be dealt
+        # with by the above cases.  
+        #
+        #
+
         elif isinstance(highlightableThing, adsk.fusion.BRepEdge    ):
             bRepEdge : adsk.fusion.BRepEdge = highlightableThing
             # bRepBody = makeFusionBRepBodyFromFusionBRepEntity(bRepEdge)
@@ -460,12 +551,7 @@ def highlight(
                 fscadComponent.bodies, 
                 customGraphicsGroupToReceiveTheCustomGraphics=customGraphicsGroupToReceiveTheCustomGraphics,
                 colorEffect=colorEffect
-            )
-        elif isinstance(highlightableThing, adsk.core.Curve3D       ):
-            curve3D : adsk.core.Curve3D = highlightableThing
-            customGraphicsCurve : Optional[adsk.fusion.CustomGraphicsCurve] = _customGraphicsGroupToReceiveTheCustomGraphics.addCurve(curve3D) 
-            customGraphicsCurve.weight=preferredWeight
-            customGraphicsCurve.color=customGraphicsColorEffect
+            )        
         elif isinstance(highlightableThing, adsk.fusion.Path        ):
             path : adsk.fusion.Path = highlightableThing
             for i in range(path.count):
@@ -481,45 +567,52 @@ def highlight(
                 customGraphicsGroupToReceiveTheCustomGraphics=_customGraphicsGroupToReceiveTheCustomGraphics, 
                 colorEffect=colorEffect
             )
-        elif isinstance(highlightableThing, adsk.core.Point3D       ):
-            point3D : adsk.core.Point3D = highlightableThing
-
-            ## the hacky, image-based method for point highlighting:
-                # coordinates : adsk.fusion.CustomGraphicsCoordinates = adsk.fusion.CustomGraphicsCoordinates.create(point3D.asArray())
-                # preferredColor = adsk.core.Color.create(red=255, green=0, blue=0, opacity=255)
-                # coordinates.setColor(0,preferredColor)
-                # # coordinates.setCoordinate(0,point3D)
-                # # customGraphicsPointSet : Optional[adsk.fusion.CustomGraphicsPointSet] = customGraphicsGroupToReceiveTheCustomGraphics.addPointSet(
-                # #     coordinates=coordinates,
-                # #     indexList=[],
-                # #     pointType= adsk.fusion.CustomGraphicsPointTypes.PointCloudCustomGraphicsPointType ,
-                # #     pointImage=''
-                # # )
-                # img = Image.new(mode='RGB',size=(4, 4),color=(preferredColor.red, preferredColor.green, preferredColor.blue))
-                # pathOfPointImageFile=tempfile.mktemp('.png')          
-                # img.save(pathOfPointImageFile, format='png')
-                # 
-                # #using an image file as the point icon is quite a hack.  It might be
-                # # better to do a sphere as brep bodies, and to use some of the scaling features built into
-                # # the custom graphics system so as to scale the sphere relative to the screen rather than relative to the model.
-                # customGraphicsPointSet : Optional[adsk.fusion.CustomGraphicsPointSet] = _customGraphicsGroupToReceiveTheCustomGraphics.addPointSet(
-                #     coordinates=coordinates,
-                #     indexList=[],
-                #     pointType= adsk.fusion.CustomGraphicsPointTypes.UserDefinedCustomGraphicsPointType ,
-                #     pointImage=pathOfPointImageFile
-                # )
-                # customGraphicsPointSet.color = customGraphicsColorEffect
+        elif isinstance(highlightableThing, adsk.fusion.BRepVertexDefinition    ):
+            bRepVertexDefinition : adsk.fusion.BRepVertexDefinition = highlightableThing
+            highlight(
+                bRepVertexDefinition.position, 
+                customGraphicsGroupToReceiveTheCustomGraphics=_customGraphicsGroupToReceiveTheCustomGraphics, 
+                colorEffect=colorEffect
+            )
 
 
-            temporaryBRepManager : adsk.fusion.TemporaryBRepManager = adsk.fusion.TemporaryBRepManager.get()
-            bRepBody : adsk.fusion.BRepBody = temporaryBRepManager.createSphere(center=point3D, radius=0.5)
-            customGraphicsBRepBody : Optional[adsk.fusion.CustomGraphicsBRepBody] = _customGraphicsGroupToReceiveTheCustomGraphics.addBRepBody(bRepBody) 
-            customGraphicsBRepBody.color=customGraphicsColorEffect
-            customGraphicsBRepBody.viewScale = adsk.fusion.CustomGraphicsViewScale.create(pixelScale=5, anchorPoint=point3D)
         else:
             print("We do not know how to highlight a " + str(type(highlightableThing)))
             continue
             #this is a type error
+
+def makeHighlightParams(name: Optional[str] = None, show : bool = True) -> Dict[str,Any]:
+    """
+    this produces a dict containing the optional params for the highlight()
+    function  (intended to be double-star splatted into the arguments list) 
+    that will cause the hihglight function to produce a new named
+    component just tom contain the hihglights -- the benfit of having a set of
+    highlights in a component is that we can then toggle the visibility of the
+    hihghlights in the ui by togglinng the visibility of the occurence of the
+    componet.
+    """
+    rootComponent : adsk.fusion.Component = adsk.fusion.Design.cast(adsk.core.Application.get().activeProduct).rootComponent
+    occurenceOfComponentToReceiveTheCustomGraphics = rootComponent.occurrences.addNewComponent(adsk.core.Matrix3D.create())
+    componentToReceiveTheCustomGraphics = occurenceOfComponentToReceiveTheCustomGraphics.component
+    componentToReceiveTheCustomGraphics.name = (name if name is not None else "anonymous_highlight")
+    occurenceOfComponentToReceiveTheCustomGraphics.isLightBulbOn = show
+
+    return {
+        'colorEffect':  next(globalColorCycle),
+        'customGraphicsGroupToReceiveTheCustomGraphics' : componentToReceiveTheCustomGraphics.customGraphicsGroups.add()
+    }
+
+
+
+
+
+
+
+
+
+
+
+
 
 #region DEPRECATED_HIGHLIGHTING
 # def highlightEntities(entities: Sequence[HighlightableThing], 

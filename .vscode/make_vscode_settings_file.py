@@ -109,7 +109,7 @@ vscodeSettings = {
     "neil.pathOfPythonScriptToRunScriptInFusion": pathOfPythonScriptToRunScriptInFusion.as_posix(),
     "neil.pathOfPythonExecutableBundledWithFusion": pathOfPythonExecutableBundledWithFusion.as_posix(),
     "neil.pathOfFusionScriptRunnerAddin": pathOfFusionScriptRunnerAddin.as_posix(),
-	"python.pythonPath":	f"{pathOfPythonExecutableBundledWithFusion.as_posix()}",
+	"python.defaultInterpreterPath":	f"{pathOfPythonExecutableBundledWithFusion.as_posix()}",
 	"python.linting.pylintEnabled": False,
 	"python.analysis.extraPaths": preferredPythonAutocompleteAndAnalysisExtraPaths,
     "python.autoComplete.extraPaths": preferredPythonAutocompleteAndAnalysisExtraPaths	,
