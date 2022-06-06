@@ -1,9 +1,10 @@
 
 """
 
-Note: running a script or add-in via this add-in will not cause the script/add-in to appear 
-in Fusion360's "Scripts and Add-Ins" dialog.  This is one of the ways in which the action of this add-in is not
-exactly identical to the action of manual commands issued in Fusion360's user interface.
+Note: running a script or add-in via this add-in will not cause the
+script/add-in to appear in Fusion360's "Scripts and Add-Ins" dialog.  This is
+one of the ways in which the action of this add-in is not exactly identical to
+the action of manual commands issued in Fusion360's user interface.
 """
 
 # The structure and much of the function of this code is inspired by Ben Gruver's fusion_idea_addin
@@ -168,10 +169,10 @@ class AddIn(object):
 
     #this is intended to be run in Fusion's main thread.
     def runScript(self, 
-        script_path  : str, 
-        debug        : bool = False, 
-        debugpy_path : str  = "", 
-        debug_port   : int  = 0,
+        script_path                               : str                 , 
+        debug                                     : bool = False        , 
+        debugpy_path                              : str  = ""           , 
+        debug_port                                : int  = 0            ,
         prefixes_of_submodules_not_to_be_reloaded : 'list[str]' = []
     ):
         try:
@@ -194,7 +195,8 @@ class AddIn(object):
                     debugpy.wait_for_client()
                     ui().palettes.itemById('TextCommands').writeText(str(datetime.datetime.now()) + "\t" + 'Client connected.  Now running ' + script_path + ' ...')
                     adsk.doEvents() 
-                    # we might consider doing this waiting in a separate thread so as to not block the UI.
+                    # we might consider doing this waiting in a separate thread
+                    # so as to not block the UI.
                     
                 script_path = os.path.abspath(script_path)
                 script_dir = os.path.dirname(script_path)
@@ -253,7 +255,15 @@ class AddIn(object):
                     #monkeypatching traceback with vscode-compatible formatting of line references
                     initialTracebackStackSummaryFormatMethod = traceback.StackSummary.format
                     traceback.StackSummary.format = formatStackSummaryWithLineReferencesInVscodeCompatibleFormat
-                    module.run({"isApplicationStartup": False})    
+                    module.run({"isApplicationStartup": False})   
+
+                    # command debugpy (Actually pydevd) to disconnect/terminate
+                    # the debug session (if debugpy even has such a concept).
+                    # ensureThatDebuggingIsStopped()
+                    disconnectTheDebugAdapterClient()
+                    # pydevd.stoptrace()
+                    # should we allow this behavior to be suppressed by a flag?
+
                     traceback.StackSummary.format = initialTracebackStackSummaryFormatMethod
                     # print(traceback.format_tb(sys.last_traceback))                              
                 else:
@@ -309,8 +319,8 @@ class AddIn(object):
             # we have managed to reproduce much of the behavior of the fusion-ui-based launching of add-ins and scripts in debug mode,
             # but one thing we have not been able to reproduce is the behavior where clicking the "reload" button in VS code debugging interface
             # causes the add-in or script to run again.
-            #also, we have not reprodfuced the behavior where fusion waits for the ide to connect to the debug adapter before running the 
-            # script.  Somehow, we need to inject a wait-for-client function call just before running the script (but in another thread so as not to black
+            #also, we have not reproduced the behavior where fusion waits for the ide to connect to the debug adapter before running the 
+            # script.  Somehow, we need to inject a wait-for-client function call just before running the script (but in another thread so as not to block
             # fusion's main thread), and somehow we need to catch the client refresh button press and re-launch jthe script in response.
 
             # perhaps there is something already established between fusion and the gloabl PyDB object such that I do not need
@@ -393,7 +403,8 @@ def unload_submodules(module_name, prefixes_of_submodules_not_to_be_reloaded: 'l
 def ensureThatDebuggingIsStarted(debugpy_path: str, debug_port: int) -> None:
     global debugpy
     global debugging_started
-
+    logger.debug("ensuring that debugging is started... ")
+    logger.debug(f"debugging_started: {debugging_started}")
     # make sure that debugging is running.
     if not debugpy_path:
         logger.warning("We have been instructed to do debugging, but you have not provided the necessary debugpy_path.  Therefore, we can do nothing.")
@@ -460,6 +471,67 @@ def ensureThatDebuggingIsStarted(debugpy_path: str, debug_port: int) -> None:
         debugging_started = True
         addin._simpleFusionCustomCommands.append(SimpleFusionCustomCommand(name="D_indicator", app=app(), logger=logger))
 
+# EXPERIMENTAL:
+def ensureThatDebuggingIsStopped() -> None:
+    global debugging_started
+    global debugpy
+    
+    logger.debug("ensuring that debugging is stopped")
+    logger.debug(f"debugging_started: {debugging_started}")
+    if debugging_started:
+        with debugpy._vendored.vendored(project='pydevd'):
+            from _pydevd_bundle.pydevd_constants import get_global_debugger
+            from pydevd import PyDB
+            import pydevd
+        
+        import debugpy.server
+        import debugpy.server.api
+
+# EXPERIMENTAL:
+def disconnectTheDebugAdapterClient() -> None:
+    return
+    # send an "Exit" message to any connected clients 
+    
+
+    global debugging_started
+    global debugpy
+    
+    logger.debug("disconnecting the debug adapter client... ")
+    logger.debug(f"debugging_started: {debugging_started}")
+    if debugging_started:
+        with debugpy._vendored.vendored(project='pydevd'):
+            from _pydevd_bundle.pydevd_constants import get_global_debugger
+            from pydevd import PyDB
+            from _pydevd_bundle.pydevd_net_command import NetCommand
+            from _pydevd_bundle.pydevd_net_command import NULL_EXIT_COMMAND
+            from _pydevd_bundle.pydevd_comm_constants import CMD_EXIT
+            import pydevd
+        
+        import debugpy.server
+        import debugpy.server.api
+        py_db : PyDB = get_global_debugger()
+        if py_db is None:
+            return False
+
+        writer = py_db.writer
+        if writer is None:
+            return False
+
+        # cmd = NetCommand(-1, 0, msg, is_json=True)
+        # writer.add_command(NULL_EXIT_COMMAND)
+        # 2022-06-05 18:21:12,342 - DEBUG - LoggingDapMessagesListener::before_send({'type': 'event', 'event': 'terminated', 'seq': 56, 'body': {}, 'pydevd_cmd_id': 129})
+
+        cmd = NetCommand(cmd_id=CMD_EXIT, seq=0, text={'type': 'event', 'event': 'terminated', 'body': {}}, is_json=True)
+        writer.add_command(cmd)
+        debugging_started = False
+        # pydevd.stoptrace()
+        # # # debugpy.server.api.is_client_connected
+        # debugging_started = False
+        # debugpy.server.api.trace_this_thread(False)
+    # netstat -n | grep -E ':9000\s'
+    # watch ' netstat -n | grep -E ":9000\\s"'
+    # watch ' netstat -n -o | grep -E ":443\s"'
+    # watch ' netstat -n -o | grep -E ":9000\s"'
 class FusionErrorDialogLoggingHandler(logging.Handler):
     """A logging handler that shows a error dialog to the user in Fusion 360."""
 
@@ -501,9 +573,11 @@ class FusionTextCommandsPalletteLoggingHandler(logging.Handler):
             lambda : 
                 ui().palettes.itemById('TextCommands').writeText(self.format(record))
         )
-        # We do not want the logging system to rely on fusionMainThreadRunner, because fusionMainThreadRunner might itself use
-        # the logging system.  Therefore, we will manually set up the fusion custom event and associated handler here, rather than relying on 
-        # the equivalent functionality in fusionMainThreadRunner.
+        # We do not want the logging system to rely on fusionMainThreadRunner,
+        # because fusionMainThreadRunner might itself use the logging system.
+        # Therefore, we will manually set up the fusion custom event and
+        # associated handler here, rather than relying on the equivalent
+        # functionality in fusionMainThreadRunner.
 
 
     

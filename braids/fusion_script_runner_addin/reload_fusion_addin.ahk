@@ -20,6 +20,8 @@ SetTitleMatchMode, 1
 ; NOT YET IMPLEMENTED
 debug:=GetSwitchParams("((--debug))")
 
+delayDurationToWaitForTheAppearanceOfFusionScriptsAndAddinsWindow:=700
+
 ; TODO: allow user to specify whether this is a 'script' or an 'add-in'
 
 GetParams("nonSwitchParameters")
@@ -46,7 +48,7 @@ Sleep, 100
 ;; send shift-s to open the "Scripts and Add-Ins" dialog:
 Send +s
 
-Sleep, 250
+Sleep, %delayDurationToWaitForTheAppearanceOfFusionScriptsAndAddinsWindow%
 ; at this point, if everything has gone according to plan, the Scripts and Add-Ins window should be
 ; freshly opened.
 WinGet, fusionScriptsAndAddinsWindowHandle, ID, Scripts and Add-Ins ahk_exe Fusion360.exe

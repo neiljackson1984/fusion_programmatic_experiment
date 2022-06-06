@@ -1,8 +1,8 @@
-# This script constructs an http request based on the arguments, and sends the request
-# to the (assumed to be already-running) fusion_script_runner_addin, assumed ot be already running within
-# Fusion. 
-# (if we wanted to get fancy, we could try to detect the condition where fusion, or the addin within it,
-# are not already running, and then take corrective action).
+# This script constructs an http request based on the arguments, and sends the
+# request to the fusion_script_runner_addin, assumed to be already running
+# within Fusion. (if we wanted to get fancy, we could try to detect the
+# condition where fusion, or the addin within it, are not already running, and
+# then take corrective action).
 
 import sys
 import json
@@ -16,9 +16,9 @@ import re
 ##   COLLECT THE PARAMETERS: 
 ##==========================================
 
-# we probably ought to wrap the meat of this script into a main() function and only run it
-# in case this function is being run as a script (As opposed to being iomported as a module),
-# but I have not bothered to do this.
+# we probably ought to wrap the meat of this script into a main() function and
+# only run it in case this function is being run as a script (As opposed to
+# being imported as a module), but I have not bothered to do this.
 
 DEFAULT_PORT_NUMBER_FOR_HTTP_SERVER = 19812
 DEFAULT_DEBUG_PORT_NUMBER = 9000
@@ -40,8 +40,9 @@ parser.add_argument('--script',
     help="the path of the script file that is to be run."
 )
 # to stay true to the way fusion_script_runner_addin works, we ought to allow
-# the user to omit the script argument and specify debug=True,
-# because this is a sensible input to the fusion_script_runner_addin (it simply starts the debug server but doesn't run any script)
+# the user to omit the script argument and specify debug=True, because this is a
+# sensible input to the fusion_script_runner_addin (it simply starts the debug
+# server but doesn't run any script)
 
 
 parser.add_argument('--addin_port',
