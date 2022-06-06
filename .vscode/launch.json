@@ -9,11 +9,12 @@
 					"localRoot":	"${workspaceRoot}",
 					"remoteRoot":	"${workspaceRoot}"
 				}],
+			// "port":	"${config:neil.debugPort}",
 			"port":	9000,
 			"host":	"localhost",
 			// "preLaunchTask":"run_fusion"
 			"preLaunchTask":"run_design1_with_debugging",
-			"justMyCode": true
+			"justMyCode": false
 		},
 		{
 			"name":"neil1",

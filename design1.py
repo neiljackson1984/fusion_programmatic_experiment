@@ -9,12 +9,13 @@ import json
 
 from .utility import *
 
-import zipfile
 
 def run(context:dict):
  
     def design1_clayStamp() -> None:
         from . import clay_stamp
+        import zipfile
+
         pathOfBuildDirectory = pathlib.Path(__file__).parent.joinpath('build')
         pathOfBuildDirectory.mkdir(exist_ok = True, parents=True)
         
@@ -193,7 +194,7 @@ def run(context:dict):
         artifactZipFile.close()
     # design1 = design1_clayStamp
 
-    def design1_bitHolder():
+    def design1_bitHolder() -> None:
         from . import bit_holder
         # v = adsk.core.Vector3D.create(0,0,0)
         # v = adsk.core.Vector3D.create(False, False, False)
@@ -331,7 +332,12 @@ def run(context:dict):
         # print("duration of bitHolderArray.create_occurrence(): %f" % (endTime-startTime))
 
         bit_holder.getCannedBitHolders()['1/4-inch hex shank driver bits holder'].create_occurrence()
-    design1 = design1_bitHolder
+    # design1 = design1_bitHolder
+    
+    def design1_toughcaseModule():  
+        from . import toughcase
+        toughcase.ToughCaseModule().create_occurrence()            
+    design1 = design1_toughcaseModule
     
 
     fscad.run_design(design_func=design1, message_box_on_error=False, re_raise_exceptions=True)

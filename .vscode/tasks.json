@@ -35,7 +35,7 @@
         },
         {   "label": "monitor_fusion_script_runnner_addin_log",
             "type":"shell",
-            "command": "tail -F '${env:TEMP}${pathSeparator}fusion_script_runner_addin_log.log'",
+            "command": "tail -F -n 100 '${env:TEMP}${pathSeparator}fusion_script_runner_addin_log.log'",
             "presentation": {
                 "reveal": "always",
                 "showReuseMessage": false
@@ -202,8 +202,8 @@
                 "--debug", "0",
                 "--debugpy_path", "${config:neil.debugpyPath}",
                 // "--use_vscode_debugpy", "true",
-                "--addin_port", "19812",
-                "--debug_port", "9000"
+                "--addin_port", "${config:neil.fusionScriptRunnerAddinPort}",
+                "--debug_port", "${config:neil.debugPort}"
             ]
         },
         {   "label":"run_script_in_fusion_with_debugging",
@@ -216,8 +216,8 @@
                 "--debug"                                   , "1"                                              ,      
                 "--debugpy_path"                            , "${config:neil.debugpyPath}"                     ,                               
                 //"--use_vscode_debugpy"                      , "true"                                           ,
-                "--addin_port"                              , "19812"                                          ,          
-                "--debug_port"                              , "9000"                                           ,         
+                "--addin_port"                              , "${config:neil.fusionScriptRunnerAddinPort}"     ,          
+                "--debug_port"                              , "${config:neil.debugPort}"                       ,         
                 "--prefix_of_submodule_not_to_be_reloaded"  , "braids.fscad"                                   ,                 
             ],
             "presentation": {
@@ -233,8 +233,8 @@
                 "--debug", "0",
                 "--debugpy_path", "${config:neil.debugpyPath}",
                 // "--use_vscode_debugpy", "true",
-                "--addin_port", "19812",
-                "--debug_port", "9000"
+                "--addin_port", "${config:neil.fusionScriptRunnerAddinPort}",
+                "--debug_port", "${config:neil.debugPort}"
             ]
         },
         {   "label":"run_design1_with_debugging",
@@ -247,8 +247,8 @@
                 "--debug"                                   , "1"                                              ,      
                 "--debugpy_path"                            , "${config:neil.debugpyPath}"                     ,                               
                 //"--use_vscode_debugpy"                      , "true"                                           ,
-                "--addin_port"                              , "19812"                                          ,          
-                "--debug_port"                              , "9000"                                           ,         
+                "--addin_port"                              , "${config:neil.fusionScriptRunnerAddinPort}"     ,          
+                "--debug_port"                              , "${config:neil.debugPort}"                       ,         
                 "--prefix_of_submodule_not_to_be_reloaded"  , "braids.fscad"                                   ,                 
             ],
             "presentation": {

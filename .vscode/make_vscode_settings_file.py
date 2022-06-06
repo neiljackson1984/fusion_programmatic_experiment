@@ -1,7 +1,7 @@
 """Programmatically determines the path of the fusion executable and the path of
 the debugpy executable (both of which tend to change as a result of fusion and
-vscode, respectively, automatically updating themselves), and inject these paths
-in the appropriate place in the vscode settings file."""
+vscode automatically updating themselves), and inject these paths in the
+appropriate place in the vscode settings file."""
 
 
 import sys
@@ -48,8 +48,6 @@ def locatePythonToolFolder():
             return msPythonPath
     return ''
 
-
-
 def getPathOfFusionExecutable() -> str:
     # the strategy is to look at each subfolder of %localappdata%/Autodesk//webdeploy/production .
     # for each we collect the path of the "Fusion360.exe" contained within, if such a file exists.
@@ -67,12 +65,8 @@ def getPathOfFusionExecutable() -> str:
     )[-1]
     return str(pathOfFusionExecutable.resolve())
 
-
-
 pathOfVscodeSettingsFile = pathlib.Path(__file__).parent.joinpath('settings.json')
 print(f"Now generating (and overwriting) {pathOfVscodeSettingsFile}")
-
-
 
 debugpyPath = pathlib.Path(locatePythonToolFolder()).resolve()
 pathOfFusionExecutable = pathlib.Path(getPathOfFusionExecutable()).resolve()
@@ -80,6 +74,9 @@ pathOfFusionInstallDirectory = pathOfFusionExecutable.parent.resolve()
 pathOfFusionScriptRunnerAddin = pathlib.Path(pathOfVscodeSettingsFile).parent.parent.joinpath('braids').joinpath('fusion_script_runner_addin').resolve()
 pathOfPythonScriptToRunScriptInFusion = pathOfFusionScriptRunnerAddin.joinpath('run_script_in_fusion.py').resolve()
 pathOfPythonExecutableBundledWithFusion = pathOfFusionInstallDirectory.joinpath('Python').joinpath('python.exe').resolve()
+
+debugPort = 9000
+
 
 print(f"debugpyPath: {debugpyPath}")
 print(f"pathOfFusionExecutable: {pathOfFusionExecutable}")
@@ -109,6 +106,10 @@ vscodeSettings = {
     "neil.pathOfPythonScriptToRunScriptInFusion": pathOfPythonScriptToRunScriptInFusion.as_posix(),
     "neil.pathOfPythonExecutableBundledWithFusion": pathOfPythonExecutableBundledWithFusion.as_posix(),
     "neil.pathOfFusionScriptRunnerAddin": pathOfFusionScriptRunnerAddin.as_posix(),
+
+    "neil.debugPort" : 9000,
+    "neil.fusionScriptRunnerAddinPort": 19812,
+
 	"python.defaultInterpreterPath":	f"{pathOfPythonExecutableBundledWithFusion.as_posix()}",
 	"python.linting.pylintEnabled": False,
 	"python.analysis.extraPaths": preferredPythonAutocompleteAndAnalysisExtraPaths,
@@ -130,8 +131,7 @@ vscodeSettings = {
 
 	# https://stackoverflow.com/questions/69047142/vscode-is-suddenly-defaulting-to-powershell-for-integrated-terminal-and-tasks?noredirect=1
 	"terminal.integrated.defaultProfile.windows": "Command Prompt",
-	"terminal.integrated.automationShell.windows": "cmd.exe"
-	 
+	"terminal.integrated.automationShell.windows": "cmd.exe"	 
 }
 
 
