@@ -9,14 +9,14 @@
 
 {
     "neil.debugpyPath": "C:/Users/Admin/.vscode/extensions/ms-python.python-2022.6.3/pythonFiles/lib/python",
-    "neil.pathOfFusionExecutable": "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/525fe9b2ece26c4d179982b11ecdfb713cb5058f/Fusion360.exe",
-    "neil.pathOfFusionInstallDirectory": "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/525fe9b2ece26c4d179982b11ecdfb713cb5058f",
+    "neil.pathOfFusionExecutable": "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/3dd5f1c145923035964be467e698157c79d9caeb/Fusion360.exe",
+    "neil.pathOfFusionInstallDirectory": "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/3dd5f1c145923035964be467e698157c79d9caeb",
     "neil.pathOfPythonScriptToRunScriptInFusion": "C:/work/fusion_programmatic_experiment/braids/fusion_script_runner_addin/run_script_in_fusion.py",
-    "neil.pathOfPythonExecutableBundledWithFusion": "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/525fe9b2ece26c4d179982b11ecdfb713cb5058f/Python/python.exe",
+    "neil.pathOfPythonExecutableBundledWithFusion": "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/3dd5f1c145923035964be467e698157c79d9caeb/Python/python.exe",
     "neil.pathOfFusionScriptRunnerAddin": "C:/work/fusion_programmatic_experiment/braids/fusion_script_runner_addin",
     "neil.debugPort": 9000,
     "neil.fusionScriptRunnerAddinPort": 19812,
-    "python.defaultInterpreterPath": "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/525fe9b2ece26c4d179982b11ecdfb713cb5058f/Python/python.exe",
+    "python.defaultInterpreterPath": "C:/Users/Admin/AppData/Local/Autodesk/webdeploy/production/3dd5f1c145923035964be467e698157c79d9caeb/Python/python.exe",
     "python.linting.pylintEnabled": false,
     "python.analysis.extraPaths": [
         "C:/Users/Admin/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs",

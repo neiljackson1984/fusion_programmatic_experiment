@@ -208,6 +208,9 @@ def floor(x : SupportsFloat, modulus : SupportsFloat = 1 ) -> SupportsFloat :
     """this is a two-argument version of the floor function that lets you specify a modulus other than 1, if so desired"""
     return math.floor(x/modulus) * modulus 
 
+def remainder(x : SupportsFloat, modulus : SupportsFloat = 1 ) -> SupportsFloat :
+    return x - floor(x, modulus)
+
 def mean(*args: ArrayLike) -> ArrayLike:
     # return functools.reduce(operator.add, args)/len(args)
     return sum(args)/len(args)
@@ -486,6 +489,36 @@ def rectByCorners(corner1 = vector(0,0) * meter, corner2 = vector(1,1) * meter, 
     # it is very hacky to have to cast to float above, but that
     # is what we have to do to work around Python's lack of
     # automatic type coercion.
+
+
+def boxByCorners(corner1 = vector(0,0,0) * meter, corner2 = vector(1,1,1) * meter, *args, **kwargs) -> fscad.Rect:
+    corner1 = castTo3dArray(corner1)
+    corner2 = castTo3dArray(corner2)
+    # print('corner1: ' + str(corner1))
+    # print('corner2: ' + str(corner2))
+    # set the 'x' and 'y' entries to kwargs (overriding any 'x' and 'y' that may have been passed)
+
+    extent = abs(corner2 - corner1)
+    minimumCorner = tuple(map(min, corner1, corner2))
+    # minimumCorner = map(float, minimumCorner)
+    # print('minimumCorner: ' + str(minimumCorner))   
+    # print('type(minimumCorner[0]): ' + str(type(minimumCorner[0])))   
+    # v = adsk.core.Vector3D.create(minimumCorner[0], minimumCorner[1], minimumCorner[2])
+    # v = adsk.core.Vector3D.create(*minimumCorner)
+
+    return fscad.Box(
+        x=extent[0],
+        y=extent[1],
+        z=extent[2],
+        *args,
+        **kwargs,
+    ).translate(*map(float,minimumCorner))
+    # it is very hacky to have to cast to float above, but that
+    # is what we have to do to work around Python's lack of
+    # automatic type coercion.
+
+
+
 
 def roundedRect(extentX : float = 1 * meter,  extentY : float = 1 * meter, roundingRadius: float = 0) -> adsk.fusion.BRepBody:
     #the rounding of sharp polygonal corners in a flat sheet body ought to be
@@ -1363,8 +1396,8 @@ def captureEntityTokens(occurrence : adsk.fusion.Occurrence):
     }
  
 def translation(v: VectorLike) -> adsk.core.Matrix3D:
-    # this is a convenience function that encapsulates the annoyance
-    # of having to create the matrix, then assign its translation in twq separate steps.
+    # this is a convenience function that encapsulates the annoyance of having
+    # to create the matrix, then assign its translation in two separate steps.
     t : adsk.core.Matrix3D = adsk.core.Matrix3D.create()
     # result :bool = t.setWithCoordinateSystem(
     #     origin= castToPoint3D(v),
@@ -1500,6 +1533,11 @@ def rigidTransform3D(
         #     givenDirections[0] = xHat
         #     givenDirections[1] = yHat
         #     givenDirections[2] = zHat
+    elif numberOfNoneDirections == 3:
+        basisVectors = list(map(castToVector3D, (xHat, yHat, zHat)))
+    else:
+        #we shouldn't ever get here
+        raise Exception(f"numberOfNoneDirections ({numberOfNoneDirections}) is something other than the expected 1, 2, or 3.  We are freaking out.")
 
     for x in basisVectors: x.normalize()
     returnValue : adsk.core.Matrix3D = adsk.core.Matrix3D.create()

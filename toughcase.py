@@ -12,7 +12,6 @@ import adsk.fusion, adsk.core
 
 from math import sin,cos,tan
 
-import numpy as np
 
 
 from numpy.typing import ArrayLike
@@ -61,10 +60,13 @@ class ToughCaseModule ( MutableComponentWithCachedBodiesAndArbitraryBodyHash ) :
         # dovetailCount and caseExtentY ends up being, this parameter will step
         # the the extent by one dovetailPitch.
 
-        # self.d15 : float = self.dovetailPit
+        # self.d15 : float = self.dovetailPitch
         # # clearance offset as manufactured
 
         self.d16 = self.dovetailPitch - (self.dividerSpineThickness + 2*self.d7)
+
+        self.d17 : float =  3.5 * millimeter #eyeballed
+        self.d18 : float =  3.5 * millimeter #eyeballed
 
         self.d2 : float = self.dovetailPitch/2 - self.dovetailHeight * tan(self.d9) + self.d7 * tan(self.d8)
         # minus, plus
@@ -83,6 +85,12 @@ class ToughCaseModule ( MutableComponentWithCachedBodiesAndArbitraryBodyHash ) :
         self.caseInteriorExtentX = (2*self.d7 + self.d12)*2 + self.dividerSpineThickness + self.caseDovetailCountX * self.dovetailPitch
         self.caseInteriorExtentY = 123.123 * millimeter # bogus
 
+        self.dovetailRailIntervalPitchCounts : int = 6
+        self.dovetailRailInterval : float = 2*self.d7 + self.d12 + self.dovetailRailIntervalPitchCounts * self.dovetailPitch
+
+
+        print(f"dovetailRailInterval: {self.dovetailRailInterval/millimeter} millimeters")
+        print(f"dovetailRailInterval - 2*d7: {(self.dovetailRailInterval - 2*self.d7)/millimeter} millimeters")
         print(f"d8: {self.d8/degree} degrees")
         print(f"d9: {self.d9/degree} degrees")
 
@@ -115,12 +123,89 @@ class ToughCaseModule ( MutableComponentWithCachedBodiesAndArbitraryBodyHash ) :
                 self.caseInteriorExtentY
             )
 
-        highlight(cavityBase)
+        # highlight(cavityBase)
 
         cavity  = fscad.Extrude(
             cavityBase,
             height=self.dovetailHeight
         )
+
+        dovetailPlacements : Sequence[adsk.core.Matrix3D] = []
+
+        yDovetailPositionsY = np.arange(
+            start = (
+                cavity.min().y 
+                + remainder(
+                    2*self.d7 + self.d13 + self.dividerSpineThickness/2 + self.dovetailPitch/2,
+                    modulus = self.dovetailPitch
+                )
+            ),
+            stop = cavity.max().y ,
+            step = self.dovetailPitch
+        )
+        yDovetailPlacements : Sequence[adsk.core.Matrix3D] = [
+             rigidTransform3D(
+                xDirection = (1 if wallIndex else -1) * xHat, 
+                zDirection = zHat,
+                origin=(
+                    (cavity.min().x if wallIndex else cavity.max().x), 
+                    positionY, 
+                    cavity.min().z 
+                )
+             )
+             for positionY in yDovetailPositionsY
+             for wallIndex in (0,1)
+        ]
+        yDovetails : fscad.Component = fscad.BRepComponent(
+            *(
+                body.brep
+                for t in yDovetailPlacements
+                for body in dovetail.copy().transform(t).bodies
+            )
+        )
+        yDovetailsMask = boxByCorners(
+            corner1 = castTo3dArray(cavity.min()) + self.d17 * yHat,
+            corner2 = castTo3dArray(cavity.max()) - self.d17 * yHat
+        )
+        yDovetails = fscad.Intersection(yDovetails, yDovetailsMask)
+
+        xDovetailPositionsX = np.arange(
+            start = (
+                cavity.min().x 
+                + remainder(
+                    2*self.d7 + self.d12 + self.dividerSpineThickness/2 + self.dovetailPitch/2,
+                    modulus = self.dovetailPitch
+                )
+            ),
+            stop = cavity.max().x,
+            step = self.dovetailPitch
+        )
+        xDovetailPlacements : Sequence[adsk.core.Matrix3D] = [
+             rigidTransform3D(
+                xDirection = (1 if wallIndex else -1) * yHat, 
+                zDirection = zHat,
+                origin=(
+                    positionX, 
+                    (cavity.min().y if wallIndex else cavity.max().y), 
+                    cavity.min().z 
+                )
+             )
+             for positionX in xDovetailPositionsX
+             for wallIndex in (0,1)
+        ]
+        xDovetails : fscad.Component = fscad.BRepComponent(
+            *(
+                body.brep
+                for t in xDovetailPlacements
+                for body in dovetail.copy().transform(t).bodies
+            )
+        )
+        xDovetailsMask = boxByCorners(
+            corner1 = castTo3dArray(cavity.min()) + self.d18 * xHat,
+            corner2 = castTo3dArray(cavity.max()) - self.d18 * xHat
+        )
+        xDovetails = fscad.Intersection(xDovetails, xDovetailsMask)
+
         
         case = fscad.Thicken(
             itertools.chain(
@@ -129,13 +214,89 @@ class ToughCaseModule ( MutableComponentWithCachedBodiesAndArbitraryBodyHash ) :
             ), 
             thickness=self.caseWallThickness
         )
+        case = fscad.Union(case, yDovetails, xDovetails)
+
+
+        dividerSpineStation : int = self.dovetailRailIntervalPitchCounts
+        dividerSpinePositionX : float = min(xDovetailPositionsX) + ( dividerSpineStation + 1/2)*self.dovetailPitch
+        dividerSpineCore = boxByCorners(
+            corner1 = (
+                -self.dividerSpineThickness/2,
+                self.d7,
+                zeroLength
+            ),
+            corner2 = (
+                +self.dividerSpineThickness/2,
+                self.caseInteriorExtentY - self.d7,
+                self.dovetailHeight + 3.1234 * millimeter # TODO parameterize this height
+            )
+        )
+        dividerSpineXDovetailPlacements : Sequence[adsk.core.Matrix3D] = [
+             rigidTransform3D(
+                xDirection = (1 if wallIndex else -1) * yHat, 
+                zDirection = -zHat,
+                origin=(
+                    zeroLength, 
+                    (dividerSpineCore.max().y if wallIndex else dividerSpineCore.min().y), 
+                    self.dovetailHeight 
+                )
+             )
+             for wallIndex in (0,1)
+        ]
+        dividerSpineXDovetails : fscad.Component = fscad.BRepComponent(
+            *(
+                body.brep
+                for t in dividerSpineXDovetailPlacements
+                for body in dovetail.copy().transform(t).bodies
+            )
+        )
         
+
+        dividerSpineYDovetailPlacements : Sequence[adsk.core.Matrix3D] = [
+             rigidTransform3D(
+                xDirection = (-1 if wallIndex else 1) * xHat, 
+                zDirection = zHat,
+                origin=(
+                    (-1 if wallIndex else 1) * self.dividerSpineThickness/2, 
+                    positionY, 
+                    zeroLength
+                )
+             )
+             for positionY in yDovetailPositionsY
+             for wallIndex in (0,1)
+        ]
+        dividerSpineYDovetails : fscad.Component = fscad.BRepComponent(
+            *(
+                body.brep
+                for t in dividerSpineYDovetailPlacements
+                for body in dovetail.copy().transform(t).bodies
+            )
+        )
+        dividerSpineYDovetailsMask = boxByCorners(
+            corner1 = (
+                dividerSpineYDovetails.min().x,
+                self.d17,
+                dividerSpineYDovetails.min().z
+
+            ),
+            corner2 = (
+                dividerSpineYDovetails.max().x,
+                self.caseInteriorExtentY - self.d17,
+                dividerSpineYDovetails.max().z
+            )
+        )
+        dividerSpineYDovetails = fscad.Intersection(dividerSpineYDovetails, dividerSpineYDovetailsMask)
+
+        dividerSpine = fscad.Union(dividerSpineCore, dividerSpineXDovetails, dividerSpineYDovetails)
+        dividerSpine.translate(tx = dividerSpinePositionX)
 
         returnValue += [
             fscad.brep().copy(body.brep) 
             for component in [
-                dovetail, 
-                case
+                # xDovetails, 
+                # yDovetails,
+                case,
+                dividerSpine
             ]
             for body in component.bodies
         ]
